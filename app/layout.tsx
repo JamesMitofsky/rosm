@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fountain Run Planner",
+  title: "Run Planner",
   description: "Plan a running route past OSM points and verify them on the ground.",
 };
 
