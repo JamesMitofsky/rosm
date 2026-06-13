@@ -6,17 +6,33 @@ import { useRouter } from "next/navigation";
 import { MapPinIcon, CrosshairIcon, PathIcon, MagnifyingGlassIcon, FlagIcon, PushPinIcon, XIcon } from "@phosphor-icons/react";
 import { planRoute } from "@/lib/plan";
 import { fmtDist, milesToMeters, type Pt } from "@/lib/geo";
-import type { Fountain } from "@/lib/schemas";
-import { useRun, type RunStop } from "@/store/run";
+import type { Fountain, EditAction } from "@/lib/schemas";
+import { useRun, type RunStop, type StopStatus } from "@/store/run";
 import type { MapMarker } from "@/components/MapView";
-import OsmStatusBar from "@/components/OsmStatus";
+import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";
 import PointTypePicker from "@/components/PointTypePicker";
+import PointPopup, { type PointEdit } from "@/components/PointPopup";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+
+// Marker colors for points already updated in OSM this session.
+const EDIT_COLOR: Partial<Record<StopStatus, string>> = {
+  confirm: "#16a34a",
+  out_of_order: "#d97706",
+  removed: "#dc2626",
+  delete: "#dc2626",
+};
+const EDIT_LABEL: Partial<Record<StopStatus, string>> = {
+  confirm: "✓",
+  out_of_order: "!",
+  removed: "✕",
+  delete: "✕",
+};
 
 export default function PlannerPage() {
   const router = useRouter();
   const setPlan = useRun((s) => s.setPlan);
+  const { status: osm } = useOsmStatus();
 
   const [center, setCenter] = useState<Pt | null>(null);
   const [vias, setVias] = useState<Pt[]>([]);
@@ -35,6 +51,12 @@ export default function PlannerPage() {
   const [distanceM, setDistanceM] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // Direct OSM edits made from the map, before any run. Keyed by node id.
+  const [edits, setEdits] = useState<Record<number, PointEdit>>({});
+  const [editChangesetId, setEditChangesetId] = useState<number | undefined>();
+  const [editBusyId, setEditBusyId] = useState<number | null>(null);
+  const [closingEdits, setClosingEdits] = useState(false);
 
   function recenter(p: Pt) {
     setCenter(p);
@@ -58,6 +80,58 @@ export default function PlannerPage() {
   function togglePin(id: number) {
     setPinnedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   }
+
+  // Write a status update straight to OSM from the map, no run required. Edits
+  // batch into one changeset (opened by the API on first write).
+  async function updatePoint(nodeId: number, action: EditAction) {
+    if (!osm?.loggedIn) {
+      setErr("Sign in to OSM first.");
+      return;
+    }
+    setEditBusyId(nodeId);
+    setErr(null);
+    try {
+      const r = await fetch("/api/osm/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodeId, action, tagKey: tag.key, changesetId: editChangesetId }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error?.formErrors?.join(", ") || j.error || "edit failed");
+      setEditChangesetId(j.changesetId);
+      setEdits((e) => ({
+        ...e,
+        [nodeId]: { status: action as StopStatus, summary: j.summary, changesetUrl: j.changesetUrl },
+      }));
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setEditBusyId(null);
+    }
+  }
+
+  // Close the open edit changeset so it's not left dangling on OSM.
+  async function closeEdits() {
+    if (!editChangesetId) return;
+    setClosingEdits(true);
+    setErr(null);
+    try {
+      const r = await fetch("/api/osm/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ changesetId: editChangesetId }),
+      });
+      const j = await r.json();
+      if (!r.ok || j.ok === false) throw new Error(j.error || "close failed");
+      setEditChangesetId(undefined);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setClosingEdits(false);
+    }
+  }
+
+  const editCount = Object.keys(edits).length;
 
   function markLabel(f: Fountain) {
     return f.tags.name ?? `mark #${f.id}`;
@@ -177,18 +251,45 @@ export default function PlannerPage() {
     return fountains.map((f) => {
       const n = chosenIds.get(f.id);
       const isPinned = pinnedSet.has(f.id);
-      // green numbered = chosen; amber star = pinned (forced); gray = available.
-      const color = n ? "#16a34a" : isPinned ? "#f59e0b" : "#9ca3af";
+      const edit = edits[f.id];
+      // edited (this session) wins; else green numbered = chosen; amber star =
+      // pinned (forced); gray = available.
+      const color = edit
+        ? EDIT_COLOR[edit.status] ?? "#9ca3af"
+        : n
+          ? "#16a34a"
+          : isPinned
+            ? "#f59e0b"
+            : "#9ca3af";
+      const label = edit
+        ? EDIT_LABEL[edit.status]
+        : n
+          ? String(n)
+          : isPinned
+            ? "★"
+            : undefined;
       return {
         id: f.id,
         lat: f.lat,
         lon: f.lon,
         color,
-        label: n ? String(n) : isPinned ? "★" : undefined,
-        onClick: () => togglePin(f.id),
+        label,
+        // Click opens a popup to pin or update the point straight in OSM.
+        popup: (
+          <PointPopup
+            fountain={f}
+            loggedIn={!!osm?.loggedIn}
+            isPinned={isPinned}
+            edit={edit}
+            busy={editBusyId === f.id}
+            onPin={() => togglePin(f.id)}
+            onAction={(action) => updatePoint(f.id, action)}
+          />
+        ),
       };
     });
-  }, [fountains, stops, pinnedIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fountains, stops, pinnedIds, edits, editBusyId, osm?.loggedIn]);
 
   const startMarker: MapMarker[] = center
     ? [{ id: "start", lat: center.lat, lon: center.lon, color: "#2563eb", label: "S" }]
@@ -269,7 +370,7 @@ export default function PlannerPage() {
                 {clickMode === "via"
                   ? "Click the map to drop a pass-through waypoint."
                   : "Click the map to move the start point."}{" "}
-                Click any point marker to pin it as a required stop
+                Click any point marker to pin it as a required stop or update it in OSM
                 {pinned.length > 0 && <span className="text-cream-dim"> ({pinned.length} pinned)</span>}
                 .
               </p>
@@ -390,6 +491,23 @@ export default function PlannerPage() {
                 >
                   Start run →
                 </button>
+              </div>
+            )}
+
+            {editCount > 0 && (
+              <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-3 text-sm">
+                <span className="font-semibold text-green-300">
+                  {editCount} point{editCount === 1 ? "" : "s"} updated in OSM
+                </span>
+                {editChangesetId && (
+                  <button
+                    onClick={closeEdits}
+                    disabled={closingEdits}
+                    className="mt-2 w-full rounded-full border border-green-500/40 py-1.5 text-xs font-semibold text-green-300 transition hover:bg-green-500/10 disabled:opacity-50"
+                  >
+                    {closingEdits ? "Closing changeset…" : "Close changeset"}
+                  </button>
+                )}
               </div>
             )}
 

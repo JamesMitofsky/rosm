@@ -1,9 +1,9 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 
 export type MapMarker = {
   id: number | string;
@@ -12,6 +12,8 @@ export type MapMarker = {
   color: string;
   label?: string;
   onClick?: () => void;
+  // Rendered inside a Leaflet popup that opens when the marker is clicked.
+  popup?: ReactNode;
 };
 
 type Props = {
@@ -89,7 +91,9 @@ export default function MapView({
           position={[m.lat, m.lon]}
           icon={pin(m.color, m.label)}
           eventHandlers={m.onClick ? { click: m.onClick } : undefined}
-        />
+        >
+          {m.popup && <Popup>{m.popup}</Popup>}
+        </Marker>
       ))}
       {userPos && <Marker position={userPos} icon={userDot()} />}
     </MapContainer>
