@@ -363,7 +363,7 @@ export default function PlannerPage() {
 
         <section className="h-[60vh] overflow-hidden rounded-lg border border-neutral-200 md:h-auto md:min-h-[560px]">
           <MapView
-            center={center ? [center.lat, center.lon] : [40.7128, -74.006]}
+            center={center ? [center.lat, center.lon] : [38.9072, -77.0369]}
             zoom={14}
             recenterKey={recenterKey}
             markers={[...markers, ...viaMarkers, ...startMarker]}
