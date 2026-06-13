@@ -10,17 +10,9 @@ import type { Fountain } from "@/lib/schemas";
 import { useRun, type RunStop } from "@/store/run";
 import type { MapMarker } from "@/components/MapView";
 import OsmStatusBar from "@/components/OsmStatus";
+import PointTypePicker from "@/components/PointTypePicker";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
-
-const TAG_PRESETS = [
-  { label: "Drinking water (amenity=drinking_water)", key: "amenity", value: "drinking_water" },
-  { label: "Fountain (amenity=fountain)", key: "amenity", value: "fountain" },
-  { label: "Water point (amenity=water_point)", key: "amenity", value: "water_point" },
-  { label: "Spring (natural=spring)", key: "natural", value: "spring" },
-  { label: "Bench (amenity=bench)", key: "amenity", value: "bench" },
-  { label: "Waste basket (amenity=waste_basket)", key: "amenity", value: "waste_basket" },
-];
 
 export default function PlannerPage() {
   const router = useRouter();
@@ -35,7 +27,7 @@ export default function PlannerPage() {
   const [radiusMi, setRadiusMi] = useState(3);
   const [targetMi, setTargetMi] = useState(3);
   const [loop, setLoop] = useState(true);
-  const [tagSel, setTagSel] = useState(TAG_PRESETS[0].label);
+  const [tag, setTag] = useState({ key: "amenity", value: "drinking_water" });
 
   const [fountains, setFountains] = useState<Fountain[]>([]);
   const [stops, setStops] = useState<Fountain[]>([]);
@@ -43,13 +35,6 @@ export default function PlannerPage() {
   const [distanceM, setDistanceM] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
-  const tag = useMemo(() => {
-    const preset = TAG_PRESETS.find((p) => p.label === tagSel);
-    if (preset) return { key: preset.key, value: preset.value };
-    const [k, v] = tagSel.split("=").map((s) => s.trim());
-    return { key: k || "amenity", value: v || "drinking_water" };
-  }, [tagSel]);
 
   function recenter(p: Pt) {
     setCenter(p);
@@ -330,18 +315,7 @@ export default function PlannerPage() {
 
             <div className="flex flex-col gap-2">
               <label className="text-sm font-semibold">Point type</label>
-              <input
-                list="tag-presets"
-                className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-sm text-cream placeholder:text-cream-dim outline-none focus:border-volt/60"
-                value={tagSel}
-                onChange={(e) => setTagSel(e.target.value)}
-                placeholder="amenity=drinking_water"
-              />
-              <datalist id="tag-presets">
-                {TAG_PRESETS.map((p) => (
-                  <option key={p.label} value={p.label} />
-                ))}
-              </datalist>
+              <PointTypePicker value={tag} onChange={setTag} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
