@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { EditRequest } from "@/lib/schemas";
+import type { EditAction } from "@/lib/schemas";
 import {
   openChangeset,
   getNode,
@@ -8,8 +9,24 @@ import {
   deleteNode,
   applyAction,
   todayIso,
+  changesetUrl,
+  OsmApiError,
 } from "@/lib/osm";
 import { appendJson } from "@/lib/db";
+
+// Human-readable summary of what was written, for high-fidelity UI feedback.
+function editSummary(action: EditAction, tagKey: string, today: string): string {
+  switch (action) {
+    case "confirm":
+      return `confirmed · check_date=${today}`;
+    case "out_of_order":
+      return `${tagKey} → disused:${tagKey} · check_date=${today}`;
+    case "removed":
+      return `${tagKey} → abandoned:${tagKey} · check_date=${today}`;
+    case "delete":
+      return "node deleted from OSM";
+  }
+}
 
 export async function POST(req: Request) {
   const jar = await cookies();
@@ -28,7 +45,8 @@ export async function POST(req: Request) {
       changesetId = await openChangeset(token, "Survey: drinking water / amenity status check");
     }
 
-    // Apply, with one retry on version conflict (409).
+    // Re-read the node each attempt so the version sent always matches the
+    // current db version (OSM rejects a stale version with 409).
     const run = async (): Promise<number> => {
       const node = await getNode(token, nodeId);
       if (action === "delete") {
@@ -38,12 +56,19 @@ export async function POST(req: Request) {
       return putNode(token, nodeId, { ...node, tags }, changesetId!);
     };
 
+    // Retry on version conflict (409): a concurrent editor bumped the version
+    // between our read and write. Re-read + retry up to 3 attempts.
+    const MAX_ATTEMPTS = 3;
     let newVersion: number;
-    try {
-      newVersion = await run();
-    } catch (e) {
-      if ((e as Error).message.includes("409")) newVersion = await run();
-      else throw e;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        newVersion = await run();
+        break;
+      } catch (e) {
+        const conflict = e instanceof OsmApiError && e.status === 409;
+        if (conflict && attempt < MAX_ATTEMPTS) continue;
+        throw e;
+      }
     }
 
     await appendJson("edit-log.json", {
@@ -54,7 +79,14 @@ export async function POST(req: Request) {
       at: new Date().toISOString(),
     });
 
-    return NextResponse.json({ changesetId, newVersion });
+    return NextResponse.json({
+      changesetId,
+      changesetUrl: changesetUrl(changesetId),
+      nodeId,
+      action,
+      newVersion,
+      summary: editSummary(action, tagKey, todayIso()),
+    });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 });
   }

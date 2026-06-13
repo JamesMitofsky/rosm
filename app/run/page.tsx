@@ -40,6 +40,17 @@ export default function RunPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(true);
+  // Last successful per-tap write, shown until the next action.
+  const [lastSaved, setLastSaved] = useState<{
+    nodeId: number;
+    newVersion: number;
+    summary: string;
+    changesetUrl: string;
+  } | null>(null);
+  // Finish/close-changeset state.
+  const [finishing, setFinishing] = useState(false);
+  const [finishErr, setFinishErr] = useState<string | null>(null);
+  const [closed, setClosed] = useState<{ changesetUrl?: string } | null>(null);
 
   // Hydrate from saved run if store empty (reload / direct nav).
   useEffect(() => {
@@ -113,6 +124,7 @@ export default function RunPage() {
     }
     setBusy(true);
     setErr(null);
+    setLastSaved(null);
     try {
       const r = await fetch("/api/osm/edit", {
         method: "POST",
@@ -123,6 +135,12 @@ export default function RunPage() {
       if (!r.ok) throw new Error(j.error || "edit failed");
       run.setChangeset(j.changesetId);
       run.setStatus(target.id, action as StopStatus);
+      setLastSaved({
+        nodeId: j.nodeId,
+        newVersion: j.newVersion,
+        summary: j.summary,
+        changesetUrl: j.changesetUrl,
+      });
       await persist(index + 1, j.changesetId);
       advance();
     } catch (e) {
@@ -133,18 +151,35 @@ export default function RunPage() {
   }
 
   function skip() {
+    setLastSaved(null);
     if (target) run.setStatus(target.id, "skipped");
     advance();
   }
 
   async function finish() {
-    if (run.changesetId) {
-      await fetch("/api/osm/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ changesetId: run.changesetId }),
-      });
+    setFinishing(true);
+    setFinishErr(null);
+    try {
+      if (run.changesetId) {
+        const r = await fetch("/api/osm/close", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ changesetId: run.changesetId }),
+        });
+        const j = await r.json();
+        if (!r.ok || j.ok === false) throw new Error(j.error || "close failed");
+        setClosed({ changesetUrl: j.changesetUrl });
+      } else {
+        setClosed({});
+      }
+    } catch (e) {
+      setFinishErr((e as Error).message);
+    } finally {
+      setFinishing(false);
     }
+  }
+
+  function goHome() {
     run.reset();
     router.push("/");
   }
@@ -179,20 +214,58 @@ export default function RunPage() {
       a[s.status] = (a[s.status] || 0) + 1;
       return a;
     }, {});
+    const editCount =
+      (counts.confirm || 0) +
+      (counts.out_of_order || 0) +
+      (counts.removed || 0) +
+      (counts.delete || 0);
+    const sealed = closed !== null;
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 p-6 text-center">
         <FlagCheckeredIcon size={56} className="text-green-600" />
-        <h1 className="text-2xl font-bold">Run complete</h1>
+        <h1 className="text-2xl font-bold">{sealed ? "Changeset closed" : "Run complete"}</h1>
         <ul className="text-sm text-neutral-600">
           <li>Confirmed: {counts.confirm || 0}</li>
           <li>Out of order: {counts.out_of_order || 0}</li>
           <li>Removed: {(counts.removed || 0) + (counts.delete || 0)}</li>
           <li>Skipped: {counts.skipped || 0}</li>
         </ul>
+        {/* JSON backup before submit, per the completion-screen flow. */}
         <ExportButton className="w-full" />
-        <button onClick={finish} className="w-full rounded bg-neutral-900 py-3 font-semibold text-white">
-          Close changeset & finish
-        </button>
+
+        {sealed ? (
+          <>
+            {closed?.changesetUrl && (
+              <a
+                href={closed.changesetUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-blue-600 underline underline-offset-2"
+              >
+                View {editCount} {editCount === 1 ? "edit" : "edits"} on OpenStreetMap →
+              </a>
+            )}
+            <button
+              onClick={goHome}
+              className="w-full rounded bg-neutral-900 py-3 font-semibold text-white"
+            >
+              Done
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={finish}
+              disabled={finishing}
+              className="w-full rounded bg-neutral-900 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              {finishing ? "Closing changeset…" : "Close changeset & finish"}
+            </button>
+            {finishErr && (
+              <p className="w-full rounded bg-red-50 p-2 text-sm text-red-700">{finishErr}</p>
+            )}
+          </>
+        )}
       </main>
     );
   }
@@ -313,6 +386,23 @@ export default function RunPage() {
             </button>
           </motion.div>
         </AnimatePresence>
+
+        {lastSaved && (
+          <div className="flex items-center gap-2 rounded bg-green-50 p-2 text-sm text-green-800">
+            <CheckCircleIcon size={18} className="shrink-0" />
+            <span className="flex-1 text-left">
+              Saved · node {lastSaved.nodeId} → v{lastSaved.newVersion} · {lastSaved.summary}
+            </span>
+            <a
+              href={lastSaved.changesetUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium underline underline-offset-2"
+            >
+              view
+            </a>
+          </div>
+        )}
 
         {err && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{err}</p>}
 

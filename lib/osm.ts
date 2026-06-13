@@ -62,12 +62,30 @@ function auth(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
+// Error carrying the HTTP status so callers can branch on it (e.g. 409 conflict)
+// without fragile string matching on the message.
+export class OsmApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly op: string,
+    readonly body: string,
+  ) {
+    super(`${op} ${status}: ${body}`);
+    this.name = "OsmApiError";
+  }
+}
+
 function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return (
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      // Strip XML 1.0 invalid control chars (keep tab/LF/CR) so a stray char in
+      // one tag value can't make OSM reject the whole PUT.
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+  );
 }
 
 // ---- changeset ----
@@ -81,15 +99,23 @@ export async function openChangeset(token: string, comment: string): Promise<num
     headers: { ...auth(token), "Content-Type": "text/xml" },
     body: xml,
   });
-  if (!res.ok) throw new Error(`open changeset ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new OsmApiError(res.status, "open changeset", await res.text());
   return Number((await res.text()).trim());
 }
 
 export async function closeChangeset(token: string, id: number): Promise<void> {
-  await fetch(`${API_BASE}/api/0.6/changeset/${id}/close`, {
+  const res = await fetch(`${API_BASE}/api/0.6/changeset/${id}/close`, {
     method: "PUT",
     headers: auth(token),
   });
+  // Throw so the finish flow can surface the failure. Edits already PUT are
+  // safe regardless, and an unclosed changeset auto-closes server-side.
+  if (!res.ok) throw new OsmApiError(res.status, "close changeset", await res.text());
+}
+
+// Web (not API) URL for a changeset, for linking the user to their edits.
+export function changesetUrl(id: number): string {
+  return `${OAUTH_BASE}/changeset/${id}`;
 }
 
 // ---- node ----
@@ -104,11 +130,14 @@ export async function getNode(token: string, id: number): Promise<NodeData> {
   const res = await fetch(`${API_BASE}/api/0.6/node/${id}.json`, {
     headers: auth(token),
   });
-  if (!res.ok) throw new Error(`get node ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new OsmApiError(res.status, "get node", await res.text());
   const json = (await res.json()) as {
     elements: { lat: number; lon: number; version: number; tags?: Record<string, string> }[];
   };
   const el = json.elements[0];
+  // Deleted/redacted nodes return an empty elements array. Surface a clear error
+  // instead of crashing on `el.version`.
+  if (!el) throw new OsmApiError(410, "get node", `node ${id} not found (deleted or redacted)`);
   return { version: el.version, lat: el.lat, lon: el.lon, tags: el.tags ?? {} };
 }
 
@@ -130,7 +159,7 @@ export async function putNode(
     headers: { ...auth(token), "Content-Type": "text/xml" },
     body: xml,
   });
-  if (!res.ok) throw new Error(`put node ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new OsmApiError(res.status, "put node", await res.text());
   return Number((await res.text()).trim()); // new version
 }
 
@@ -146,7 +175,7 @@ export async function deleteNode(
     headers: { ...auth(token), "Content-Type": "text/xml" },
     body: xml,
   });
-  if (!res.ok) throw new Error(`delete node ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new OsmApiError(res.status, "delete node", await res.text());
   return Number((await res.text()).trim());
 }
 
