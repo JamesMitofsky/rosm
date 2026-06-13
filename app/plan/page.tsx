@@ -224,7 +224,7 @@ export default function PlannerPage() {
         <div>
           <a href="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
             <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#a6d600]" />
-            Groundtruth
+            OpenStride
           </a>
           <p className="text-sm text-neutral-500">Map a running route past OSM points and verify them on the ground.</p>
         </div>

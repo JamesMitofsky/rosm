@@ -151,7 +151,7 @@ const TICKER = [
   "amenity=bench",
   "abandoned:",
   "one changeset",
-  "ground truth",
+  "open data",
 ];
 
 export default function LandingPage() {
@@ -162,7 +162,7 @@ export default function LandingPage() {
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
             <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-volt" />
-            GROUNDTRUTH
+            OpenStride
           </Link>
           <Link
             href="/plan"
@@ -314,7 +314,7 @@ export default function LandingPage() {
               is dry or the bench is gone. Feet can.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-cream-dim">
-              Groundtruth turns your training miles into the most boring, most valuable
+              OpenStride turns your training miles into the most boring, most valuable
               thing in open data: someone actually showing up.
             </p>
           </motion.div>
@@ -374,7 +374,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 text-sm text-cream-dim sm:flex-row">
           <span className="flex items-center gap-2 font-display font-bold text-cream">
             <span className="inline-block h-2 w-2 rounded-full bg-volt" />
-            GROUNDTRUTH
+            OpenStride
           </span>
           <span>Powered by OpenStreetMap, Overpass &amp; BRouter — all open, all free.</span>
         </div>
