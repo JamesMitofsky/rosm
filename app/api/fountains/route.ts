@@ -11,7 +11,10 @@ export async function POST(req: Request) {
   const { lat, lon, radiusM, tag } = parsed.data;
   try {
     const fountains = await fetchFountains(lat, lon, radiusM, tag);
-    await writeJson("fountains-cache.json", { at: new Date().toISOString(), lat, lon, radiusM, tag, fountains });
+    // Cache write is best-effort; a failure must not break the response.
+    await writeJson("fountains-cache.json", { at: new Date().toISOString(), lat, lon, radiusM, tag, fountains }).catch(
+      () => {}
+    );
     return NextResponse.json({ fountains });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 });
