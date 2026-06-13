@@ -219,215 +219,224 @@ export default function PlannerPage() {
   }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 p-4 md:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <a href="/" className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#a6d600]" />
-            OpenStride
-          </a>
-          <p className="text-sm text-neutral-500">Map a running route past OSM points and verify them on the ground.</p>
-        </div>
-        <OsmStatusBar />
-      </header>
-
-      <div className="grid gap-4 md:grid-cols-[360px_1fr]">
-        <section className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium">Start location</label>
-            <div className="flex gap-2">
-              <div className="flex flex-1 items-center gap-2 rounded border border-neutral-300 px-2">
-                <MagnifyingGlassIcon size={16} className="text-neutral-400" />
-                <input
-                  className="w-full bg-transparent py-2 text-sm outline-none"
-                  placeholder="Search address / city"
-                  value={addr}
-                  onChange={(e) => setAddr(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && searchAddr()}
-                />
-              </div>
-              <button
-                onClick={geolocate}
-                title="Use my location"
-                className="rounded border border-neutral-300 px-3 hover:bg-neutral-50"
-              >
-                <CrosshairIcon size={18} />
-              </button>
-            </div>
-            <p className="text-xs text-neutral-400">Or click the map to drop the start point.</p>
+    <div className="min-h-screen bg-ink font-body text-cream">
+      <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 md:p-6">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div>
+            <a href="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tight">
+              <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-volt" />
+              Legwork Maps
+            </a>
+            <p className="mt-1 text-sm text-cream-dim">
+              Map a running route past OSM points and verify them on the ground.
+            </p>
           </div>
+          <OsmStatusBar />
+        </header>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Add to route</span>
-            <div className="flex overflow-hidden rounded border border-neutral-300 text-sm">
+        <div className="grid gap-5 md:grid-cols-[360px_1fr]">
+          <section className="flex flex-col gap-5 rounded-3xl border border-white/10 bg-ink-soft p-5">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Start location</label>
+              <div className="flex gap-2">
+                <div className="flex flex-1 items-center gap-2 rounded-lg border border-white/15 bg-ink/40 px-2 focus-within:border-volt/60">
+                  <MagnifyingGlassIcon size={16} className="text-cream-dim" />
+                  <input
+                    className="w-full bg-transparent py-2 text-sm text-cream placeholder:text-cream-dim outline-none"
+                    placeholder="Search address / city"
+                    value={addr}
+                    onChange={(e) => setAddr(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && searchAddr()}
+                  />
+                </div>
+                <button
+                  onClick={geolocate}
+                  title="Use my location"
+                  className="rounded-lg border border-white/15 bg-ink/40 px-3 text-cream transition hover:border-volt/60 hover:text-volt"
+                >
+                  <CrosshairIcon size={18} />
+                </button>
+              </div>
+              <p className="text-xs text-cream-dim">Or click the map to drop the start point.</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold">Add to route</span>
+              <div className="flex overflow-hidden rounded-lg border border-white/15 text-sm">
+                <button
+                  onClick={() => setClickMode("start")}
+                  className={`flex-1 py-1.5 transition ${clickMode === "start" ? "bg-volt font-semibold text-ink" : "bg-ink/40 text-cream-dim hover:text-cream"}`}
+                >
+                  Set start
+                </button>
+                <button
+                  onClick={() => setClickMode("via")}
+                  disabled={!center}
+                  className={`flex-1 py-1.5 transition ${clickMode === "via" ? "bg-violet-500 font-semibold text-white" : "bg-ink/40 text-cream-dim hover:text-cream"} disabled:opacity-40`}
+                >
+                  Add waypoint
+                  {vias.length > 0 && (
+                    <span className="ml-1 text-xs font-normal opacity-70">{vias.length}</span>
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-cream-dim">
+                {clickMode === "via"
+                  ? "Click the map to drop a pass-through waypoint."
+                  : "Click the map to move the start point."}{" "}
+                Click any point marker to pin it as a required stop
+                {pinned.length > 0 && <span className="text-cream-dim"> ({pinned.length} pinned)</span>}
+                .
+              </p>
+              {(pinned.length > 0 || vias.length > 0) && (
+                <ul className="flex flex-col gap-1">
+                  {pinned.map((f) => (
+                    <li
+                      key={f.id}
+                      className="flex items-center justify-between rounded-lg bg-amber-400/10 px-2 py-1 text-xs"
+                    >
+                      <span className="flex items-center gap-1 truncate text-amber-300">
+                        <PushPinIcon size={12} weight="fill" /> {markLabel(f)}
+                      </span>
+                      <button
+                        onClick={() => togglePin(f.id)}
+                        className="shrink-0 text-amber-400/60 hover:text-amber-300"
+                        aria-label="unpin mark"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </li>
+                  ))}
+                  {vias.map((v, i) => (
+                    <li
+                      key={`via-${i}`}
+                      className="flex items-center justify-between rounded-lg bg-violet-400/10 px-2 py-1 text-xs"
+                    >
+                      <span className="flex items-center gap-1 text-violet-300">
+                        <FlagIcon size={12} /> waypoint {i + 1}: {v.lat.toFixed(4)}, {v.lon.toFixed(4)}
+                      </span>
+                      <button
+                        onClick={() => setVias((arr) => arr.filter((_, j) => j !== i))}
+                        className="shrink-0 text-violet-400/60 hover:text-violet-300"
+                        aria-label="remove waypoint"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Point type</label>
+              <input
+                list="tag-presets"
+                className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-sm text-cream placeholder:text-cream-dim outline-none focus:border-volt/60"
+                value={tagSel}
+                onChange={(e) => setTagSel(e.target.value)}
+                placeholder="amenity=drinking_water"
+              />
+              <datalist id="tag-presets">
+                {TAG_PRESETS.map((p) => (
+                  <option key={p.label} value={p.label} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-sm">
+                Search radius (mi)
+                <input
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={radiusMi}
+                  onChange={(e) => setRadiusMi(Number(e.target.value))}
+                  className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                Target run (mi)
+                <input
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={targetMi}
+                  onChange={(e) => setTargetMi(Number(e.target.value))}
+                  className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
+                />
+              </label>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={loop}
+                onChange={(e) => setLoop(e.target.checked)}
+                className="h-4 w-4 accent-volt"
+              />
+              Loop (finish back at start)
+            </label>
+
+            <div className="flex flex-col gap-2 border-t border-white/10 pt-4">
               <button
-                onClick={() => setClickMode("start")}
-                className={`flex-1 py-1.5 ${clickMode === "start" ? "bg-neutral-900 text-white" : "bg-white"}`}
+                onClick={findPoints}
+                disabled={!center || busy !== null}
+                className="flex items-center justify-center gap-2 rounded-full bg-volt py-2.5 text-sm font-bold text-ink transition hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
               >
-                Set start
-              </button>
-              <button
-                onClick={() => setClickMode("via")}
-                disabled={!center}
-                className={`flex-1 py-1.5 ${clickMode === "via" ? "bg-violet-600 text-white" : "bg-white"} disabled:opacity-40`}
-              >
-                Add waypoint
-                {vias.length > 0 && (
-                  <span className="ml-1 text-xs font-normal opacity-70">{vias.length}</span>
+                <MapPinIcon size={16} />
+                {busy === "find" ? "Finding…" : "Find points"}
+                {fountains.length > 0 && (
+                  <span className="ml-1 rounded-full bg-ink/20 px-1.5 text-xs">{fountains.length}</span>
                 )}
               </button>
-            </div>
-            <p className="text-xs text-neutral-400">
-              {clickMode === "via"
-                ? "Click the map to drop a pass-through waypoint."
-                : "Click the map to move the start point."}{" "}
-              Click any point marker to pin it as a required stop
-              {pinned.length > 0 && (
-                <span className="text-neutral-300"> ({pinned.length} pinned)</span>
-              )}
-              .
-            </p>
-            {(pinned.length > 0 || vias.length > 0) && (
-              <ul className="flex flex-col gap-1">
-                {pinned.map((f) => (
-                  <li
-                    key={f.id}
-                    className="flex items-center justify-between rounded bg-amber-50 px-2 py-1 text-xs"
-                  >
-                    <span className="flex items-center gap-1 truncate text-amber-700">
-                      <PushPinIcon size={12} weight="fill" /> {markLabel(f)}
-                    </span>
-                    <button
-                      onClick={() => togglePin(f.id)}
-                      className="shrink-0 text-amber-400 hover:text-amber-700"
-                      aria-label="unpin mark"
-                    >
-                      <XIcon size={14} />
-                    </button>
-                  </li>
-                ))}
-                {vias.map((v, i) => (
-                  <li
-                    key={`via-${i}`}
-                    className="flex items-center justify-between rounded bg-violet-50 px-2 py-1 text-xs"
-                  >
-                    <span className="flex items-center gap-1 text-violet-700">
-                      <FlagIcon size={12} /> waypoint {i + 1}: {v.lat.toFixed(4)}, {v.lon.toFixed(4)}
-                    </span>
-                    <button
-                      onClick={() => setVias((arr) => arr.filter((_, j) => j !== i))}
-                      className="shrink-0 text-violet-400 hover:text-violet-700"
-                      aria-label="remove waypoint"
-                    >
-                      <XIcon size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium">Point type</label>
-            <input
-              list="tag-presets"
-              className="rounded border border-neutral-300 px-2 py-2 text-sm outline-none"
-              value={tagSel}
-              onChange={(e) => setTagSel(e.target.value)}
-              placeholder="amenity=drinking_water"
-            />
-            <datalist id="tag-presets">
-              {TAG_PRESETS.map((p) => (
-                <option key={p.label} value={p.label} />
-              ))}
-            </datalist>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              Search radius (mi)
-              <input
-                type="number"
-                min={0.5}
-                step={0.5}
-                value={radiusMi}
-                onChange={(e) => setRadiusMi(Number(e.target.value))}
-                className="rounded border border-neutral-300 px-2 py-2 outline-none"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Target run (mi)
-              <input
-                type="number"
-                min={0.5}
-                step={0.5}
-                value={targetMi}
-                onChange={(e) => setTargetMi(Number(e.target.value))}
-                className="rounded border border-neutral-300 px-2 py-2 outline-none"
-              />
-            </label>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
-            Loop (finish back at start)
-          </label>
-
-          <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3">
-            <button
-              onClick={findPoints}
-              disabled={!center || busy !== null}
-              className="flex items-center justify-center gap-2 rounded bg-neutral-900 py-2 text-sm font-medium text-white disabled:opacity-40"
-            >
-              <MapPinIcon size={16} />
-              {busy === "find" ? "Finding…" : "Find points"}
-              {fountains.length > 0 && (
-                <span className="ml-1 rounded bg-white/20 px-1.5 text-xs">{fountains.length}</span>
-              )}
-            </button>
-            <button
-              onClick={makeRoute}
-              disabled={fountains.length === 0 || busy !== null}
-              className="flex items-center justify-center gap-2 rounded border border-neutral-900 py-2 text-sm font-medium disabled:opacity-40"
-            >
-              <PathIcon size={16} />
-              {busy === "route" ? "Planning…" : "Plan route"}
-            </button>
-          </div>
-
-          {stops.length > 0 && (
-            <div className="rounded bg-green-50 p-3 text-sm">
-              <div className="flex justify-between">
-                <span className="font-medium text-green-800">
-                  {stops.length} stops
-                  <span className="ml-1 font-normal text-green-600">of {fountains.length}</span>
-                </span>
-                <span className="font-medium text-green-800">{fmtDist(distanceM)}</span>
-              </div>
               <button
-                onClick={startRun}
-                className="mt-3 w-full rounded bg-green-600 py-2 font-semibold text-white hover:bg-green-700"
+                onClick={makeRoute}
+                disabled={fountains.length === 0 || busy !== null}
+                className="flex items-center justify-center gap-2 rounded-full border border-volt/40 py-2.5 text-sm font-semibold text-volt transition hover:bg-volt/10 disabled:opacity-40 disabled:hover:bg-transparent"
               >
-                Start run →
+                <PathIcon size={16} />
+                {busy === "route" ? "Planning…" : "Plan route"}
               </button>
             </div>
-          )}
 
-          {err && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{err}</p>}
-        </section>
+            {stops.length > 0 && (
+              <div className="rounded-2xl border border-volt/30 bg-volt/10 p-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-cream">
+                    {stops.length} stops
+                    <span className="ml-1 font-normal text-cream-dim">of {fountains.length}</span>
+                  </span>
+                  <span className="font-semibold text-volt">{fmtDist(distanceM)}</span>
+                </div>
+                <button
+                  onClick={startRun}
+                  className="mt-3 w-full rounded-full bg-volt py-2.5 font-bold text-ink transition hover:bg-cream"
+                >
+                  Start run →
+                </button>
+              </div>
+            )}
 
-        <section className="h-[60vh] overflow-hidden rounded-lg border border-neutral-200 md:h-auto md:min-h-[560px]">
-          <MapView
-            center={center ? [center.lat, center.lon] : [38.9072, -77.0369]}
-            zoom={14}
-            recenterKey={recenterKey}
-            markers={[...markers, ...viaMarkers, ...startMarker]}
-            line={line}
-            onMapClick={handleMapClick}
-            className="h-full w-full"
-          />
-        </section>
-      </div>
-    </main>
+            {err && (
+              <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">{err}</p>
+            )}
+          </section>
+
+          <section className="h-[60vh] overflow-hidden rounded-3xl border border-white/10 md:h-auto md:min-h-[560px]">
+            <MapView
+              center={center ? [center.lat, center.lon] : [38.9072, -77.0369]}
+              zoom={14}
+              recenterKey={recenterKey}
+              markers={[...markers, ...viaMarkers, ...startMarker]}
+              line={line}
+              onMapClick={handleMapClick}
+              className="h-full w-full"
+            />
+          </section>
+        </div>
+      </main>
+    </div>
   );
 }

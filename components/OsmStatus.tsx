@@ -24,13 +24,17 @@ export default function OsmStatusBar() {
     <div className="flex items-center gap-3 text-sm">
       {status.loggedIn ? (
         <span
-          className="rounded bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700"
+          className="flex items-center gap-1.5 rounded-full bg-volt px-2.5 py-1 text-xs font-semibold text-ink"
           title={status.apiBase}
         >
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-ink/70" />
           Connected
         </span>
       ) : (
-        <a href="/api/osm/auth" className="font-medium text-blue-600 underline underline-offset-2">
+        <a
+          href="/api/osm/auth"
+          className="font-semibold underline decoration-volt decoration-2 underline-offset-4"
+        >
           Sign in to OSM
         </a>
       )}

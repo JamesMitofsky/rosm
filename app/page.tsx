@@ -7,7 +7,7 @@ import {
   MapTrifoldIcon,
   PathIcon,
   PersonSimpleRunIcon,
-  PencilSimpleLineIcon,
+  RulerIcon,
   GlobeHemisphereWestIcon,
   CompassIcon,
   CheckCircleIcon,
@@ -115,30 +115,26 @@ const STEPS = [
   {
     icon: MapTrifoldIcon,
     n: "01",
-    title: "Pin the unknowns",
-    body:
-      "Drop a start point and pull every matching OpenStreetMap feature in range — drinking water, benches, springs, any tag you want to ground-check.",
+    title: "Place",
+    body: "Pick the place. Search an address, tap the map, or drop on your live location.",
+  },
+  {
+    icon: RulerIcon,
+    n: "02",
+    title: "Distance",
+    body: "Set how far you want to run. The route fills to fit — split a whole city across as many runs as you like.",
   },
   {
     icon: PathIcon,
-    n: "02",
-    title: "Plan an honest route",
-    body:
-      "Tell it how far you want to go. It threads a real running route past as many points as fit — loop or one-way, your call.",
+    n: "03",
+    title: "Route",
+    body: "Clarify the waypoints or goals you want to hit, then let it thread a real running route past the points that matter.",
   },
   {
     icon: PersonSimpleRunIcon,
-    n: "03",
-    title: "Run it down",
-    body:
-      "A phone-first view points you to the next node with live distance and a compass arrow. No staring at a map mid-stride.",
-  },
-  {
-    icon: PencilSimpleLineIcon,
     n: "04",
-    title: "Write it back",
-    body:
-      "At each point mark it working, broken, or gone. Edits land in OpenStreetMap under one clean changeset — the map gets truer the second you finish.",
+    title: "Contribute",
+    body: "Run the generated route and mark off how things are looking as you go — every check writes straight back to the open map.",
   },
 ];
 
@@ -162,7 +158,7 @@ export default function LandingPage() {
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
             <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-volt" />
-            OpenStride
+            Legwork Maps
           </Link>
           <Link
             href="/plan"
@@ -181,23 +177,25 @@ export default function LandingPage() {
           <RouteTrace />
         </div>
 
+        {/* Readability scrim: opaque ink under the copy (left), clears toward the route (right). */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink via-ink/85 to-transparent md:via-ink/70" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-ink/40 via-transparent to-ink" />
+
         <div className="relative mx-auto max-w-6xl px-5 pb-24 pt-20 md:pb-32 md:pt-28">
           <motion.span
             {...fadeUp}
             className="inline-flex items-center gap-2 rounded-full border border-volt/40 bg-volt/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-volt"
           >
             <GlobeHemisphereWestIcon size={14} weight="fill" />
-            Open-source map fieldwork
+            Open-source fieldwork
           </motion.span>
 
           <motion.h1
             {...fadeUp}
             transition={{ ...fadeUp.transition, delay: 0.05 }}
-            className="mt-6 max-w-3xl font-display text-[clamp(2.8rem,9vw,6.5rem)] font-bold leading-[0.92] tracking-tight"
+            className="mt-6 max-w-4xl font-display text-[clamp(2.4rem,7vw,5.25rem)] font-bold leading-[0.95] tracking-tight"
           >
-            Run the map
-            <br />
-            <span className="text-volt">real.</span>
+            Put in the <span className="text-volt">Legwork</span>
           </motion.h1>
 
           <motion.p
@@ -205,9 +203,9 @@ export default function LandingPage() {
             transition={{ ...fadeUp.transition, delay: 0.12 }}
             className="mt-7 max-w-xl text-lg leading-relaxed text-cream-dim"
           >
-            Every run is a chance to fix the map nobody else will. Plan a route past
-            unverified OpenStreetMap points, chase them down on foot, and write the truth
-            back — one changeset per run.
+            Free maps, sourced from the public is an <em className="italic text-cream">incredible</em> feat.
+            With all my love for OpenStreetMaps, this is a little tool for integrating upkeep of
+            our maps into your outings—be they runs, bike rides, leisurely strolls, or whatever!
           </motion.p>
 
           <motion.div
@@ -234,11 +232,9 @@ export default function LandingPage() {
           <motion.dl
             {...fadeUp}
             transition={{ ...fadeUp.transition, delay: 0.26 }}
-            className="mt-16 grid max-w-2xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/5 sm:grid-cols-3"
+            className="mt-16 grid max-w-xs grid-cols-1 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/5"
           >
             {[
-              { k: "1 run", v: "= 1 clean changeset" },
-              { k: "0 keys", v: "free, public APIs" },
               { k: "∞", v: "points left to verify" },
             ].map((s) => (
               <div key={s.k} className="bg-ink/40 px-5 py-5">
@@ -272,7 +268,7 @@ export default function LandingPage() {
             The loop
           </p>
           <h2 className="mt-3 font-display text-[clamp(2rem,5vw,3.4rem)] font-bold leading-tight tracking-tight">
-            Four steps from couch to corrected map.
+            Plan it, run it, write it back.
           </h2>
         </motion.div>
 
@@ -309,12 +305,12 @@ export default function LandingPage() {
               <span className="text-volt"> who go check.</span>
             </h2>
             <p className="mt-6 text-lg leading-relaxed text-cream-dim">
-              OpenStreetMap powers the apps you already trust — but half its world is
-              guessed, stale, or never confirmed. Satellites can&apos;t tell you the fountain
-              is dry or the bench is gone. Feet can.
+              OpenStreetMap powers the apps you already trust, and the real world it maps
+              never stops moving. Satellites can&apos;t tell you the fountain is flowing or the
+              bench is still there.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-cream-dim">
-              OpenStride turns your training miles into the most boring, most valuable
+              Legwork Maps turns your training miles into the most boring, most valuable
               thing in open data: someone actually showing up.
             </p>
           </motion.div>
@@ -374,9 +370,19 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 text-sm text-cream-dim sm:flex-row">
           <span className="flex items-center gap-2 font-display font-bold text-cream">
             <span className="inline-block h-2 w-2 rounded-full bg-volt" />
-            OpenStride
+            Legwork Maps
           </span>
-          <span>Powered by OpenStreetMap, Overpass &amp; BRouter — all open, all free.</span>
+          <span>
+            Made with <span className="text-volt">♥</span> by{" "}
+            <a
+              href="https://btv.dev/about"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-cream underline decoration-volt/40 underline-offset-4 hover:decoration-volt"
+            >
+              James Mitofsky
+            </a>
+          </span>
         </div>
       </footer>
     </main>
