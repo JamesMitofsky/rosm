@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {
@@ -490,15 +489,8 @@ export default function PlannerPage() {
         />
       </div>
 
-      {/* Top bar: brand + OSM status, floating over the map. */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex flex-wrap items-center justify-between gap-3 p-4 md:p-5">
-        <Link
-          href="/"
-          className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-ink/80 px-4 py-2 font-display text-lg font-bold tracking-tight backdrop-blur"
-        >
-          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-volt" />
-          ROSM
-        </Link>
+      {/* Top bar: OSM status, floating over the map. */}
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex flex-wrap items-center justify-start gap-3 p-4 md:p-5">
         <div className="pointer-events-auto">
           <OsmStatusBar />
         </div>
@@ -509,13 +501,13 @@ export default function PlannerPage() {
         onClick={toggleFollow}
         title={follow ? "Stop following my location" : "Keep my location centered"}
         aria-pressed={follow}
-        className={`absolute right-4 top-20 z-[1000] flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-sm font-semibold shadow-xl backdrop-blur transition ${
+        className={`absolute right-4 top-4 z-[1000] flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold shadow-xl backdrop-blur transition ${
           follow
             ? "border-volt bg-volt text-ink"
             : "border-white/10 bg-ink/85 text-cream hover:border-volt/60 hover:text-volt"
-        } md:right-6`}
+        } md:right-6 md:top-5`}
       >
-        <NavigationArrowIcon size={16} weight={follow ? "fill" : "regular"} />
+        <NavigationArrowIcon size={14} weight={follow ? "fill" : "regular"} />
         {follow ? "Following" : "Follow me"}
       </button>
 
@@ -681,25 +673,23 @@ export default function PlannerPage() {
       {/* ----- MAP PHASE: map-first, controls float over it ----- */}
       {phase === "map" && (
         <>
-          {/* Back to the questions. */}
-          <button
-            onClick={() => setPhase("config")}
-            className="phase-card absolute left-4 top-20 z-[1000] flex items-center gap-1.5 rounded-full border border-white/10 bg-ink/85 px-4 py-2.5 text-sm font-semibold text-cream shadow-xl backdrop-blur transition hover:border-volt/60 hover:text-volt md:left-6"
-          >
-            <SlidersHorizontalIcon size={16} />
-            Edit setup
-          </button>
-
           <div className="phase-card z-[1000] flex justify-center p-4 md:absolute md:inset-y-0 md:right-0 md:left-auto md:items-center md:p-6">
             <section className="flex w-full max-w-sm flex-col gap-4 rounded-3xl border border-white/10 bg-ink-soft/95 p-5 shadow-2xl backdrop-blur-md md:max-h-[calc(100vh-7rem)] md:overflow-y-auto">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <h2 className="font-display text-lg font-bold">Build the route</h2>
-                {fountains.length > 0 && (
-                  <span className="rounded-full bg-volt/15 px-2 py-0.5 text-xs font-semibold text-volt">
-                    {fountains.length} found
-                  </span>
-                )}
+                <button
+                  onClick={() => setPhase("config")}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-cream-dim transition hover:border-volt/60 hover:text-volt"
+                >
+                  <SlidersHorizontalIcon size={14} />
+                  Edit setup
+                </button>
               </div>
+              {fountains.length > 0 && (
+                <span className="-mt-2 w-fit rounded-full bg-volt/15 px-2 py-0.5 text-xs font-semibold text-volt">
+                  {fountains.length} found
+                </span>
+              )}
 
               {/* Map interaction mode */}
               <div className="flex flex-col gap-2">
