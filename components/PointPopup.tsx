@@ -7,6 +7,7 @@ import {
   PushPinIcon,
   PushPinSlashIcon,
 } from "@phosphor-icons/react";
+import { useMap } from "react-leaflet";
 import type { Fountain, EditAction } from "@/lib/schemas";
 import type { StopStatus } from "@/store/run";
 
@@ -45,6 +46,7 @@ export default function PointPopup({
   onPin,
   onAction,
 }: Props) {
+  const map = useMap();
   const name = fountain.tags.name ?? `node ${fountain.id}`;
   const deleted = edit?.status === "delete";
 
@@ -75,7 +77,10 @@ export default function PointPopup({
       ) : (
         <>
           <button
-            onClick={onPin}
+            onClick={() => {
+              onPin();
+              map.closePopup();
+            }}
             className="flex items-center justify-center gap-1.5 rounded border border-amber-500 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50"
           >
             {isPinned ? (
