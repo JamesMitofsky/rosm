@@ -64,7 +64,7 @@ const EDIT_LABEL: Partial<Record<StopStatus, string>> = {
 const STEPS = [
   { key: "where", title: "Where do you start?", hint: "Set the point your run begins from." },
   { key: "what", title: "What are you looking for?", hint: "Pick the kind of point to route past." },
-  { key: "how", title: "How far do you want to go?", hint: "Tune the search and target distance." },
+  { key: "radius", title: "How wide should we search?", hint: "Set how far out to look for points." },
 ] as const;
 
 export default function PlannerPage() {
@@ -88,6 +88,10 @@ export default function PlannerPage() {
   const [addr, setAddr] = useState("");
   const [radiusMi, setRadiusMi] = useState<number | "">(3);
   const [targetMi, setTargetMi] = useState<number | "">("");
+  // How the route is sized: to a target distance, or purely by the points picked.
+  // Default to points so the route is sized by what the user picks unless they opt
+  // into a target distance (matches "empty target distance by default").
+  const [sizeMode, setSizeMode] = useState<"distance" | "points">("points");
   const [loop, setLoop] = useState(true);
   const [tag, setTag] = useState({ key: "amenity", value: "drinking_water" });
 
@@ -430,11 +434,17 @@ export default function PlannerPage() {
 
   async function makeRoute() {
     if (!center || fountains.length === 0) return;
-    const target = targetMi || 0;
-    // No target distance means the route is sized by the points the user picks —
-    // so they have to pick at least one (a pin or a waypoint) to define it.
-    if (target <= 0 && pinned.length === 0 && vias.length === 0) {
-      setErr("Pin a point or add a waypoint, or set a target distance.");
+    // In points mode the route is sized purely by what the user picks, so the
+    // target distance is ignored even if a value is left in the field.
+    const target = sizeMode === "distance" ? targetMi || 0 : 0;
+    if (sizeMode === "distance" && target <= 0) {
+      setErr("Enter a target distance.");
+      return;
+    }
+    // Points mode: the route is sized by the points the user picks — so they have
+    // to pick at least one (a pin or a waypoint) to define it.
+    if (sizeMode === "points" && pinned.length === 0 && vias.length === 0) {
+      setErr("Pin a point or add a waypoint to size your route.");
       return;
     }
     setBusy("route");
@@ -557,6 +567,14 @@ export default function PlannerPage() {
 
   const active = STEPS[step];
   const canAdvance = step === 0 ? !!center : true;
+
+  // Whether the current sizing mode has enough input to plan a route.
+  const sizingReady =
+    sizeMode === "distance" ? (targetMi || 0) > 0 : pinned.length > 0 || vias.length > 0;
+  const planHint =
+    sizeMode === "distance"
+      ? "Enter a target distance above."
+      : "Pin a point or add a waypoint to size your route.";
 
   // Gate the whole planner behind OSM sign-in — no map until logged in. Once the
   // status resolves to logged-out, send the user to the dedicated sign-in page.
@@ -715,54 +733,26 @@ export default function PlannerPage() {
                 </div>
               )}
 
-              {/* Step 3 — distances */}
-              {active.key === "how" && (
+              {/* Step 3 — search radius (defines the pool of points to choose from) */}
+              {active.key === "radius" && (
                 <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="flex flex-col gap-1 text-sm">
-                      Search radius (mi)
-                      <input
-                        type="number"
-                        min={0.5}
-                        step={0.5}
-                        value={radiusMi}
-                        onChange={(e) =>
-                          setRadiusMi(
-                            e.target.value === "" ? "" : Number(e.target.value)
-                          )
-                        }
-                        className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                      Target run (mi)
-                      <input
-                        type="number"
-                        min={0.5}
-                        step={0.5}
-                        value={targetMi}
-                        placeholder="optional"
-                        onChange={(e) =>
-                          setTargetMi(
-                            e.target.value === "" ? "" : Number(e.target.value)
-                          )
-                        }
-                        className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream placeholder:text-cream-dim outline-none focus:border-volt/60"
-                      />
-                    </label>
-                  </div>
-                  <p className="text-xs text-cream-dim">
-                    Leave the target blank to size the route by the points you pin on the map.
-                  </p>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex flex-col gap-1 text-sm">
+                    Search radius (mi)
                     <input
-                      type="checkbox"
-                      checked={loop}
-                      onChange={(e) => setLoop(e.target.checked)}
-                      className="h-4 w-4 accent-volt"
+                      type="number"
+                      min={0.5}
+                      step={0.5}
+                      value={radiusMi}
+                      onChange={(e) =>
+                        setRadiusMi(e.target.value === "" ? "" : Number(e.target.value))
+                      }
+                      className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
                     />
-                    Loop (finish back at start)
                   </label>
+                  <p className="text-xs text-cream-dim">
+                    You&apos;ll size the route — by a target distance or by the points you pick —
+                    on the map next.
+                  </p>
                 </div>
               )}
             </div>
@@ -826,6 +816,52 @@ export default function PlannerPage() {
                 </span>
               )}
 
+              {/* Route sizing: by a target distance, or by the points picked */}
+              <div className="flex flex-col gap-2">
+                <div className="flex overflow-hidden rounded-lg border border-white/15 text-sm">
+                  <button
+                    onClick={() => setSizeMode("distance")}
+                    className={`flex-1 py-1.5 transition ${sizeMode === "distance" ? "bg-volt font-semibold text-ink" : "bg-ink/40 text-cream-dim hover:text-cream"}`}
+                  >
+                    Target distance
+                  </button>
+                  <button
+                    onClick={() => setSizeMode("points")}
+                    className={`flex-1 py-1.5 transition ${sizeMode === "points" ? "bg-volt font-semibold text-ink" : "bg-ink/40 text-cream-dim hover:text-cream"}`}
+                  >
+                    By my points
+                  </button>
+                </div>
+                {sizeMode === "distance" ? (
+                  <label className="flex flex-col gap-1 text-sm">
+                    Target run (mi)
+                    <input
+                      type="number"
+                      min={0.5}
+                      step={0.5}
+                      value={targetMi}
+                      onChange={(e) =>
+                        setTargetMi(e.target.value === "" ? "" : Number(e.target.value))
+                      }
+                      className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
+                    />
+                  </label>
+                ) : (
+                  <p className="text-xs text-cream-dim">
+                    Pin points or add waypoints below; we&apos;ll size the route to fit them.
+                  </p>
+                )}
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={loop}
+                    onChange={(e) => setLoop(e.target.checked)}
+                    className="h-4 w-4 accent-volt"
+                  />
+                  Loop (finish back at start)
+                </label>
+              </div>
+
               {/* Map interaction help */}
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-cream-dim">
@@ -887,12 +923,15 @@ export default function PlannerPage() {
                 </button>
                 <button
                   onClick={makeRoute}
-                  disabled={fountains.length === 0 || busy !== null}
+                  disabled={fountains.length === 0 || busy !== null || !sizingReady}
                   className="flex items-center justify-center gap-2 rounded-full bg-volt py-2.5 text-sm font-bold text-ink transition hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
                 >
                   <PathIcon size={16} />
                   {busy === "route" ? "Planning…" : "Plan route"}
                 </button>
+                {fountains.length > 0 && !sizingReady && (
+                  <p className="text-center text-xs text-cream-dim">{planHint}</p>
+                )}
               </div>
 
               {stops.length > 0 && (
