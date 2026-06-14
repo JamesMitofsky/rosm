@@ -482,7 +482,7 @@ export default function PlannerPage() {
           <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-volt" />
           ROSM
         </Link>
-        <div className="pointer-events-auto rounded-full border border-white/10 bg-ink/80 px-2 py-1 backdrop-blur">
+        <div className="pointer-events-auto">
           <OsmStatusBar />
         </div>
       </header>
