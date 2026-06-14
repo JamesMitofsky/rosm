@@ -313,7 +313,6 @@ export default function PlannerPage() {
 
   function togglePin(id: number) {
     setPinnedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
-    celebratePoint();
   }
 
   // Write a status update straight to OSM from the map, no run required. Edits
