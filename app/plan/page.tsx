@@ -134,25 +134,26 @@ export default function PlannerPage() {
 
   const scope = useRef<HTMLElement>(null);
 
-  // Slide/fade the active question in whenever the step changes.
+  // Fade the active question in whenever the step changes. Opacity only — no
+  // transforms, so an interrupted tween can never leave a translated ghost copy.
   useGSAP(
     () => {
       gsap.fromTo(
         ".wizard-step",
-        { autoAlpha: 0, x: 24 },
-        { autoAlpha: 1, x: 0, duration: 0.4, ease: "power3.out" },
+        { autoAlpha: 0 },
+        { autoAlpha: 1, duration: 0.4, ease: "power3.out" },
       );
     },
     { dependencies: [step], scope },
   );
 
-  // Animate the floating card when switching between config and map-only views.
+  // Fade the floating card when switching between config and map-only views.
   useGSAP(
     () => {
       gsap.fromTo(
         ".phase-card",
-        { autoAlpha: 0, y: 20, scale: 0.98 },
-        { autoAlpha: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" },
+        { autoAlpha: 0 },
+        { autoAlpha: 1, duration: 0.5, ease: "power3.out" },
       );
     },
     { dependencies: [phase], scope },
@@ -372,7 +373,6 @@ export default function PlannerPage() {
     const pins = pinnedIds.includes(id) ? pinnedIds : [...pinnedIds, id];
     setExcludedIds(excludes);
     setPinnedIds(pins);
-    celebratePoint();
     replan({ pins, excludes });
   }
 
@@ -922,7 +922,7 @@ export default function PlannerPage() {
                 <button
                   onClick={finishConfig}
                   disabled={!center || busy !== null}
-                  className="ml-auto flex items-center gap-1.5 rounded-full bg-volt px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
+                  className="ml-auto flex w-40 items-center justify-center gap-1.5 rounded-full bg-volt px-5 py-2.5 text-sm font-bold text-ink hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
                 >
                   <MapPinIcon size={16} />
                   {busy === "find" ? "Finding…" : "Find points"}

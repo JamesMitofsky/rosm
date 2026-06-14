@@ -165,7 +165,6 @@ export default function RunPage() {
     setLastSaved(null);
     if (target) {
       run.setStatus(target.id, "skipped");
-      celebratePoint();
     }
     advance();
   }
