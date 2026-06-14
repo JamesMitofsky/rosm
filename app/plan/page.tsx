@@ -29,6 +29,22 @@ import PointPopup, { type PointEdit } from "@/components/PointPopup";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
+// Snapshot of an in-progress planner route, persisted so a refresh can resume it.
+type Draft = {
+  center: Pt;
+  tag: { key: string; value: string };
+  radiusMi: number | "";
+  targetMi: number | "";
+  loop: boolean;
+  fountains: Fountain[];
+  pinnedIds: number[];
+  vias: Pt[];
+  stops: Fountain[];
+  line: [number, number][];
+  distanceM: number;
+  autoCount: number;
+};
+
 // Marker colors for points already updated in OSM this session.
 const EDIT_COLOR: Partial<Record<StopStatus, string>> = {
   confirm: "#16a34a",
@@ -83,6 +99,11 @@ export default function PlannerPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // Session recovery: a saved route from a previous (interrupted) session, and a
+  // gate so we don't persist a draft until the initial load has run.
+  const [resumable, setResumable] = useState<Draft | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+
   // Direct OSM edits made from the map, before any run. Keyed by node id.
   const [edits, setEdits] = useState<Record<number, PointEdit>>({});
   const [editChangesetId, setEditChangesetId] = useState<number | undefined>();
@@ -119,6 +140,85 @@ export default function PlannerPage() {
   useEffect(() => {
     if (osm && !osm.loggedIn) router.replace("/plan/login");
   }, [osm, router]);
+
+  // On mount, look for a saved route from a prior session. If one exists, offer
+  // to resume it rather than restoring silently (the user may want a fresh plan).
+  useEffect(() => {
+    fetch("/api/draft")
+      .then((r) => r.json())
+      .then((d: Draft | null) => {
+        if (d && d.stops?.length) setResumable(d);
+      })
+      .catch(() => {})
+      .finally(() => setDraftReady(true));
+  }, []);
+
+  // Persist the built route whenever it changes, so a refresh can recover it.
+  // Skipped until the initial load runs, while a resume offer is pending, and
+  // before any route exists.
+  useEffect(() => {
+    if (!draftReady || resumable || stops.length === 0) return;
+    const draft: Draft = {
+      center: center!,
+      tag,
+      radiusMi,
+      targetMi,
+      loop,
+      fountains,
+      pinnedIds,
+      vias,
+      stops,
+      line,
+      distanceM,
+      autoCount,
+    };
+    fetch("/api/draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    }).catch(() => {});
+  }, [
+    draftReady,
+    resumable,
+    center,
+    tag,
+    radiusMi,
+    targetMi,
+    loop,
+    fountains,
+    pinnedIds,
+    vias,
+    stops,
+    line,
+    distanceM,
+    autoCount,
+  ]);
+
+  // Restore a saved route into the planner and jump to the map.
+  function resumeDraft() {
+    const d = resumable;
+    if (!d) return;
+    recenter(d.center);
+    setTag(d.tag);
+    setRadiusMi(d.radiusMi);
+    setTargetMi(d.targetMi);
+    setLoop(d.loop);
+    setFountains(d.fountains);
+    setPinnedIds(d.pinnedIds);
+    setVias(d.vias);
+    setStops(d.stops);
+    setLine(d.line);
+    setDistanceM(d.distanceM);
+    setAutoCount(d.autoCount);
+    setResumable(null);
+    setPhase("map");
+  }
+
+  // Drop the saved route — the user wants to start fresh.
+  function dismissDraft() {
+    setResumable(null);
+    fetch("/api/draft", { method: "DELETE" }).catch(() => {});
+  }
 
   function recenter(p: Pt) {
     setCenter(p);
@@ -294,6 +394,8 @@ export default function PlannerPage() {
 
   async function findPoints() {
     if (!center) return;
+    // Building fresh — drop any pending resume offer so the new route persists.
+    setResumable(null);
     setBusy("find");
     setErr(null);
     setStops([]);
@@ -386,6 +488,8 @@ export default function PlannerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...plan, index: 0 }),
     });
+    // Route promoted to an active run; drop the planner draft so we don't re-offer it.
+    fetch("/api/draft", { method: "DELETE" }).catch(() => {});
     router.push("/run");
   }
 
@@ -512,6 +616,32 @@ export default function PlannerPage() {
         <NavigationArrowIcon size={14} weight={follow ? "fill" : "regular"} />
         {follow ? "Following" : "Follow me"}
       </button>
+
+      {/* Resume offer: a route from a prior session survived a refresh. */}
+      {resumable && (
+        <div className="pointer-events-auto absolute left-1/2 top-20 z-[1001] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col gap-3 rounded-2xl border border-volt/40 bg-ink-soft/95 p-4 shadow-2xl backdrop-blur-md md:top-6">
+          <div className="flex flex-col gap-0.5">
+            <span className="font-display text-sm font-bold text-cream">Resume your route?</span>
+            <span className="text-xs text-cream-dim">
+              {resumable.stops.length} stops · {fmtDist(resumable.distanceM)} — saved from your last session.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resumeDraft}
+              className="flex-1 rounded-full bg-volt py-2 text-sm font-bold text-ink transition hover:bg-cream"
+            >
+              Resume
+            </button>
+            <button
+              onClick={dismissDraft}
+              className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-cream-dim transition hover:text-cream"
+            >
+              Start fresh
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ----- CONFIG PHASE: one question at a time ----- */}
       {phase === "config" && (
