@@ -469,20 +469,26 @@ export default function PlannerPage() {
     follow && pos ? `follow:${pos.lat.toFixed(4)},${pos.lon.toFixed(4)}` : recenterKey;
 
   return (
-    <main ref={scope} className="relative h-screen w-screen overflow-hidden bg-ink font-body text-cream">
-      {/* Map fills the screen; floating cards sit on top. */}
-      <MapView
-        center={viewCenter}
-        zoom={14}
-        recenterKey={viewKey}
-        markers={[...markers, ...viaMarkers, ...startMarker]}
-        line={line}
-        userPos={pos ? [pos.lat, pos.lon] : null}
-        userHeading={follow ? heading : null}
-        onMapClick={handleMapClick}
-        onUserPan={() => setFollow(false)}
-        className="absolute inset-0 h-full w-full"
-      />
+    <main
+      ref={scope}
+      className="relative flex min-h-screen w-screen flex-col bg-ink font-body text-cream md:block md:h-screen md:overflow-hidden"
+    >
+      {/* Mobile: map sits at the top with a fixed height and the panel flows below it.
+          Desktop (md+): map fills the screen and the cards float on top. */}
+      <div className="relative h-[55vh] w-full shrink-0 md:absolute md:inset-0 md:h-full">
+        <MapView
+          center={viewCenter}
+          zoom={14}
+          recenterKey={viewKey}
+          markers={[...markers, ...viaMarkers, ...startMarker]}
+          line={line}
+          userPos={pos ? [pos.lat, pos.lon] : null}
+          userHeading={follow ? heading : null}
+          onMapClick={handleMapClick}
+          onUserPan={() => setFollow(false)}
+          className="absolute inset-0 h-full w-full"
+        />
+      </div>
 
       {/* Top bar: brand + OSM status, floating over the map. */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex flex-wrap items-center justify-between gap-3 p-4 md:p-5">
@@ -515,7 +521,7 @@ export default function PlannerPage() {
 
       {/* ----- CONFIG PHASE: one question at a time ----- */}
       {phase === "config" && (
-        <div className="phase-card absolute inset-x-0 bottom-0 z-[1000] flex justify-center p-4 md:inset-y-0 md:left-0 md:right-auto md:items-center md:p-6">
+        <div className="phase-card z-[1000] flex justify-center p-4 md:absolute md:inset-y-0 md:left-0 md:right-auto md:items-center md:p-6">
           <section className="flex w-full max-w-md flex-col gap-5 rounded-3xl border border-white/10 bg-ink-soft/95 p-6 shadow-2xl backdrop-blur-md">
             {/* Step progress */}
             <div className="flex items-center gap-2">
@@ -684,8 +690,8 @@ export default function PlannerPage() {
             Edit setup
           </button>
 
-          <div className="phase-card absolute inset-x-0 bottom-0 z-[1000] flex justify-center p-4 md:inset-y-0 md:right-0 md:left-auto md:items-center md:p-6">
-            <section className="flex max-h-[calc(100vh-7rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-3xl border border-white/10 bg-ink-soft/95 p-5 shadow-2xl backdrop-blur-md">
+          <div className="phase-card z-[1000] flex justify-center p-4 md:absolute md:inset-y-0 md:right-0 md:left-auto md:items-center md:p-6">
+            <section className="flex w-full max-w-sm flex-col gap-4 rounded-3xl border border-white/10 bg-ink-soft/95 p-5 shadow-2xl backdrop-blur-md md:max-h-[calc(100vh-7rem)] md:overflow-y-auto">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold">Build the route</h2>
                 {fountains.length > 0 && (
