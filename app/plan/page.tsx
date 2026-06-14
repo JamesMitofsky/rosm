@@ -26,6 +26,7 @@ import type { MapMarker } from "@/components/MapView";
 import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";
 import PointTypePicker from "@/components/PointTypePicker";
 import PointPopup, { type PointEdit } from "@/components/PointPopup";
+import { celebratePoint } from "@/lib/confetti";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -70,9 +71,11 @@ export default function PlannerPage() {
   const [recenterKey, setRecenterKey] = useState("init");
   const [addr, setAddr] = useState("");
   const [radiusMi, setRadiusMi] = useState<number | "">(3);
-  const [targetMi, setTargetMi] = useState<number | "">(3);
+  const [targetMi, setTargetMi] = useState<number | "">("");
   // How the route is sized: to a target distance, or purely by the points picked.
-  const [sizeMode, setSizeMode] = useState<"distance" | "points">("distance");
+  // Default to points so the route is sized by what the user picks unless they opt
+  // into a target distance (matches "empty target distance by default").
+  const [sizeMode, setSizeMode] = useState<"distance" | "points">("points");
   const [loop, setLoop] = useState(true);
   const [tag, setTag] = useState({ key: "amenity", value: "drinking_water" });
 
@@ -210,6 +213,7 @@ export default function PlannerPage() {
 
   function togglePin(id: number) {
     setPinnedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    celebratePoint();
   }
 
   // Write a status update straight to OSM from the map, no run required. Edits
@@ -234,6 +238,7 @@ export default function PlannerPage() {
         ...e,
         [nodeId]: { status: action as StopStatus, summary: j.summary, changesetUrl: j.changesetUrl },
       }));
+      celebratePoint();
     } catch (e) {
       setErr((e as Error).message);
     } finally {
