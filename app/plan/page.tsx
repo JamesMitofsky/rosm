@@ -80,6 +80,8 @@ export default function PlannerPage() {
   const [stops, setStops] = useState<Fountain[]>([]);
   const [line, setLine] = useState<[number, number][]>([]);
   const [distanceM, setDistanceM] = useState(0);
+  // How many stops were auto-grabbed (tiny detour off the route), for the summary.
+  const [autoCount, setAutoCount] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -296,6 +298,7 @@ export default function PlannerPage() {
     setStops([]);
     setLine([]);
     setPinnedIds([]);
+    setAutoCount(0);
     try {
       const r = await fetch("/api/fountains", {
         method: "POST",
@@ -321,15 +324,22 @@ export default function PlannerPage() {
 
   async function makeRoute() {
     if (!center || fountains.length === 0) return;
+    const target = targetMi || 0;
+    // No target distance means the route is sized by the points the user picks —
+    // so they have to pick at least one (a pin or a waypoint) to define it.
+    if (target <= 0 && pinned.length === 0 && vias.length === 0) {
+      setErr("Pin a point or add a waypoint, or set a target distance.");
+      return;
+    }
     setBusy("route");
     setErr(null);
     try {
-      const { ordered } = planRoute({
+      const { ordered, autoIds } = planRoute({
         start: center,
         candidates: fountains,
         vias,
         pinned,
-        targetM: milesToMeters(targetMi || 0),
+        targetM: milesToMeters(target),
         loop,
       });
       const chosen = ordered.filter((n) => n.fountain).map((n) => n.fountain!);
@@ -339,6 +349,7 @@ export default function PlannerPage() {
         return;
       }
       setStops(chosen);
+      setAutoCount(autoIds.length);
       const points = [center, ...ordered.map((n) => ({ lat: n.lat, lon: n.lon }))];
       const r = await fetch("/api/route", {
         method: "POST",
@@ -597,15 +608,19 @@ export default function PlannerPage() {
                         min={0.5}
                         step={0.5}
                         value={targetMi}
+                        placeholder="optional"
                         onChange={(e) =>
                           setTargetMi(
                             e.target.value === "" ? "" : Number(e.target.value)
                           )
                         }
-                        className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
+                        className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream placeholder:text-cream-dim outline-none focus:border-volt/60"
                       />
                     </label>
                   </div>
+                  <p className="text-xs text-cream-dim">
+                    Leave the target blank to size the route by the points you pin on the map.
+                  </p>
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -775,6 +790,11 @@ export default function PlannerPage() {
                     </span>
                     <span className="font-semibold text-volt">{fmtDist(distanceM)}</span>
                   </div>
+                  {autoCount > 0 && (
+                    <p className="mt-1 text-xs text-cream-dim">
+                      +{autoCount} grabbed for a small detour off your route.
+                    </p>
+                  )}
                   <button
                     onClick={startRun}
                     className="mt-3 w-full rounded-full bg-volt py-2.5 font-bold text-ink transition hover:bg-cream"
