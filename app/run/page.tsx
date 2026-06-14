@@ -18,6 +18,7 @@ import type { MapMarker } from "@/components/MapView";
 import type { EditAction } from "@/lib/schemas";
 import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";
 import ExportButton from "@/components/ExportButton";
+import { celebratePoint } from "@/lib/confetti";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -131,6 +132,7 @@ export default function RunPage() {
       if (!r.ok) throw new Error(j.error || "edit failed");
       run.setChangeset(j.changesetId);
       run.setStatus(target.id, action as StopStatus);
+      celebratePoint();
       setLastSaved({
         nodeId: j.nodeId,
         newVersion: j.newVersion,
@@ -148,7 +150,10 @@ export default function RunPage() {
 
   function skip() {
     setLastSaved(null);
-    if (target) run.setStatus(target.id, "skipped");
+    if (target) {
+      run.setStatus(target.id, "skipped");
+      celebratePoint();
+    }
     advance();
   }
 

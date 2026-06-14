@@ -26,6 +26,7 @@ import type { MapMarker } from "@/components/MapView";
 import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";
 import PointTypePicker from "@/components/PointTypePicker";
 import PointPopup, { type PointEdit } from "@/components/PointPopup";
+import { celebratePoint } from "@/lib/confetti";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -208,6 +209,7 @@ export default function PlannerPage() {
 
   function togglePin(id: number) {
     setPinnedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    celebratePoint();
   }
 
   // Write a status update straight to OSM from the map, no run required. Edits
@@ -232,6 +234,7 @@ export default function PlannerPage() {
         ...e,
         [nodeId]: { status: action as StopStatus, summary: j.summary, changesetUrl: j.changesetUrl },
       }));
+      celebratePoint();
     } catch (e) {
       setErr((e as Error).message);
     } finally {
