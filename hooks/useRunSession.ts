@@ -12,6 +12,7 @@ import { useOsmStatus } from "@/components/OsmStatus";
 import PointPopup from "@/components/PointPopup";
 import { celebratePoint } from "@/lib/confetti";
 import { useHeading } from "@/lib/useHeading";
+import { archiveRoute } from "@/lib/routeArchive";
 import { createElement } from "react";
 
 const STATUS_COLOR: Record<StopStatus, string> = {
@@ -95,22 +96,27 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const arrived = manualArrived || (distToTarget != null && distToTarget < 30);
 
   async function persist(nextIndex: number, changesetId?: number) {
+    const routeId = useRun.getState().routeId;
+    const plan = {
+      start: run.start,
+      loop,
+      tagKey,
+      tagValue,
+      stops: useRun.getState().stops,
+      vias: run.vias,
+      added: useRun.getState().added,
+      routeCoords: run.routeCoords,
+      distanceM: run.distanceM,
+      index: nextIndex,
+      changesetId: changesetId ?? run.changesetId,
+    };
+    // Durable on-device record of this route + every node change, kept across N
+    // routes. Written first so the archive survives even if the server POST fails.
+    archiveRoute({ routeId, plan, edits: useOutbox.getState().items });
     await fetch("/api/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        start: run.start,
-        loop,
-        tagKey,
-        tagValue,
-        stops: useRun.getState().stops,
-        vias: run.vias,
-        added: useRun.getState().added,
-        routeCoords: run.routeCoords,
-        distanceM: run.distanceM,
-        index: nextIndex,
-        changesetId: changesetId ?? run.changesetId,
-      }),
+      body: JSON.stringify({ ...plan, routeId }),
     });
   }
 

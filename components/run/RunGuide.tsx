@@ -12,7 +12,6 @@ import {
 import type { RunSession } from "@/hooks/useRunSession";
 import { fmtDist } from "@/lib/geo";
 import SyncStatus from "@/components/SyncStatus";
-import ExportButton from "@/components/ExportButton";
 
 type Tone = "light" | "dark";
 
@@ -180,8 +179,6 @@ export default function RunGuide({
 
       {/* Live OSM delivery status + retry, available during the run too. */}
       <SyncStatus tone={tone} className="mt-auto" />
-
-      <ExportButton tone={tone} />
     </div>
   );
 }

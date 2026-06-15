@@ -26,9 +26,12 @@ export type RunPlan = {
 type RunState = RunPlan & {
   index: number;
   changesetId?: number;
+  routeId: string; // stable id for this run, used to key the localStorage archive
   hasPlan: boolean;
   setPlan: (p: RunPlan) => void;
-  hydrate: (p: RunPlan & { index?: number; changesetId?: number }) => void;
+  hydrate: (
+    p: RunPlan & { index?: number; changesetId?: number; routeId?: string },
+  ) => void;
   setStatus: (id: number, status: StopStatus) => void;
   setIndex: (i: number) => void;
   setChangeset: (id: number) => void;
@@ -48,12 +51,19 @@ const empty: RunPlan = {
   distanceM: 0,
 };
 
+function newRouteId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+}
+
 export const useRun = create<RunState>((set) => ({
   ...empty,
   index: 0,
   changesetId: undefined,
+  routeId: "",
   hasPlan: false,
-  setPlan: (p) => set({ ...p, index: 0, changesetId: undefined, hasPlan: true }),
+  setPlan: (p) =>
+    set({ ...p, index: 0, changesetId: undefined, routeId: newRouteId(), hasPlan: true }),
   hydrate: (p) =>
     set({
       ...p,
@@ -62,6 +72,7 @@ export const useRun = create<RunState>((set) => ({
       added: p.added ?? [],
       index: p.index ?? 0,
       changesetId: p.changesetId,
+      routeId: p.routeId ?? newRouteId(),
       hasPlan: true,
     }),
   setStatus: (id, status) =>
@@ -71,5 +82,6 @@ export const useRun = create<RunState>((set) => ({
   setIndex: (i) => set({ index: i }),
   setChangeset: (id) => set({ changesetId: id }),
   addNode: (f) => set((s) => ({ added: [...s.added, f] })),
-  reset: () => set({ ...empty, index: 0, changesetId: undefined, hasPlan: false }),
+  reset: () =>
+    set({ ...empty, index: 0, changesetId: undefined, routeId: "", hasPlan: false }),
 }));

@@ -4,7 +4,6 @@ import { FlagCheckeredIcon } from "@phosphor-icons/react";
 import type { RunSession } from "@/hooks/useRunSession";
 import { useOutbox, outboxCounts } from "@/store/outbox";
 import SyncStatus from "@/components/SyncStatus";
-import ExportButton from "@/components/ExportButton";
 
 type Tone = "light" | "dark";
 
@@ -68,9 +67,6 @@ export default function RunComplete({
 
       {/* Review what reached OSM and retry anything that missed. */}
       <SyncStatus tone={tone} />
-
-      {/* JSON backup before submit, per the completion-screen flow. */}
-      <ExportButton tone={tone} className="w-full" />
 
       {sealed ? (
         <>
