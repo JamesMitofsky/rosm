@@ -72,7 +72,7 @@ const RECENCY_MODES: { key: RecencyMode; label: string }[] = [
 
 // The guided config steps, answered one at a time before the map takes over.
 const STEPS = [
-  { key: "where", title: "Where do you start?", hint: "Set the point your run begins from." },
+  { key: "where", title: "Where do you start?", hint: "Click on the map or search" },
   { key: "what", title: "What are you looking for?", hint: "Pick the kind of point to route past." },
   { key: "radius", title: "How wide should we search?", hint: undefined },
 ] as const;
@@ -812,7 +812,6 @@ export default function PlannerPage() {
                       <CrosshairIcon size={18} />
                     </button>
                   </div>
-                  <p className="text-xs text-cream-dim">Or click the map to drop the start point.</p>
                   {!center && (
                     <p className="rounded-lg border border-white/10 bg-ink/40 px-3 py-2 text-xs text-cream-dim">
                       No start point yet — search, locate, or tap the map.
