@@ -680,7 +680,7 @@ export default function PlannerPage() {
     : [];
 
   const startMarker: MapMarker[] = center
-    ? [{ id: "start", lat: center.lat, lon: center.lon, color: "#2563eb", label: "S" }]
+    ? [{ id: "start", lat: center.lat, lon: center.lon, color: "#16a34a", label: "⚑" }]
     : [];
 
   const viaMarkers: MapMarker[] = vias.map((v, i) => ({
@@ -816,12 +816,7 @@ export default function PlannerPage() {
                     </button>
                   </div>
                   <p className="text-xs text-cream-dim">Or click the map to drop the start point.</p>
-                  {center ? (
-                    <p className="flex items-center gap-1.5 rounded-lg bg-volt/10 px-3 py-2 text-xs font-medium text-volt">
-                      <MapPinIcon size={14} weight="fill" />
-                      Start set · {center.lat.toFixed(4)}, {center.lon.toFixed(4)}
-                    </p>
-                  ) : (
+                  {!center && (
                     <p className="rounded-lg border border-white/10 bg-ink/40 px-3 py-2 text-xs text-cream-dim">
                       No start point yet — search, locate, or tap the map.
                     </p>
