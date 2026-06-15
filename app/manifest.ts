@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description:
       "Turn your run into open-map fieldwork. Plan a route past unverified OpenStreetMap points, run it with turn-by-turn cues, and fix the map from the ground.",
     id: "/",
-    start_url: "/",
+    start_url: "/plan",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
