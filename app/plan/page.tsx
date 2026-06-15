@@ -10,8 +10,6 @@ import {
   CrosshairIcon,
   PathIcon,
   MagnifyingGlassIcon,
-  FlagIcon,
-  PushPinIcon,
   XIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -1057,44 +1055,6 @@ export default function PlannerPage() {
                   waypoint
                   {vias.length > 0 && <span className="text-cream-dim"> ({vias.length} added)</span>}.
                 </p>
-                {(pinned.length > 0 || vias.length > 0) && (
-                  <ul className="flex flex-col gap-1">
-                    {pinned.map((f) => (
-                      <li
-                        key={f.id}
-                        className="flex items-center justify-between rounded-lg bg-amber-400/10 px-2 py-1 text-xs"
-                      >
-                        <span className="flex items-center gap-1 truncate text-amber-300">
-                          <PushPinIcon size={12} weight="fill" /> {markLabel(f)}
-                        </span>
-                        <button
-                          onClick={() => removeStop(f.id)}
-                          className="shrink-0 text-amber-400/60 hover:text-amber-300"
-                          aria-label="remove pinned point from route"
-                        >
-                          <XIcon size={14} />
-                        </button>
-                      </li>
-                    ))}
-                    {vias.map((v, i) => (
-                      <li
-                        key={`via-${i}`}
-                        className="flex items-center justify-between rounded-lg bg-violet-400/10 px-2 py-1 text-xs"
-                      >
-                        <span className="flex items-center gap-1 text-violet-300">
-                          <FlagIcon size={12} /> waypoint {i + 1}: {v.lat.toFixed(4)}, {v.lon.toFixed(4)}
-                        </span>
-                        <button
-                          onClick={() => removeVia(i)}
-                          className="shrink-0 text-violet-400/60 hover:text-violet-300"
-                          aria-label="remove waypoint"
-                        >
-                          <XIcon size={14} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
                 {removed.length > 0 && (
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold text-cream-dim">
