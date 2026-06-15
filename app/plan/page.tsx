@@ -74,7 +74,7 @@ const RECENCY_MODES: { key: RecencyMode; label: string }[] = [
 const STEPS = [
   { key: "where", title: "Where do you start?", hint: "Set the point your run begins from." },
   { key: "what", title: "What are you looking for?", hint: "Pick the kind of point to route past." },
-  { key: "radius", title: "How wide should we search?", hint: "Set how far out to look for points." },
+  { key: "radius", title: "How wide should we search?", hint: undefined },
 ] as const;
 
 // Module-scoped monotonic counters (the planner is a single-instance route).
@@ -698,10 +698,7 @@ export default function PlannerPage() {
   // Whether the current sizing mode has enough input to plan a route.
   const sizingReady =
     sizeMode === "distance" ? (targetMi || 0) > 0 : pinned.length > 0 || vias.length > 0;
-  const planHint =
-    sizeMode === "distance"
-      ? "Enter a target distance above."
-      : "Pin a point or add a waypoint to size your route.";
+  const planHint = sizeMode === "distance" ? "Enter a target distance above." : null;
 
   // Gate the whole planner behind OSM sign-in — no map until logged in. Once the
   // status resolves to logged-out, send the user to the dedicated sign-in page.
@@ -790,7 +787,7 @@ export default function PlannerPage() {
                   Step {step + 1} of {STEPS.length}
                 </span>
                 <h2 className="font-display text-2xl font-bold leading-tight">{active.title}</h2>
-                <p className="text-sm text-cream-dim">{active.hint}</p>
+                {active.hint && <p className="text-sm text-cream-dim">{active.hint}</p>}
               </div>
 
               {/* Step 1 — start location */}
@@ -890,11 +887,6 @@ export default function PlannerPage() {
                           : "Show all matching points regardless of when last surveyed."}
                     </p>
                   </div>
-
-                  <p className="text-xs text-cream-dim">
-                    You&apos;ll size the route — by a target distance or by the points you pick —
-                    on the map next.
-                  </p>
                 </div>
               )}
             </div>
@@ -971,10 +963,10 @@ export default function PlannerPage() {
                     onClick={() => setSizeMode("points")}
                     className={`flex-1 py-1.5 transition ${sizeMode === "points" ? "bg-volt font-semibold text-ink" : "bg-ink/40 text-cream-dim hover:text-cream"}`}
                   >
-                    By my points
+                    By waypoints
                   </button>
                 </div>
-                {sizeMode === "distance" ? (
+                {sizeMode === "distance" && (
                   <label className="flex flex-col gap-1 text-sm">
                     Target run (mi)
                     <input
@@ -988,10 +980,6 @@ export default function PlannerPage() {
                       className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
                     />
                   </label>
-                ) : (
-                  <p className="text-xs text-cream-dim">
-                    Pin points or add waypoints below; we&apos;ll size the route to fit them.
-                  </p>
                 )}
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -1011,12 +999,9 @@ export default function PlannerPage() {
               {/* Map interaction help */}
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-cream-dim">
-                  Tap a point to add it to the route; tap it again to remove it — the
-                  route updates itself. Long-press a point to update it in OSM. Click
-                  empty map to drop a pass-through waypoint
-                  {vias.length > 0 && <span className="text-cream-dim"> ({vias.length} added)</span>}.{" "}
-                  To change the start point, use{" "}
-                  <span className="font-semibold text-cream">Edit setup</span>.
+                  Tap to add / remove. Long-press to update in OSM. Click any space to add a
+                  waypoint
+                  {vias.length > 0 && <span className="text-cream-dim"> ({vias.length} added)</span>}.
                 </p>
                 {(pinned.length > 0 || vias.length > 0) && (
                   <ul className="flex flex-col gap-1">
@@ -1101,7 +1086,7 @@ export default function PlannerPage() {
                   <PathIcon size={16} />
                   {busy === "route" ? "Planning…" : "Plan route"}
                 </button>
-                {fountains.length > 0 && !sizingReady && (
+                {fountains.length > 0 && !sizingReady && planHint && (
                   <p className="text-center text-xs text-cream-dim">{planHint}</p>
                 )}
               </div>
