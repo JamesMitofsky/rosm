@@ -27,6 +27,15 @@ export const FountainsRequest = z.object({
   tag: TagFilterSchema,
 });
 
+// Create a brand-new OSM node at a surveyed location, tagged with the point
+// type currently being surveyed (e.g. amenity=drinking_water).
+export const CreateNodeRequest = z.object({
+  lat: z.number(),
+  lon: z.number(),
+  tag: TagFilterSchema,
+  changesetId: z.number().optional(),
+});
+
 export const RouteRequest = z.object({
   // ordered waypoints (start first); planner has already chosen + ordered them
   points: z.array(z.object({ lat: z.number(), lon: z.number() })).min(2),

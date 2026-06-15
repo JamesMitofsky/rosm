@@ -11,9 +11,11 @@ import {
   ArrowUpIcon,
   SkipForwardIcon,
   FlagCheckeredIcon,
+  PlusCircleIcon,
 } from "@phosphor-icons/react";
 import { useRun, type RunStop, type StopStatus } from "@/store/run";
 import { bearing, compass, fmtDist, haversine, type Pt } from "@/lib/geo";
+import { ptLabel } from "@/lib/pointTypes";
 import type { MapMarker } from "@/components/MapView";
 import type { EditAction } from "@/lib/schemas";
 import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";
@@ -78,7 +80,8 @@ export default function RunPage() {
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
-  const { stops, index, loop, tagKey } = run;
+  const { stops, index, loop, tagKey, tagValue, added } = run;
+  const addLabel = ptLabel(tagKey, tagValue);
   const target = stops[index];
   const done = run.hasPlan && index >= stops.length;
 
@@ -97,8 +100,10 @@ export default function RunPage() {
         start: run.start,
         loop,
         tagKey,
+        tagValue,
         stops: useRun.getState().stops,
         vias: run.vias,
+        added: useRun.getState().added,
         routeCoords: run.routeCoords,
         distanceM: run.distanceM,
         index: nextIndex,
@@ -169,6 +174,51 @@ export default function RunPage() {
     advance();
   }
 
+  // Create a brand-new node of the surveyed type at the current GPS position.
+  // Lets the user add instances they pass that aren't in OSM yet, without
+  // touching the run sequence.
+  async function addHere() {
+    if (!osm?.loggedIn) {
+      setErr("Sign in to OSM first.");
+      return;
+    }
+    if (!pos) {
+      setErr("Waiting for GPS fix.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    setLastSaved(null);
+    try {
+      const r = await fetch("/api/osm/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat: pos.lat,
+          lon: pos.lon,
+          tag: { key: tagKey, value: tagValue },
+          changesetId: run.changesetId,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "create failed");
+      run.setChangeset(j.changesetId);
+      run.addNode({ id: j.nodeId, lat: j.lat, lon: j.lon, tags: j.tags });
+      celebratePoint();
+      setLastSaved({
+        nodeId: j.nodeId,
+        newVersion: 1,
+        summary: j.summary,
+        changesetUrl: j.changesetUrl,
+      });
+      await persist(index, j.changesetId);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function finish() {
     setFinishing(true);
     setFinishErr(null);
@@ -226,9 +276,17 @@ export default function RunPage() {
       color: "#7c3aed",
       label: "✦",
     }));
-    return [...stopMarkers, ...viaMarkers];
+    // Nodes added on the fly: green "+" markers, off the routed sequence.
+    const addedMarkers: MapMarker[] = added.map((f) => ({
+      id: f.id,
+      lat: f.lat,
+      lon: f.lon,
+      color: "#16a34a",
+      label: "+",
+    }));
+    return [...stopMarkers, ...viaMarkers, ...addedMarkers];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stops, index, run.vias, osm?.loggedIn, busy]);
+  }, [stops, index, run.vias, added, osm?.loggedIn, busy]);
 
   if (hydrating) return <main className="grid min-h-screen place-items-center text-neutral-400">Loading…</main>;
 
@@ -409,6 +467,19 @@ export default function RunPage() {
             </button>
           </motion.div>
         </AnimatePresence>
+
+        {/* Add a new instance of the surveyed type at the current location.
+            Always available — a passed-by point need not be the current stop. */}
+        {osm?.loggedIn && (
+          <button
+            disabled={busy || !pos}
+            onClick={addHere}
+            className="flex items-center justify-center gap-2 rounded border border-dashed border-green-500 py-2.5 text-sm font-semibold text-green-700 disabled:opacity-50"
+          >
+            <PlusCircleIcon size={18} />
+            Add {addLabel} here{added.length > 0 ? ` · ${added.length} added` : ""}
+          </button>
+        )}
 
         {lastSaved && (
           <div className="flex items-center gap-2 rounded bg-green-50 p-2 text-sm text-green-800">

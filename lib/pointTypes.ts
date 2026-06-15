@@ -114,3 +114,8 @@ export const POINT_TYPES: PointType[] = [
 
 /** Stable key used to identify a point type in the picker. */
 export const ptKey = (pt: { key: string; value: string }) => `${pt.key}=${pt.value}`;
+
+/** Human label for a tag pair, falling back to the de-underscored value. */
+export const ptLabel = (key: string, value: string): string =>
+  POINT_TYPES.find((p) => p.key === key && p.value === value)?.label ??
+  value.replace(/_/g, " ");

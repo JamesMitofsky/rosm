@@ -163,6 +163,25 @@ export async function putNode(
   return Number((await res.text()).trim()); // new version
 }
 
+// Create a new node. OSM assigns the id (the placeholder in the body is ignored
+// for a single-element create), returned as plain text.
+export async function createNode(
+  token: string,
+  lat: number,
+  lon: number,
+  tags: Record<string, string>,
+  changesetId: number,
+): Promise<number> {
+  const xml = `<osm><node lat="${lat}" lon="${lon}" changeset="${changesetId}">${tagsXml(tags)}</node></osm>`;
+  const res = await fetch(`${API_BASE}/api/0.6/node/create`, {
+    method: "PUT",
+    headers: { ...auth(token), "Content-Type": "text/xml" },
+    body: xml,
+  });
+  if (!res.ok) throw new OsmApiError(res.status, "create node", await res.text());
+  return Number((await res.text()).trim()); // new node id
+}
+
 export async function deleteNode(
   token: string,
   id: number,
