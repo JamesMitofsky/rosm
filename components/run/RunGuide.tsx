@@ -8,6 +8,7 @@ import {
   ArrowUpIcon,
   SkipForwardIcon,
   PlusCircleIcon,
+  MagnifyingGlassIcon,
 } from "@phosphor-icons/react";
 import type { RunSession } from "@/hooks/useRunSession";
 import { fmtDist } from "@/lib/geo";
@@ -117,14 +118,7 @@ export default function RunGuide({
             </a>
           )}
 
-          {!arrived ? (
-            <button
-              onClick={() => setManualArrived(true)}
-              className={`rounded py-3 font-semibold ${t.inspect}`}
-            >
-              I&apos;m here — inspect
-            </button>
-          ) : (
+          {arrived && (
             <div className="grid gap-2">
               <button
                 onClick={() => record("confirm")}
@@ -147,24 +141,33 @@ export default function RunGuide({
             </div>
           )}
 
-          <button onClick={skip} className={`flex items-center justify-center gap-1 text-sm ${t.skip}`}>
-            <SkipForwardIcon size={16} /> Skip this one
-          </button>
+          {/* Icon row, left to right: add, skip, inspect. */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              title={`Add ${addLabel} here${added.length > 0 ? ` · ${added.length} added` : ""}`}
+              disabled={!osm?.loggedIn || adding || !session.userPos}
+              onClick={addHere}
+              className={`flex items-center justify-center rounded border border-dashed py-3 disabled:opacity-50 ${t.add}`}
+            >
+              <PlusCircleIcon size={22} />
+            </button>
+            <button
+              title="Skip this one"
+              onClick={skip}
+              className={`flex items-center justify-center rounded py-3 ${t.skip}`}
+            >
+              <SkipForwardIcon size={22} />
+            </button>
+            <button
+              title="I'm here — inspect"
+              onClick={() => setManualArrived(true)}
+              className={`flex items-center justify-center rounded py-3 ${t.inspect}`}
+            >
+              <MagnifyingGlassIcon size={22} />
+            </button>
+          </div>
         </motion.div>
       </AnimatePresence>
-
-      {/* Add a new instance of the surveyed type at the current location.
-          Always available — a passed-by point need not be the current stop. */}
-      {osm?.loggedIn && (
-        <button
-          disabled={adding || !session.userPos}
-          onClick={addHere}
-          className={`flex items-center justify-center gap-2 rounded border border-dashed py-2.5 text-sm font-semibold disabled:opacity-50 ${t.add}`}
-        >
-          <PlusCircleIcon size={18} />
-          Add {addLabel} here{added.length > 0 ? ` · ${added.length} added` : ""}
-        </button>
-      )}
 
       {lastSaved && (
         <div className={`flex items-center gap-2 rounded p-2 text-sm ${t.saved}`}>

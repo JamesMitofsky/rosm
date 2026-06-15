@@ -1195,10 +1195,7 @@ export default function PlannerPage() {
             {session.done ? (
               <RunComplete session={session} tone="dark" onExit={exitRun} />
             ) : (
-              <>
-                <h2 className="font-display text-lg font-bold">On the run</h2>
-                <RunGuide session={session} tone="dark" />
-              </>
+              <RunGuide session={session} tone="dark" />
             )}
           </section>
         </div>
