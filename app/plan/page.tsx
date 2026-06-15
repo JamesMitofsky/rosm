@@ -1088,14 +1088,6 @@ export default function PlannerPage() {
 
               <div className="flex flex-col gap-2 border-t border-white/10 pt-4">
                 <button
-                  onClick={findPoints}
-                  disabled={!center || busy !== null}
-                  className="flex items-center justify-center gap-2 rounded-full border border-volt/40 py-2.5 text-sm font-semibold text-volt transition hover:bg-volt/10 disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <MapPinIcon size={16} />
-                  {busy === "find" ? "Finding…" : "Re-find points"}
-                </button>
-                <button
                   onClick={makeRoute}
                   disabled={fountains.length === 0 || busy !== null || !sizingReady}
                   className="flex items-center justify-center gap-2 rounded-full bg-volt py-2.5 text-sm font-bold text-ink transition hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
