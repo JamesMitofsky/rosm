@@ -16,6 +16,7 @@ import {
   XIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  ArrowsClockwiseIcon,
   SlidersHorizontalIcon,
 } from "@phosphor-icons/react";
 import { planRoute } from "@/lib/plan";
@@ -606,6 +607,40 @@ export default function PlannerPage() {
     await planAndRoute();
   }
 
+  // Flip the visiting order of the route. Start (your location) stays fixed; the
+  // stops are walked in reverse, and the street geometry is re-fetched so one-way
+  // streets and turn costs are respected in the new direction.
+  async function reverseRoute() {
+    if (!center || stops.length < 2 || busy !== null) return;
+    const reversed = [...stops].reverse();
+    setBusy("reverse");
+    setErr(null);
+    setIslandPt(null);
+    const seq = ++planRequestSeq;
+    const fresh = () => seq === planRequestSeq;
+    try {
+      const points = [center, ...reversed.map((f) => ({ lat: f.lat, lon: f.lon }))];
+      const r = await fetch("/api/route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points, loop }),
+      });
+      const j = await r.json();
+      if (!fresh()) return;
+      if (!r.ok) {
+        if (j.island) setIslandPt(j.island as Pt);
+        throw new Error(j.error || "routing failed");
+      }
+      setStops(reversed);
+      setLine((j.coords as [number, number][]).map(([lon, lat]) => [lat, lon]));
+      setDistanceM(j.distanceM);
+    } catch (e) {
+      if (fresh()) setErr((e as Error).message);
+    } finally {
+      if (fresh()) setBusy(null);
+    }
+  }
+
   async function startRun() {
     if (!center || stops.length === 0) return;
     const runStops: RunStop[] = stops.map((f) => ({ ...f, status: "pending" }));
@@ -1137,6 +1172,16 @@ export default function PlannerPage() {
                       </li>
                     ))}
                   </ul>
+                  {stops.length > 1 && (
+                    <button
+                      onClick={reverseRoute}
+                      disabled={busy !== null}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-volt/40 py-2 text-sm font-semibold text-volt transition hover:bg-volt/10 disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <ArrowsClockwiseIcon size={16} />
+                      {busy === "reverse" ? "Reversing…" : "Reverse direction"}
+                    </button>
+                  )}
                   <button
                     onClick={startRun}
                     disabled={busy !== null}
