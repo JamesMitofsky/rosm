@@ -866,7 +866,7 @@ export default function PlannerPage() {
       {/* ----- CONFIG PHASE: one question at a time ----- */}
       {phase === "config" && (
         <div className="phase-card z-[1000] flex justify-center p-4 md:absolute md:inset-y-0 md:left-0 md:right-auto md:items-center md:p-6">
-          <section className="flex w-full max-w-md flex-col gap-5">
+          <section className="flex w-full max-w-md flex-col gap-5 md:h-full">
             {/* Step progress */}
             <div className="flex items-center gap-2">
               {STEPS.map((s, i) => (
@@ -1002,7 +1002,7 @@ export default function PlannerPage() {
             )}
 
             {/* Wizard nav */}
-            <div className="flex items-center gap-3 border-t border-white/10 pt-4">
+            <div className="flex items-center gap-3 pt-4 md:mt-auto">
               <button
                 onClick={() => setStep((s) => Math.max(0, s - 1))}
                 disabled={step === 0}
