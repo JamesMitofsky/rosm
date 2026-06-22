@@ -23,6 +23,11 @@ export type MapMarker = {
 type Props = {
   center: [number, number];
   zoom?: number;
+  minZoom?: number;
+  maxZoom?: number;
+  // Disable all pan/zoom interaction (decorative/preview maps).
+  interactive?: boolean;
+  scrollWheelZoom?: boolean;
   markers?: MapMarker[];
   // polyline as [lat, lon][]
   line?: [number, number][];
@@ -135,6 +140,11 @@ function ClickHandler({
 export default function MapView({
   center,
   zoom = 14,
+  minZoom,
+  maxZoom,
+  interactive = true,
+  // Defaults to `interactive` so a non-interactive map can't scroll-zoom.
+  scrollWheelZoom = interactive,
   markers = [],
   line,
   userPos,
@@ -145,7 +155,21 @@ export default function MapView({
   className,
 }: Props) {
   return (
-    <MapContainer center={center} zoom={zoom} className={className} style={{ height: "100%", width: "100%" }}>
+    <MapContainer
+      center={center}
+      zoom={zoom}
+      minZoom={minZoom}
+      maxZoom={maxZoom}
+      className={className}
+      style={{ height: "100%", width: "100%" }}
+      scrollWheelZoom={scrollWheelZoom}
+      dragging={interactive}
+      doubleClickZoom={interactive}
+      zoomControl={interactive}
+      attributionControl={interactive}
+      keyboard={interactive}
+      touchZoom={interactive}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"

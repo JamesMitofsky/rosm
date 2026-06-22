@@ -23,9 +23,9 @@ const TONE = {
     list: "border-neutral-100",
   },
   dark: {
-    card: "border-white/10 bg-ink-soft/95 text-cream",
-    sub: "text-cream-dim",
-    list: "border-white/5",
+    card: "border-paper-line bg-paper-deep/95 text-ink",
+    sub: "text-ink-dim",
+    list: "border-paper-line",
   },
 } as const;
 
@@ -90,7 +90,7 @@ export default function SyncStatus({
           type="button"
           onClick={onRetry}
           disabled={working}
-          className="flex items-center justify-center gap-2 rounded-full bg-neutral-900 py-2 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-full bg-ink py-2 text-sm font-semibold text-paper transition hover:bg-ink-soft disabled:opacity-50"
         >
           <ArrowsClockwiseIcon size={16} className={working ? "animate-spin" : ""} />
           {working ? "Retrying…" : "Retry all missed sends"}

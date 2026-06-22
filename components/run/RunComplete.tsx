@@ -10,10 +10,10 @@ type Tone = "light" | "dark";
 const TONE = {
   light: {
     flag: "text-green-600",
-    list: "text-neutral-600",
-    link: "text-blue-600",
-    primary: "bg-neutral-900 text-white",
-    note: "text-neutral-500",
+    list: "text-ink-dim",
+    link: "text-sky-deep",
+    primary: "bg-ink text-paper hover:bg-ink-soft",
+    note: "text-ink-dim",
     err: "bg-red-50 text-red-700",
   },
   dark: {

@@ -30,19 +30,19 @@ export default function RunPage() {
   }
 
   if (session.hydrating) {
-    return <main className="grid min-h-screen place-items-center text-neutral-400">Loading…</main>;
+    return <main className="grid min-h-screen place-items-center bg-paper text-ink-dim">Loading…</main>;
   }
 
   if (session.done) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center bg-paper p-6 text-ink">
         <RunComplete session={session} tone="light" onExit={goHome} />
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col">
+    <main className="flex min-h-screen flex-col bg-paper text-ink">
       <div className="relative h-[42vh] w-full">
         <MapView
           center={session.center}
@@ -57,7 +57,7 @@ export default function RunPage() {
         {session.needsCompassPermission && (
           <button
             onClick={session.requestCompass}
-            className="absolute bottom-3 right-3 z-[1000] flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-blue-600 shadow-md"
+            className="absolute bottom-3 right-3 z-[1000] flex items-center gap-1.5 rounded-full bg-paper/95 px-3 py-1.5 text-xs font-semibold text-sky-deep shadow-md"
           >
             <CompassIcon size={16} weight="fill" />
             Enable compass

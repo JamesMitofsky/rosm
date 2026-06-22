@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircleIcon,
   WarningIcon,
   TrashIcon,
   ArrowUpIcon,
+  SkipBackIcon,
   SkipForwardIcon,
   PlusCircleIcon,
-  MagnifyingGlassIcon,
+  EyeIcon,
   DogIcon,
 } from "@phosphor-icons/react";
 import type { RunSession } from "@/hooks/useRunSession";
@@ -21,25 +23,32 @@ type Tone = "light" | "dark";
 // (light) and inline in the dark planner shell without forking the markup.
 const TONE = {
   light: {
-    card: "border-neutral-200 text-neutral-900",
-    arrow: "text-blue-600",
-    sub: "text-neutral-500",
-    faint: "text-neutral-400",
-    inspect: "bg-neutral-900 text-white",
-    skip: "text-neutral-500",
-    add: "border-green-500 text-green-700",
+    card: "border-paper-line bg-paper-deep text-ink",
+    arrow: "text-sky-deep",
+    sub: "text-ink-dim",
+    faint: "text-ink-dim",
+    // Inspect = primary (theme accent), knockout icon. Add = secondary outline in
+    // the theme blue. Skip/back muted.
+    inspect: "bg-sky-deep text-paper hover:bg-sky-deep/90",
+    add: "border border-sky-deep/60 text-sky-deep hover:bg-sky/30",
+    skip: "border border-paper-line text-ink-dim hover:bg-paper",
+    // Corner-pinned buttons need a solid backing to read over the map.
+    pin: "border border-paper-line bg-paper-deep text-ink-dim hover:bg-paper",
+    back: "text-ink-dim hover:text-ink",
     saved: "bg-green-50 text-green-800",
     err: "bg-red-50 text-red-700",
-    signin: "bg-blue-600 text-white",
+    signin: "bg-ink text-paper hover:bg-ink-soft",
   },
   dark: {
     card: "border-white/10 bg-ink-soft/60 text-cream",
     arrow: "text-volt",
     sub: "text-cream-dim",
     faint: "text-cream-dim/70",
-    inspect: "bg-volt text-ink",
-    skip: "text-cream-dim",
-    add: "border-green-500/50 text-green-300",
+    inspect: "bg-sky-deep text-paper hover:bg-sky-deep/90",
+    add: "border border-sky-deep/50 text-sky-deep hover:bg-sky-deep/10",
+    skip: "border border-white/15 text-cream-dim hover:bg-white/5",
+    pin: "border border-white/15 bg-ink-soft text-cream-dim hover:bg-white/5",
+    back: "text-cream-dim hover:text-cream",
     saved: "bg-green-500/10 text-green-300",
     err: "border border-red-500/30 bg-red-500/10 text-red-300",
     signin: "bg-volt text-ink",
@@ -74,8 +83,15 @@ export default function RunGuide({
     setManualArrived,
     record,
     skip,
+    goBack,
     addHere,
   } = session;
+
+  // Skip and back both jump stops, so gate each behind an inline confirm. Tracking
+  // the stop index alongside the action auto-dismisses the prompt when the active
+  // stop changes — no reset effect needed.
+  const [confirm, setConfirm] = useState<{ i: number; action: "skip" | "back" } | null>(null);
+  const pending = confirm?.i === index ? confirm.action : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -89,25 +105,30 @@ export default function RunGuide({
           className="flex flex-col gap-3"
         >
           <div className={`flex items-center gap-4 rounded-lg border p-4 ${t.card}`}>
-            <ArrowUpIcon
-              size={40}
-              weight="bold"
-              style={{ transform: `rotate(${bearingTo}deg)` }}
-              className={`${t.arrow} transition-transform`}
-            />
-            <div>
-              <div className="text-2xl font-bold">
-                {distToTarget != null ? fmtDist(distToTarget) : "—"}
+            {arrived ? (
+              // Inspecting: identify which stop this is rather than how to get there.
+              <div className="flex flex-1 items-baseline justify-center gap-2">
+                <div className="text-2xl font-medium capitalize">
+                  {addLabel} #{index + 1}
+                </div>
               </div>
-              <div className={`text-sm ${t.sub}`}>
-                head {heading} · {target?.tags?.name || `node ${target?.id}`}
-              </div>
-            </div>
+            ) : (
+              <>
+                <ArrowUpIcon
+                  size={40}
+                  weight="bold"
+                  style={{ transform: `rotate(${bearingTo}deg)` }}
+                  className={`${t.arrow} transition-transform`}
+                />
+                <div className="flex flex-1 items-baseline justify-center gap-2">
+                  <div className="text-2xl font-bold">
+                    {distToTarget != null ? fmtDist(distToTarget) : "—"}
+                  </div>
+                  <div className={`text-sm ${t.sub}`}>head {heading}</div>
+                </div>
+              </>
+            )}
           </div>
-
-          {target?.tags?.check_date && (
-            <p className={`text-xs ${t.faint}`}>Last checked in OSM: {target.tags.check_date}</p>
-          )}
 
           {target && target.tags?.drinking_water === "no" && (
             <p className="flex items-center gap-1.5 text-sm font-medium text-violet-500">
@@ -154,33 +175,95 @@ export default function RunGuide({
             </div>
           )}
 
-          {/* Icon row, left to right: add, skip, inspect. */}
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              title={`Add ${addLabel} here${added.length > 0 ? ` · ${added.length} added` : ""}`}
-              disabled={!osm?.loggedIn || adding || !session.userPos}
-              onClick={addHere}
-              className={`flex items-center justify-center rounded border border-dashed py-3 disabled:opacity-50 ${t.add}`}
-            >
-              <PlusCircleIcon size={22} />
-            </button>
-            <button
-              title="Skip this one"
-              onClick={skip}
-              className={`flex items-center justify-center rounded py-3 ${t.skip}`}
-            >
-              <SkipForwardIcon size={22} />
-            </button>
-            <button
-              title="I'm here — inspect"
-              onClick={() => setManualArrived(true)}
-              className={`flex items-center justify-center rounded py-3 ${t.inspect}`}
-            >
-              <MagnifyingGlassIcon size={22} />
-            </button>
-          </div>
+          {pending ? (
+            // Inline confirmation for the stop-jumping actions (skip / back).
+            <div className={`flex flex-col gap-2 rounded-lg border p-3 ${t.card}`}>
+              <p className="text-sm font-medium">
+                {pending === "skip"
+                  ? "Skip this stop? It’ll be marked skipped and you’ll move on."
+                  : "Go back to the previous stop? It’ll be re-opened for action."}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setConfirm(null)}
+                  className={`flex items-center justify-center rounded py-2.5 text-sm font-semibold ${t.skip}`}
+                >
+                  Cancel
+                </button>
+                {pending === "skip" ? (
+                  <button
+                    onClick={() => {
+                      setConfirm(null);
+                      skip();
+                    }}
+                    className="flex items-center justify-center gap-1.5 rounded bg-amber-500 py-2.5 text-sm font-semibold text-white"
+                  >
+                    <SkipForwardIcon size={18} /> Skip stop
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setConfirm(null);
+                      goBack();
+                    }}
+                    className={`flex items-center justify-center gap-1.5 rounded py-2.5 text-sm font-semibold ${t.inspect}`}
+                  >
+                    <SkipBackIcon size={18} /> Go back
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Primary actions: add + inspect, solid. Hidden once the inspect
+                  (arrival) menu is open, since both are redundant there. */}
+              {!arrived && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    title={`Add ${addLabel} here${added.length > 0 ? ` · ${added.length} added` : ""}`}
+                    disabled={!osm?.loggedIn || adding || !session.userPos}
+                    onClick={addHere}
+                    className={`flex items-center justify-center rounded py-3 disabled:opacity-50 ${t.add}`}
+                  >
+                    <PlusCircleIcon size={22} weight="bold" />
+                  </button>
+                  <button
+                    title="I'm here — inspect"
+                    onClick={() => setManualArrived(true)}
+                    className={`flex items-center justify-center rounded py-3 ${t.inspect}`}
+                  >
+                    <EyeIcon size={22} weight="bold" />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </motion.div>
       </AnimatePresence>
+
+      {/* Secondary nav (back + skip), pinned to the screen's bottom-right corner.
+          Kept outside the animated/transformed block so `fixed` anchors to the
+          viewport. Hidden while a confirm dialog is up. */}
+      {!pending && (
+        <div className="fixed bottom-4 right-4 z-50 flex gap-2">
+          {index > 0 && (
+            <button
+              title="Back to previous stop"
+              onClick={() => setConfirm({ i: index, action: "back" })}
+              className={`flex items-center justify-center rounded px-3 py-2 shadow-sm ${t.pin}`}
+            >
+              <SkipBackIcon size={18} />
+            </button>
+          )}
+          <button
+            title="Skip this stop"
+            onClick={() => setConfirm({ i: index, action: "skip" })}
+            className={`flex items-center justify-center rounded px-3 py-2 shadow-sm ${t.pin}`}
+          >
+            <SkipForwardIcon size={18} />
+          </button>
+        </div>
+      )}
 
       {lastSaved && (
         <div className={`flex items-center gap-2 rounded p-2 text-sm ${t.saved}`}>

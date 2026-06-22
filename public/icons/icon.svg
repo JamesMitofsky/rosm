@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#0c0d0a"/>
+  <rect width="512" height="512" fill="#f1ebdd"/>
   <!-- route path -->
   <path d="M120 360 C 120 250, 250 270, 256 200 C 262 130, 340 150, 392 150"
-        fill="none" stroke="#ccff2e" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+        fill="none" stroke="#4fafd4" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- map pin / end node -->
-  <circle cx="392" cy="150" r="38" fill="#ccff2e"/>
-  <circle cx="392" cy="150" r="15" fill="#0c0d0a"/>
+  <circle cx="392" cy="150" r="38" fill="#4fafd4"/>
+  <circle cx="392" cy="150" r="15" fill="#f1ebdd"/>
   <!-- start node -->
-  <circle cx="120" cy="360" r="22" fill="#ccff2e"/>
+  <circle cx="120" cy="360" r="22" fill="#4fafd4"/>
 </svg>

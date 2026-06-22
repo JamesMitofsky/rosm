@@ -158,6 +158,20 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     advance();
   }
 
+  // Step back to the previous stop and re-open it for action. Resets that stop's
+  // status to pending so the arrival actions show again (lets a mis-tap be redone;
+  // a re-record just enqueues a fresh OSM edit — last write wins). Does not undo
+  // edits already sent. No-op at the first stop.
+  function goBack() {
+    if (index <= 0) return;
+    const pi = index - 1;
+    setLastSaved(null);
+    setManualArrived(false);
+    run.setStatus(stops[pi].id, "pending");
+    run.setIndex(pi);
+    persist(pi);
+  }
+
   // Create a brand-new node of the surveyed type at the current GPS position.
   // Online-only (needs a fresh node id back from OSM), but shares the outbox's
   // changeset so the create lands with the run's edits.
@@ -314,6 +328,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     setManualArrived,
     record,
     skip,
+    goBack,
     addHere,
     finish,
     reset,

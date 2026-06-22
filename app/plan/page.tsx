@@ -745,11 +745,11 @@ export default function PlannerPage() {
   // Gate the whole planner behind OSM sign-in — no map until logged in. Once the
   // status resolves to logged-out, send the user to the dedicated sign-in page.
   if (osm === null) {
-    return <main className="h-screen w-screen bg-ink" />;
+    return <main className="h-screen w-screen bg-paper" />;
   }
   if (!osm.loggedIn) {
     // Redirect handled by the effect above; render blank while it fires.
-    return <main className="h-screen w-screen bg-ink" />;
+    return <main className="h-screen w-screen bg-paper" />;
   }
 
   // The map view tracks the chosen start point.
@@ -760,7 +760,7 @@ export default function PlannerPage() {
   return (
     <main
       ref={scope}
-      className="relative flex min-h-screen w-screen flex-col bg-ink font-body text-cream md:block md:h-screen md:overflow-hidden"
+      className="relative flex min-h-screen w-screen flex-col bg-paper font-body text-ink md:block md:h-screen md:overflow-hidden"
     >
       {/* Mobile: map sits at the top with a fixed height and the panel flows below it.
           Desktop (md+): map fills the screen and the cards float on top. */}
@@ -783,7 +783,7 @@ export default function PlannerPage() {
         {phase === "run" && session.needsCompassPermission && (
           <button
             onClick={session.requestCompass}
-            className="absolute bottom-3 right-3 z-[1000] flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-blue-600 shadow-md"
+            className="absolute bottom-3 right-3 z-[1000] flex items-center gap-1.5 rounded-full bg-paper/95 px-3 py-1.5 text-xs font-semibold text-sky-deep shadow-md"
           >
             <CompassIcon size={16} weight="fill" />
             Enable compass
@@ -803,23 +803,23 @@ export default function PlannerPage() {
 
       {/* Resume offer: a route from a prior session survived a refresh. */}
       {resumable && (
-        <div className="pointer-events-auto absolute left-1/2 top-20 z-[1001] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col gap-3 rounded-2xl border border-volt/40 bg-ink-soft/95 p-4 shadow-2xl backdrop-blur-md md:top-6">
+        <div className="pointer-events-auto absolute left-1/2 top-20 z-[1001] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col gap-3 rounded-2xl border border-sky-deep/40 bg-paper-deep/95 p-4 shadow-2xl backdrop-blur-md md:top-6">
           <div className="flex flex-col gap-0.5">
-            <span className="font-display text-sm font-bold text-cream">Resume your route?</span>
-            <span className="text-xs text-cream-dim">
+            <span className="font-display text-sm font-bold text-ink">Resume your route?</span>
+            <span className="text-xs text-ink-dim">
               {resumable.stops.length} stops · {fmtDist(resumable.distanceM)} — saved from your last session.
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={resumeDraft}
-              className="flex-1 rounded-full bg-volt py-2 text-sm font-bold text-ink transition hover:bg-cream"
+              className="flex-1 rounded-full bg-ink py-2 text-sm font-bold text-paper transition hover:bg-ink-soft"
             >
               Resume
             </button>
             <button
               onClick={dismissDraft}
-              className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-cream-dim transition hover:text-cream"
+              className="rounded-full border border-paper-line px-4 py-2 text-sm font-semibold text-ink-dim transition hover:text-ink"
             >
               Start fresh
             </button>
@@ -836,7 +836,7 @@ export default function PlannerPage() {
               {STEPS.map((s, i) => (
                 <div
                   key={s.key}
-                  className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? "bg-volt" : "bg-white/15"}`}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? "bg-sky-deep" : "bg-paper-deep"}`}
                 />
               ))}
             </div>
@@ -844,17 +844,17 @@ export default function PlannerPage() {
             <div className="wizard-step flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <h2 className="font-display text-2xl font-bold leading-tight">{active.title}</h2>
-                {active.hint && <p className="text-sm text-cream-dim">{active.hint}</p>}
+                {active.hint && <p className="text-sm text-ink-dim">{active.hint}</p>}
               </div>
 
               {/* Step 1 — start location */}
               {active.key === "where" && (
                 <div className="flex flex-col gap-3">
                   <div className="flex gap-2">
-                    <div className="flex flex-1 items-center gap-2 rounded-lg border border-white/15 bg-ink/40 px-2 focus-within:border-volt/60">
-                      <MagnifyingGlassIcon size={16} className="text-cream-dim" />
+                    <div className="flex flex-1 items-center gap-2 rounded-lg border border-paper-line bg-paper/40 px-2 focus-within:border-sky-deep/60">
+                      <MagnifyingGlassIcon size={16} className="text-ink-dim" />
                       <input
-                        className="w-full bg-transparent py-2 text-sm text-cream placeholder:text-cream-dim outline-none"
+                        className="w-full bg-transparent py-2 text-sm text-ink placeholder:text-ink-dim outline-none"
                         placeholder="Search address / city"
                         value={addr}
                         onChange={(e) => setAddr(e.target.value)}
@@ -864,13 +864,13 @@ export default function PlannerPage() {
                     <button
                       onClick={geolocate}
                       title="Use my location"
-                      className="rounded-lg border border-white/15 bg-ink/40 px-3 text-cream transition hover:border-volt/60 hover:text-volt"
+                      className="rounded-lg border border-paper-line bg-paper/40 px-3 text-ink transition hover:border-sky-deep/60 hover:text-sky-deep"
                     >
                       <CrosshairIcon size={18} />
                     </button>
                   </div>
                   {!center && (
-                    <p className="rounded-lg border border-white/10 bg-ink/40 px-3 py-2 text-xs text-cream-dim">
+                    <p className="rounded-lg border border-paper-line bg-paper/40 px-3 py-2 text-xs text-ink-dim">
                       No start point yet — search, locate, or tap the map.
                     </p>
                   )}
@@ -889,7 +889,7 @@ export default function PlannerPage() {
                       onChange={(e) =>
                         setRadiusMi(e.target.value === "" ? "" : Number(e.target.value))
                       }
-                      className="w-20 rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
+                      className="w-20 rounded-lg border border-paper-line bg-paper/40 px-2 py-2 text-ink outline-none focus:border-sky-deep/60"
                     />
                     mile search radius
                   </label>
@@ -898,12 +898,12 @@ export default function PlannerPage() {
                       surveyed (OSM check_date). Defaults to points not checked in
                       the last 6 months: the ones worth verifying on the ground. */}
                   <div className="flex flex-col gap-2">
-                    <div className="flex overflow-hidden rounded-lg border border-white/15 text-xs">
+                    <div className="flex overflow-hidden rounded-lg border border-paper-line text-xs">
                       {RECENCY_MODES.map((m) => (
                         <button
                           key={m.key}
                           onClick={() => setRecencyMode(m.key)}
-                          className={`flex-1 py-1.5 transition ${recencyMode === m.key ? "bg-volt font-semibold text-ink" : "bg-ink/40 text-cream-dim hover:text-cream"}`}
+                          className={`flex-1 py-1.5 transition ${recencyMode === m.key ? "bg-sky-deep font-semibold text-ink" : "bg-paper/40 text-ink-dim hover:text-ink"}`}
                         >
                           {m.label}
                         </button>
@@ -919,12 +919,12 @@ export default function PlannerPage() {
                           onChange={(e) =>
                             setRecencyMonths(e.target.value === "" ? "" : Number(e.target.value))
                           }
-                          className="w-20 rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
+                          className="w-20 rounded-lg border border-paper-line bg-paper/40 px-2 py-2 text-ink outline-none focus:border-sky-deep/60"
                         />
-                        <span className="text-cream-dim">months</span>
+                        <span className="text-ink-dim">months</span>
                       </label>
                     )}
-                    <p className="text-xs text-cream-dim">
+                    <p className="text-xs text-ink-dim">
                       {recencyMode === "stale"
                         ? `Show points not surveyed in the last ${recencyMonths || 6} months (or never) — the ones worth checking.`
                         : recencyMode === "fresh"
@@ -945,7 +945,7 @@ export default function PlannerPage() {
               <button
                 onClick={() => setStep((s) => Math.max(0, s - 1))}
                 disabled={step === 0}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold text-cream-dim transition hover:text-cream disabled:pointer-events-none disabled:opacity-0"
+                className="flex items-center gap-1.5 rounded-full border border-paper-line px-4 py-2.5 text-sm font-semibold text-ink-dim transition hover:text-ink disabled:pointer-events-none disabled:opacity-0"
               >
                 <ArrowLeftIcon size={16} />
                 Back
@@ -954,7 +954,7 @@ export default function PlannerPage() {
                 <button
                   onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
                   disabled={!canAdvance}
-                  className="ml-auto flex items-center gap-1.5 rounded-full bg-volt px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
+                  className="ml-auto flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-paper transition hover:bg-ink-soft disabled:opacity-40 disabled:hover:bg-ink"
                 >
                   Next
                   <ArrowRightIcon size={16} />
@@ -963,7 +963,7 @@ export default function PlannerPage() {
                 <button
                   onClick={finishConfig}
                   disabled={!center || busy !== null}
-                  className="ml-auto flex w-40 items-center justify-center gap-1.5 rounded-full bg-volt px-5 py-2.5 text-sm font-bold text-ink hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
+                  className="ml-auto flex w-40 items-center justify-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-paper hover:bg-ink-soft disabled:opacity-40 disabled:hover:bg-ink"
                 >
                   <MapPinIcon size={16} />
                   {busy === "find" ? "Finding…" : "Find points"}
@@ -983,30 +983,30 @@ export default function PlannerPage() {
                 <h2 className="font-display text-lg font-bold">Build the route</h2>
                 <button
                   onClick={() => setPhase("config")}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-cream-dim transition hover:border-volt/60 hover:text-volt"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-paper-line px-3 py-1.5 text-xs font-semibold text-ink-dim transition hover:border-sky-deep/60 hover:text-sky-deep"
                 >
                   <SlidersHorizontalIcon size={14} />
                   Edit setup
                 </button>
               </div>
               {fountains.length > 0 && (
-                <span className="-mt-2 w-fit rounded-full bg-volt/15 px-2 py-0.5 text-xs font-semibold text-volt">
+                <span className="-mt-2 w-fit rounded-full bg-sky/15 px-2 py-0.5 text-xs font-semibold text-sky-deep">
                   {fountains.length} found
                 </span>
               )}
 
               {/* Route sizing: by a target distance, or by the points picked */}
               <div className="flex flex-col gap-2">
-                <div className="flex overflow-hidden rounded-lg border border-white/15 text-sm">
+                <div className="flex overflow-hidden rounded-lg border border-paper-line text-sm">
                   <button
                     onClick={() => setSizeMode("distance")}
-                    className={`flex-1 py-1.5 transition ${sizeMode === "distance" ? "bg-volt font-semibold text-ink" : "bg-ink/40 text-cream-dim hover:text-cream"}`}
+                    className={`flex-1 py-1.5 transition ${sizeMode === "distance" ? "bg-sky-deep font-semibold text-ink" : "bg-paper/40 text-ink-dim hover:text-ink"}`}
                   >
                     Target distance
                   </button>
                   <button
                     onClick={() => setSizeMode("points")}
-                    className={`flex-1 py-1.5 transition ${sizeMode === "points" ? "bg-volt font-semibold text-ink" : "bg-ink/40 text-cream-dim hover:text-cream"}`}
+                    className={`flex-1 py-1.5 transition ${sizeMode === "points" ? "bg-sky-deep font-semibold text-ink" : "bg-paper/40 text-ink-dim hover:text-ink"}`}
                   >
                     By waypoints
                   </button>
@@ -1022,7 +1022,7 @@ export default function PlannerPage() {
                       onChange={(e) =>
                         setTargetMi(e.target.value === "" ? "" : Number(e.target.value))
                       }
-                      className="rounded-lg border border-white/15 bg-ink/40 px-2 py-2 text-cream outline-none focus:border-volt/60"
+                      className="rounded-lg border border-paper-line bg-paper/40 px-2 py-2 text-ink outline-none focus:border-sky-deep/60"
                     />
                   </label>
                 )}
@@ -1035,7 +1035,7 @@ export default function PlannerPage() {
                       setLoop(lp);
                       replan({ lp });
                     }}
-                    className="h-4 w-4 accent-volt"
+                    className="h-4 w-4 accent-sky-deep"
                   />
                   Loop (finish back at start)
                 </label>
@@ -1043,28 +1043,28 @@ export default function PlannerPage() {
 
               {/* Map interaction help */}
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-cream-dim">
+                <p className="text-xs text-ink-dim">
                   Tap to add / remove. Long-press to update in OSM. Click any space to add a
                   waypoint
-                  {vias.length > 0 && <span className="text-cream-dim"> ({vias.length} added)</span>}.
+                  {vias.length > 0 && <span className="text-ink-dim"> ({vias.length} added)</span>}.
                 </p>
                 {removed.length > 0 && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold text-cream-dim">
+                    <span className="text-xs font-semibold text-ink-dim">
                       Removed from route ({removed.length})
                     </span>
                     <ul className="flex flex-col gap-1">
                       {removed.map((f) => (
                         <li
                           key={f.id}
-                          className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1 text-xs"
+                          className="flex items-center justify-between rounded-lg bg-paper-deep px-2 py-1 text-xs"
                         >
-                          <span className="flex items-center gap-1 truncate text-cream-dim line-through">
+                          <span className="flex items-center gap-1 truncate text-ink-dim line-through">
                             {markLabel(f)}
                           </span>
                           <button
                             onClick={() => restoreStop(f.id)}
-                            className="shrink-0 font-semibold text-volt/70 hover:text-volt"
+                            className="shrink-0 font-semibold text-sky-deep/70 hover:text-sky-deep"
                             aria-label="add point back to route"
                           >
                             Add back
@@ -1076,31 +1076,31 @@ export default function PlannerPage() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-2 border-t border-white/10 pt-4">
+              <div className="flex flex-col gap-2 border-t border-paper-line pt-4">
                 <button
                   onClick={makeRoute}
                   disabled={fountains.length === 0 || busy !== null || !sizingReady}
-                  className="flex items-center justify-center gap-2 rounded-full bg-volt py-2.5 text-sm font-bold text-ink transition hover:bg-cream disabled:opacity-40 disabled:hover:bg-volt"
+                  className="flex items-center justify-center gap-2 rounded-full bg-ink py-2.5 text-sm font-bold text-paper transition hover:bg-ink-soft disabled:opacity-40 disabled:hover:bg-ink"
                 >
                   <PathIcon size={16} />
                   {busy === "route" ? "Planning…" : "Plan route"}
                 </button>
                 {fountains.length > 0 && !sizingReady && planHint && (
-                  <p className="text-center text-xs text-cream-dim">{planHint}</p>
+                  <p className="text-center text-xs text-ink-dim">{planHint}</p>
                 )}
               </div>
 
               {stops.length > 0 && (
-                <div className="rounded-2xl border border-volt/30 bg-volt/10 p-4 text-sm">
+                <div className="rounded-2xl border border-sky-deep/30 bg-sky/10 p-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="font-semibold text-cream">
+                    <span className="font-semibold text-ink">
                       {stops.length} stops
-                      <span className="ml-1 font-normal text-cream-dim">of {fountains.length}</span>
+                      <span className="ml-1 font-normal text-ink-dim">of {fountains.length}</span>
                     </span>
-                    <span className="font-semibold text-volt">{fmtDist(distanceM)}</span>
+                    <span className="font-semibold text-sky-deep">{fmtDist(distanceM)}</span>
                   </div>
                   {autoCount > 0 && (
-                    <p className="mt-1 text-xs text-cream-dim">
+                    <p className="mt-1 text-xs text-ink-dim">
                       +{autoCount} grabbed for a small detour off your route. Remove any you
                       don&apos;t want.
                     </p>
@@ -1109,15 +1109,15 @@ export default function PlannerPage() {
                     {stops.map((f, i) => (
                       <li
                         key={f.id}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-volt/10 px-2 py-1 text-xs"
+                        className="flex items-center justify-between gap-2 rounded-lg bg-sky/10 px-2 py-1 text-xs"
                       >
-                        <span className="flex min-w-0 items-center gap-1.5 truncate text-cream">
-                          <span className="shrink-0 font-semibold text-volt">{i + 1}.</span>
+                        <span className="flex min-w-0 items-center gap-1.5 truncate text-ink">
+                          <span className="shrink-0 font-semibold text-sky-deep">{i + 1}.</span>
                           <span className="truncate">{markLabel(f)}</span>
                         </span>
                         <button
                           onClick={() => removeStop(f.id)}
-                          className="shrink-0 text-cream-dim transition hover:text-red-300"
+                          className="shrink-0 text-ink-dim transition hover:text-red-300"
                           aria-label="remove stop from route"
                         >
                           <XIcon size={14} />
@@ -1129,7 +1129,7 @@ export default function PlannerPage() {
                     <button
                       onClick={reverseRoute}
                       disabled={busy !== null}
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-volt/40 py-2 text-sm font-semibold text-volt transition hover:bg-volt/10 disabled:opacity-40 disabled:hover:bg-transparent"
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-sky-deep/40 py-2 text-sm font-semibold text-sky-deep transition hover:bg-sky/10 disabled:opacity-40 disabled:hover:bg-transparent"
                     >
                       <ArrowsClockwiseIcon size={16} />
                       {busy === "reverse" ? "Reversing…" : "Reverse direction"}
@@ -1138,7 +1138,7 @@ export default function PlannerPage() {
                   <button
                     onClick={startRun}
                     disabled={busy !== null}
-                    className="mt-3 w-full rounded-full bg-volt py-2.5 font-bold text-ink transition hover:bg-cream disabled:opacity-40"
+                    className="mt-3 w-full rounded-full bg-ink py-2.5 font-bold text-paper transition hover:bg-ink-soft disabled:opacity-40"
                   >
                     Start run →
                   </button>
@@ -1148,12 +1148,12 @@ export default function PlannerPage() {
               {editCount > 0 && (
                 <div className="flex flex-col gap-2">
                   {/* Offline-first review: what reached OSM + retry missed sends. */}
-                  <SyncStatus tone="dark" />
+                  <SyncStatus tone="light" />
                   {outboxChangeset && (
                     <button
                       onClick={closeEdits}
                       disabled={closingEdits || outboxUnsent > 0}
-                      className="w-full rounded-full border border-white/15 py-1.5 text-xs font-semibold text-cream-dim transition hover:border-volt/60 hover:text-volt disabled:opacity-40"
+                      className="w-full rounded-full border border-paper-line py-1.5 text-xs font-semibold text-ink-dim transition hover:border-sky-deep/60 hover:text-sky-deep disabled:opacity-40"
                     >
                       {closingEdits ? "Closing changeset…" : "Close changeset"}
                     </button>
@@ -1183,9 +1183,9 @@ export default function PlannerPage() {
         <div className="phase-card z-[1000] flex justify-center p-4 md:absolute md:inset-y-0 md:right-0 md:left-auto md:items-center md:p-6">
           <section className="flex w-full max-w-sm flex-col gap-4 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto">
             {session.done ? (
-              <RunComplete session={session} tone="dark" onExit={exitRun} />
+              <RunComplete session={session} tone="light" onExit={exitRun} />
             ) : (
-              <RunGuide session={session} tone="dark" />
+              <RunGuide session={session} tone="light" />
             )}
           </section>
         </div>

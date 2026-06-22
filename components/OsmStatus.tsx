@@ -24,7 +24,7 @@ export default function OsmStatusBar() {
     <div className="flex items-center gap-3 text-sm">
       <a
         href="/api/osm/auth"
-        className="font-semibold underline decoration-volt decoration-2 underline-offset-4"
+        className="font-semibold underline decoration-sky-deep decoration-2 underline-offset-4"
       >
         Sign in to OSM
       </a>

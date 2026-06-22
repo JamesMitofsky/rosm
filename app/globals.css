@@ -8,6 +8,14 @@
   --color-cream: #f4f3ea;
   --color-cream-dim: #b9b8ac;
 
+  /* Warm-paper editorial palette (landing). */
+  --color-paper: #f1ebdd;
+  --color-paper-deep: #e7dfcc;
+  --color-paper-line: #d6cdb6;
+  --color-sky: #abdcec;
+  --color-sky-deep: #4fafd4;
+  --color-ink-dim: #57544a;
+
   --font-display: var(--font-display), system-ui, sans-serif;
   --font-body: var(--font-body), system-ui, sans-serif;
 
@@ -30,6 +38,13 @@ body {
   font: inherit;
 }
 
+/* Hide the hero map's zoom (+/-) buttons on mobile; pinch-zoom still works. */
+@media (max-width: 767px) {
+  .hero-map .leaflet-control-zoom {
+    display: none;
+  }
+}
+
 @keyframes marquee {
   from {
     transform: translateX(0);
@@ -47,4 +62,20 @@ body {
   pointer-events: none;
   opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/*
+ * Paper grain — speckled tooth over light/paper surfaces.
+ * Darker noise multiplied onto the page so it reads as paper fiber.
+ * Fixed so the texture stays still while content scrolls past it.
+ */
+.paper-grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
 }
