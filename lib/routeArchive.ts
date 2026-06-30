@@ -27,6 +27,7 @@ export type ArchivedRoute = {
     tagValue: string;
     stops: RunStop[]; // carries each node's recorded status
     vias: Pt[];
+    pool?: Fountain[]; // nearby non-target fountains shown dimmed during the run
     added: Fountain[]; // nodes created on the fly
     routeCoords: [number, number][];
     distanceM: number;

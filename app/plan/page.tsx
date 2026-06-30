@@ -656,6 +656,7 @@ export default function PlannerPage() {
       tagValue: tag.value,
       stops: runStops,
       vias,
+      pool: fountains,
       added: [],
       routeCoords: line.map(([lat, lon]) => [lon, lat] as [number, number]),
       distanceM,

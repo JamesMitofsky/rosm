@@ -123,7 +123,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     if (enabled) ensureNotifyPermission();
   }, [enabled]);
 
-  const { stops, index, loop, tagKey, tagValue, added } = run;
+  const { stops, index, loop, tagKey, tagValue, added, pool } = run;
   const addLabel = ptLabel(tagKey, tagValue);
   const target = stops[index];
   const done = run.hasPlan && index >= stops.length;
@@ -213,6 +213,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       tagValue,
       stops: useRun.getState().stops,
       vias: run.vias,
+      pool: run.pool,
       added: useRun.getState().added,
       routeCoords: run.routeCoords,
       distanceM: run.distanceM,
@@ -389,9 +390,29 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       color: "#16a34a",
       label: "+",
     }));
-    return [...stopMarkers, ...viaMarkers, ...addedMarkers];
+    // Every other nearby fountain — not a survey target — shown dimmed so the
+    // runner can tell an already-recorded point from one that needs adding.
+    const onRoute = new Set(stops.map((s) => s.id));
+    const dimMarkers: MapMarker[] = pool
+      .filter((f) => !onRoute.has(f.id))
+      .map((f) => ({
+        id: f.id,
+        lat: f.lat,
+        lon: f.lon,
+        color: "#9ca3af",
+        dimmed: true,
+        // Tap to record it in OSM on the fly, same as any route stop.
+        popup: createElement(PointPopup, {
+          fountain: f,
+          loggedIn: !!osm?.loggedIn,
+          busy: false,
+          onAction: (action: EditAction, comment?: string) =>
+            recordFor({ ...f, status: "pending" }, action, comment),
+        }),
+      }));
+    return [...dimMarkers, ...stopMarkers, ...viaMarkers, ...addedMarkers];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stops, index, run.vias, added, osm?.loggedIn]);
+  }, [stops, index, run.vias, added, pool, osm?.loggedIn]);
 
   const center: [number, number] = pos
     ? [pos.lat, pos.lon]

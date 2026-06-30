@@ -19,6 +19,7 @@ export type RunPlan = {
   tagValue: string; // pair with tagKey to tag newly-added nodes (e.g. drinking_water)
   stops: RunStop[];
   vias: Pt[]; // mandatory pass-through points (not survey targets)
+  pool: Fountain[]; // all nearby fountains, incl. ones off the route — shown dimmed
   added: Fountain[]; // new nodes created on the fly during the run
   routeCoords: [number, number][]; // [lon,lat] from BRouter
   distanceM: number;
@@ -31,7 +32,12 @@ type RunState = RunPlan & {
   hasPlan: boolean;
   setPlan: (p: RunPlan) => void;
   hydrate: (
-    p: RunPlan & { index?: number; changesetId?: number; routeId?: string },
+    p: Omit<RunPlan, "pool"> & {
+      pool?: Fountain[]; // optional: runs/archives persisted before pool existed
+      index?: number;
+      changesetId?: number;
+      routeId?: string;
+    },
   ) => void;
   setStatus: (id: number, status: StopStatus) => void;
   setIndex: (i: number) => void;
@@ -47,6 +53,7 @@ const empty: RunPlan = {
   tagValue: "drinking_water",
   stops: [],
   vias: [],
+  pool: [],
   added: [],
   routeCoords: [],
   distanceM: 0,
@@ -70,6 +77,7 @@ export const useRun = create<RunState>((set) => ({
       ...p,
       // Back-compat: runs persisted before these fields existed.
       tagValue: p.tagValue ?? empty.tagValue,
+      pool: p.pool ?? [],
       added: p.added ?? [],
       index: p.index ?? 0,
       changesetId: p.changesetId,

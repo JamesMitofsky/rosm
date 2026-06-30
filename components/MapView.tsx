@@ -11,6 +11,9 @@ export type MapMarker = {
   lon: number;
   color: string;
   label?: string;
+  // Render at reduced opacity — used for context-only points (e.g. nearby
+  // fountains shown during a run that aren't part of the surveyed route).
+  dimmed?: boolean;
   onClick?: () => void;
   // Rendered inside a Leaflet popup.
   popup?: ReactNode;
@@ -45,10 +48,10 @@ type Props = {
 };
 
 // Colored pin via divIcon — avoids Leaflet's broken default marker assets.
-function pin(color: string, label?: string) {
+function pin(color: string, label?: string, dimmed?: boolean) {
   return L.divIcon({
     className: "",
-    html: `<div style="background:${color};width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">
+    html: `<div style="opacity:${dimmed ? 0.4 : 1};background:${color};width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">
       <span style="transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700;line-height:1;">${label ?? ""}</span></div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 22],
@@ -99,7 +102,7 @@ function MarkerView({ m }: { m: MapMarker }) {
     <Marker
       ref={ref}
       position={[m.lat, m.lon]}
-      icon={pin(m.color, m.label)}
+      icon={pin(m.color, m.label, m.dimmed)}
       eventHandlers={{
         click: () => m.onClick?.(),
         contextmenu: () => {
