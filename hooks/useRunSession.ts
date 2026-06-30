@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRun, type RunStop, type StopStatus } from "@/store/run";
 import { useOutbox } from "@/store/outbox";
-import { bearing, compass, haversine, type Pt } from "@/lib/geo";
+import { bearing, compass, haversine, nearestCumDistOnPath, type Pt } from "@/lib/geo";
 import { ptLabel } from "@/lib/pointTypes";
 import type { MapMarker } from "@/components/MapView";
 import type { EditAction } from "@/lib/schemas";
@@ -132,6 +132,17 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const bearingTo = pos && target ? bearing(pos, target) : 0;
   const heading = target ? compass(bearingTo) : "";
 
+  // Next turn-by-turn maneuver: where we are along the route (meters traveled),
+  // then the first precomputed turn still ahead of us. Travel-relative — the HUD
+  // rotates an arrow by `angle` (0 = straight on), no compass needed.
+  const traveledM = pos && run.routeCoords.length > 1
+    ? nearestCumDistOnPath(run.routeCoords, pos)
+    : 0;
+  const nextTurn = pos
+    ? run.turns.find((tn) => tn.distM > traveledM + 5) ?? null
+    : null;
+  const distToTurn = nextTurn ? nextTurn.distM - traveledM : null;
+
   // Derived: armed manually ("I'm here") or auto within 30 m.
   const arrived = manualArrived || (distToTarget != null && distToTarget < 30);
 
@@ -217,6 +228,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       added: useRun.getState().added,
       routeCoords: run.routeCoords,
       distanceM: run.distanceM,
+      turns: run.turns,
       index: nextIndex,
       changesetId: changesetId ?? run.changesetId,
     };
@@ -450,6 +462,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     distToTarget,
     bearingTo,
     heading,
+    nextTurn,
+    distToTurn,
     arrived,
     addLabel,
     added,

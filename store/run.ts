@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Fountain } from "@/lib/schemas";
 import type { Pt } from "@/lib/geo";
+import type { Turn } from "@/lib/brouter";
 
 export type StopStatus =
   | "pending"
@@ -23,6 +24,7 @@ export type RunPlan = {
   added: Fountain[]; // new nodes created on the fly during the run
   routeCoords: [number, number][]; // [lon,lat] from BRouter
   distanceM: number;
+  turns: Turn[]; // precomputed maneuvers along the route, for the live HUD
 };
 
 type RunState = RunPlan & {
@@ -57,6 +59,7 @@ const empty: RunPlan = {
   added: [],
   routeCoords: [],
   distanceM: 0,
+  turns: [],
 };
 
 function newRouteId(): string {

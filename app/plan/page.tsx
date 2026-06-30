@@ -18,6 +18,7 @@ import {
 } from "@phosphor-icons/react";
 import { planRoute } from "@/lib/plan";
 import { fmtDist, milesToMeters, type Pt } from "@/lib/geo";
+import type { Turn } from "@/lib/brouter";
 import type { Fountain, EditAction, RecencyMode } from "@/lib/schemas";
 import { useRun, type RunStop, type StopStatus } from "@/store/run";
 import { useOutbox, outboxCounts } from "@/store/outbox";
@@ -52,6 +53,7 @@ type Draft = {
   stops: Fountain[];
   line: [number, number][];
   distanceM: number;
+  turns: Turn[];
   autoCount: number;
 };
 
@@ -129,6 +131,7 @@ export default function PlannerPage() {
   const [excludedIds, setExcludedIds] = useState<number[]>([]);
   const [line, setLine] = useState<[number, number][]>([]);
   const [distanceM, setDistanceM] = useState(0);
+  const [turns, setTurns] = useState<Turn[]>([]);
   // True once a route is built; gates the auto-replan effect so picks/removes
   // update the route live without re-running the whole planner by hand.
   const [hasRoute, setHasRoute] = useState(false);
@@ -261,6 +264,7 @@ export default function PlannerPage() {
       stops,
       line,
       distanceM,
+      turns,
       autoCount,
     };
     apiFetch("/api/draft", {
@@ -285,6 +289,7 @@ export default function PlannerPage() {
     stops,
     line,
     distanceM,
+    turns,
     autoCount,
   ]);
 
@@ -306,6 +311,7 @@ export default function PlannerPage() {
     setStops(d.stops);
     setLine(d.line);
     setDistanceM(d.distanceM);
+    setTurns(d.turns ?? []);
     setAutoCount(d.autoCount);
     setHasRoute(d.stops.length > 0);
     setResumable(null);
@@ -481,6 +487,7 @@ export default function PlannerPage() {
     setErrRetryable(false);
     setStops([]);
     setLine([]);
+    setTurns([]);
     setPinnedIds([]);
     setExcludedIds([]);
     setAutoCount(0);
@@ -567,6 +574,7 @@ export default function PlannerPage() {
         setStops([]);
         setLine([]);
         setDistanceM(0);
+        setTurns([]);
         setAutoCount(0);
         // Stay "live" (don't reset hasRoute) so adding a point back re-plans.
         return;
@@ -587,6 +595,7 @@ export default function PlannerPage() {
       setAutoCount(autoIds.length);
       setLine((j.coords as [number, number][]).map(([lon, lat]) => [lat, lon]));
       setDistanceM(j.distanceM);
+      setTurns((j.turns as Turn[]) ?? []);
       setHasRoute(true);
     } catch (e) {
       if (fresh()) setErr((e as Error).message);
@@ -639,6 +648,7 @@ export default function PlannerPage() {
       setStops(reversed);
       setLine((j.coords as [number, number][]).map(([lon, lat]) => [lat, lon]));
       setDistanceM(j.distanceM);
+      setTurns((j.turns as Turn[]) ?? []);
     } catch (e) {
       if (fresh()) setErr((e as Error).message);
     } finally {
@@ -660,6 +670,7 @@ export default function PlannerPage() {
       added: [],
       routeCoords: line.map(([lat, lon]) => [lon, lat] as [number, number]),
       distanceM,
+      turns,
     };
     setPlan(plan);
     await apiFetch("/api/run", {
@@ -679,6 +690,7 @@ export default function PlannerPage() {
     session.reset();
     setStops([]);
     setLine([]);
+    setTurns([]);
     setFountains([]);
     setHasRoute(false);
     setPinnedIds([]);
