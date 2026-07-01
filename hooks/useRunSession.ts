@@ -6,7 +6,7 @@ import { useOutbox } from "@/store/outbox";
 import { bearing, compass, haversine, nearestCumDistOnPath, type Pt } from "@/lib/geo";
 import { ptLabel } from "@/lib/pointTypes";
 import type { MapMarker } from "@/components/MapView";
-import type { EditAction } from "@/lib/schemas";
+import type { EditAction, EditExtras } from "@/lib/schemas";
 import { editSummary, todayLocal } from "@/lib/editSummary";
 import { useOsmStatus } from "@/components/OsmStatus";
 import PointPopup from "@/components/PointPopup";
@@ -254,14 +254,14 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   // outbox and celebrated immediately, then sent to OSM in the background. Editing
   // the current target advances the run; editing another point on the fly (tapped
   // on the map) leaves the position.
-  function recordFor(node: RunStop, action: EditAction, comment?: string) {
+  function recordFor(node: RunStop, action: EditAction, extras?: EditExtras) {
     const isCurrent = !!target && node.id === target.id;
     setErr(null);
-    useOutbox.getState().enqueue({ nodeId: node.id, action, tagKey, name: node.tags?.name, comment });
+    useOutbox.getState().enqueue({ nodeId: node.id, action, tagKey, name: node.tags?.name, extras });
     run.setStatus(node.id, action as StopStatus);
     celebratePoint();
     hapticSuccess();
-    setLastSaved({ nodeId: node.id, summary: editSummary(action, tagKey, todayLocal()) });
+    setLastSaved({ nodeId: node.id, summary: editSummary(action, tagKey, todayLocal(), extras) });
     if (isCurrent) {
       persist(index + 1);
       advance();
@@ -384,7 +384,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
         fountain: s,
         loggedIn: !!osm?.loggedIn,
         busy: false,
-        onAction: (action: EditAction, comment?: string) => recordFor(s, action, comment),
+        onAction: (action: EditAction, extras?: EditExtras) => recordFor(s, action, extras),
       }),
     }));
     const viaMarkers: MapMarker[] = run.vias.map((v, i) => ({
@@ -418,8 +418,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
           fountain: f,
           loggedIn: !!osm?.loggedIn,
           busy: false,
-          onAction: (action: EditAction, comment?: string) =>
-            recordFor({ ...f, status: "pending" }, action, comment),
+          onAction: (action: EditAction, extras?: EditExtras) =>
+            recordFor({ ...f, status: "pending" }, action, extras),
         }),
       }));
     return [...dimMarkers, ...stopMarkers, ...viaMarkers, ...addedMarkers];

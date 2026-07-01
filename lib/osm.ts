@@ -1,7 +1,7 @@
 // OSM OAuth2 (PKCE) + edit operations: changesets and node tag updates.
 // Read endpoints use .json; writes use XML per OSM API 0.6.
 import crypto from "crypto";
-import type { EditAction } from "./schemas";
+import type { EditAction, EditExtras } from "./schemas";
 
 export const OAUTH_BASE =
   process.env.OSM_OAUTH_BASE || "https://www.openstreetmap.org";
@@ -188,6 +188,7 @@ export function applyAction(
   action: EditAction,
   tagKey: string,
   today: string,
+  extras?: EditExtras,
 ): Record<string, string> {
   const next = { ...tags };
   const lifecycle = (prefix: string) => {
@@ -224,6 +225,13 @@ export function applyAction(
       lifecycle("abandoned");
       next.check_date = today;
       break;
+  }
+  // Advanced OSM facts, merged on top of the action. A public note applies to any
+  // action; seasonal only makes sense where the source still exists (confirm /
+  // dog_only) — setting it on a disused/abandoned node would contradict itself.
+  if (extras?.note) next.note = extras.note;
+  if (extras?.seasonal && (action === "confirm" || action === "dog_only")) {
+    next.seasonal = "yes";
   }
   return next;
 }

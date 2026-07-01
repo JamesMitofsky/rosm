@@ -1,4 +1,4 @@
-import type { EditAction } from "./schemas";
+import type { EditAction, EditExtras } from "./schemas";
 
 // Local YYYY-MM-DD. Safe in the browser (no node deps), mirrors lib/osm todayIso
 // so the optimistic client summary matches what the server will write.
@@ -8,15 +8,31 @@ export function todayLocal(): string {
 
 // Human-readable summary of an edit. Shared by the server edit route (real write)
 // and the client outbox (optimistic, shown before the write reaches OSM).
-export function editSummary(action: EditAction, tagKey: string, today: string): string {
+export function editSummary(
+  action: EditAction,
+  tagKey: string,
+  today: string,
+  extras?: EditExtras,
+): string {
+  let base: string;
   switch (action) {
     case "confirm":
-      return `confirmed · check_date=${today}`;
+      base = `confirmed · check_date=${today}`;
+      break;
     case "dog_only":
-      return `dog water · not human-potable · dog=yes · check_date=${today}`;
+      base = `dog water · not human-potable · dog=yes · check_date=${today}`;
+      break;
     case "out_of_order":
-      return `${tagKey} → disused:${tagKey} · check_date=${today}`;
+      base = `${tagKey} → disused:${tagKey} · check_date=${today}`;
+      break;
     case "removed":
-      return `${tagKey} → abandoned:${tagKey} · check_date=${today}`;
+      base = `${tagKey} → abandoned:${tagKey} · check_date=${today}`;
+      break;
   }
+  // Mirror applyAction's gating so the optimistic summary matches the OSM write.
+  if (extras?.seasonal && (action === "confirm" || action === "dog_only")) {
+    base += " · seasonal=yes";
+  }
+  if (extras?.note) base += " · note added";
+  return base;
 }

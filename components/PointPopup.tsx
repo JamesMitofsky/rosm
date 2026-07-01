@@ -8,9 +8,12 @@ import {
   PlusCircleIcon,
   MinusCircleIcon,
   DogIcon,
+  CaretDownIcon,
+  CaretRightIcon,
+  SnowflakeIcon,
 } from "@phosphor-icons/react";
 import { useMap } from "react-leaflet";
-import type { Fountain, EditAction } from "@/lib/schemas";
+import type { Fountain, EditAction, EditExtras } from "@/lib/schemas";
 import type { StopStatus } from "@/store/run";
 import OsmSignInLink from "@/components/OsmSignInLink";
 import type { SyncState } from "@/store/outbox";
@@ -23,7 +26,7 @@ export type PointEdit = {
   summary: string;
   syncState: SyncState;
   changesetUrl?: string;
-  comment?: string;
+  extras?: EditExtras;
 };
 
 const STATUS_LABEL: Partial<Record<StopStatus, string>> = {
@@ -44,7 +47,7 @@ type Props = {
   loggedIn: boolean;
   edit?: PointEdit;
   busy: boolean;
-  onAction: (action: EditAction, comment?: string) => void;
+  onAction: (action: EditAction, extras?: EditExtras) => void;
   // Route-membership toggle (planner only). Omit on the run page, where points
   // are fixed and only OSM updates apply.
   inRoute?: boolean;
@@ -65,8 +68,19 @@ export default function PointPopup({
 }: Props) {
   const map = useMap();
   const name = fountain.tags.name ?? `node ${fountain.id}`;
-  const [comment, setComment] = useState("");
-  const note = comment.trim() || undefined;
+  // Advanced OSM params, prefilled from the node's current tags so the surveyor
+  // sees and can edit what's already there.
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [seasonal, setSeasonal] = useState(fountain.tags.seasonal === "yes");
+  const [osmNote, setOsmNote] = useState(fountain.tags.note ?? "");
+
+  function buildExtras(): EditExtras | undefined {
+    const note = osmNote.trim();
+    const extras: EditExtras = {};
+    if (seasonal) extras.seasonal = true;
+    if (note) extras.note = note;
+    return Object.keys(extras).length ? extras : undefined;
+  }
 
   return (
     <div className="flex w-56 flex-col gap-2 text-neutral-800">
@@ -88,7 +102,12 @@ export default function PointPopup({
         <div className="flex flex-col gap-1 rounded bg-neutral-50 p-2 text-xs text-neutral-700">
           <div className="font-medium text-neutral-800">{STATUS_LABEL[edit.status] ?? "Updated"}</div>
           <div>{edit.summary}</div>
-          {edit.comment && <div className="italic text-neutral-600">“{edit.comment}”</div>}
+          {edit.extras?.seasonal && (
+            <div className="flex items-center gap-1 text-sky-700">
+              <SnowflakeIcon size={14} /> Seasonal
+            </div>
+          )}
+          {edit.extras?.note && <div className="italic text-neutral-600">“{edit.extras.note}”</div>}
           <SyncBadge state={edit.syncState} />
           {edit.changesetUrl && (
             <a
@@ -134,41 +153,66 @@ export default function PointPopup({
               </OsmSignInLink>
             ) : (
               <div className="flex flex-col gap-1.5">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Comment (optional)"
-                  rows={2}
-                  className="resize-none rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-blue-500 focus:outline-none"
-                />
                 <button
                   disabled={busy}
-                  onClick={() => onAction("confirm", note)}
+                  onClick={() => onAction("confirm", buildExtras())}
                   className="flex items-center justify-center gap-1.5 rounded bg-green-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
                   <CheckCircleIcon size={16} /> Working — confirm
                 </button>
                 <button
                   disabled={busy}
-                  onClick={() => onAction("dog_only", note)}
+                  onClick={() => onAction("dog_only", buildExtras())}
                   className="flex items-center justify-center gap-1.5 rounded bg-violet-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
                   <DogIcon size={16} /> Dog water — not for humans
                 </button>
                 <button
                   disabled={busy}
-                  onClick={() => onAction("out_of_order", note)}
+                  onClick={() => onAction("out_of_order", buildExtras())}
                   className="flex items-center justify-center gap-1.5 rounded bg-amber-500 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
                   <WarningIcon size={16} /> Out of order
                 </button>
                 <button
                   disabled={busy}
-                  onClick={() => onAction("removed", note)}
+                  onClick={() => onAction("removed", buildExtras())}
                   className="flex items-center justify-center gap-1.5 rounded bg-red-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
                   <TrashIcon size={16} /> Removed
                 </button>
+
+                <div className="border-t border-neutral-200 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedOpen((o) => !o)}
+                    className="flex w-full items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-700"
+                  >
+                    {advancedOpen ? <CaretDownIcon size={12} /> : <CaretRightIcon size={12} />}
+                    Advanced
+                  </button>
+                  {advancedOpen && (
+                    <div className="mt-1.5 flex flex-col gap-1.5">
+                      <label className="flex items-start gap-1.5 text-xs text-neutral-700">
+                        <input
+                          type="checkbox"
+                          checked={seasonal}
+                          onChange={(e) => setSeasonal(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>Seasonal — runs only part of the year</span>
+                      </label>
+                      <textarea
+                        value={osmNote}
+                        onChange={(e) => setOsmNote(e.target.value)}
+                        placeholder="Public note — added to OSM"
+                        rows={2}
+                        maxLength={255}
+                        className="resize-none rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
