@@ -143,7 +143,6 @@ export default function LandingPage() {
             className="mt-14 flex items-center justify-between gap-4 px-1 pb-2"
           >
             <Label>Washington DC</Label>
-            <Label>11 fountains</Label>
           </motion.div>
 
           {/* Sky panel — an interactive demo run on a real sample route,
