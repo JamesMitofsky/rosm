@@ -9,7 +9,6 @@ import {
   CrosshairIcon,
   DropIcon,
   DogIcon,
-  MapPinIcon,
   SpinnerIcon,
   WrenchIcon,
 } from "@phosphor-icons/react";
@@ -249,49 +248,6 @@ function PanelHead({
   );
 }
 
-// Scrollable list of the currently-visible fountains.
-function PanelList({ visible, total }: { visible: Ranked[]; total: number }) {
-  if (visible.length === 0) {
-    return (
-      <p className="text-sm text-ink-dim">
-        {total === 0
-          ? `No public fountains mapped within ${RADIUS_MI} mile.`
-          : "No fountains match the current filters."}
-      </p>
-    );
-  }
-  return (
-    <ul className="flex flex-col gap-1.5">
-      {visible.map(({ f, distM, svc, water }) => {
-        const out = svc === "out";
-        const dog = water === "dog";
-        return (
-          <li
-            key={f.id}
-            className={`flex items-center justify-between gap-2 rounded-lg bg-paper-deep px-3 py-2 text-sm ${
-              out ? "opacity-60" : ""
-            }`}
-          >
-            <span className="flex min-w-0 items-center gap-1.5">
-              <MapPinIcon
-                size={15}
-                weight="fill"
-                className={out ? "text-neutral-400" : dog ? "text-violet-600" : "text-sky-deep"}
-              />
-              <span className="truncate">{fountainName(f)}</span>
-              {dog && <DogIcon size={14} className="shrink-0 text-violet-600" />}
-              {out && <WrenchIcon size={13} className="shrink-0 text-neutral-500" />}
-            </span>
-            {distM != null && (
-              <span className="shrink-0 text-xs text-ink-dim">{fmtDist(distM)}</span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 // Mobile-only draggable bottom sheet with two snap points (peek / full). The
 // `head` region stays visible when peeked; `body` scrolls when expanded. Only the
 // grab handle initiates a drag, so tapping controls / scrolling the list is free.
@@ -479,7 +435,6 @@ export default function PublicFountainsPage() {
   );
 
   const viewCenter: [number, number] = pos ? [pos.lat, pos.lon] : DEFAULT_CENTER;
-  const total = counts.inN + counts.outN;
 
   const head = (
     <PanelHead
@@ -494,7 +449,7 @@ export default function PublicFountainsPage() {
       onLocate={locateAndLoad}
     />
   );
-  const body = !busy && !err ? <PanelList visible={visible} total={total} /> : null;
+  const body = null;
 
   return (
     <main className="relative h-dvh w-screen overflow-hidden bg-paper font-body text-ink">
