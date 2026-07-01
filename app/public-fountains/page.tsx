@@ -10,6 +10,7 @@ import {
   DropIcon,
   DogIcon,
   MapPinIcon,
+  SpinnerIcon,
   WrenchIcon,
 } from "@phosphor-icons/react";
 import type { Fountain } from "@/lib/schemas";
@@ -220,7 +221,11 @@ function PanelHead({
 
       <FilterPills svc={svc} setSvc={setSvc} water={water} setWater={setWater} counts={counts} />
 
-      {busy && <p className="text-sm text-ink-dim">Finding fountains around you…</p>}
+      {busy && (
+        <div className="flex justify-center py-2 text-ink-dim">
+          <SpinnerIcon size={24} className="animate-spin" />
+        </div>
+      )}
 
       {err && (
         <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-700">
