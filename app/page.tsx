@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import NativeEntryRedirect from "@/components/NativeEntryRedirect";
-import { ArrowRightIcon, MapTrifoldIcon, GlobeHemisphereWestIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, MapTrifoldIcon, GlobeHemisphereWestIcon, HeartIcon } from "@phosphor-icons/react";
 
 const DemoRunMap = dynamic(() => import("@/components/DemoRunMap"), { ssr: false });
 
@@ -245,9 +245,14 @@ export default function LandingPage() {
       <footer className="border-paper-line border-t">
         <div className="text-ink-dim mx-auto flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm">
           <span>
-            Made with <span className="text-sky-deep">♥</span> by{" "}
+            Made with{" "}
+            <HeartIcon
+              weight="fill"
+              className="text-sky-deep inline-block align-middle"
+            />{" "}
+            by{" "}
             <a
-              href="https://btv.dev/about"
+              href="https://jamesm.it"
               target="_blank"
               rel="noopener noreferrer"
               className="text-ink decoration-sky-deep/50 hover:decoration-sky-deep font-medium underline underline-offset-4"
