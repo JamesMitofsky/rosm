@@ -4,7 +4,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import NativeEntryRedirect from "@/components/NativeEntryRedirect";
-import { ArrowRightIcon, MapTrifoldIcon, GlobeHemisphereWestIcon, HeartIcon } from "@phosphor-icons/react";
+import SiteNav from "@/components/SiteNav";
+import { ArrowRightIcon, GlobeHemisphereWestIcon, HeartIcon } from "@phosphor-icons/react";
 
 const DemoRunMap = dynamic(() => import("@/components/DemoRunMap"), { ssr: false });
 
@@ -72,44 +73,7 @@ export default function LandingPage() {
   return (
     <main className="paper-grain bg-paper font-body text-ink relative">
       <NativeEntryRedirect />
-      {/* NAV */}
-      <header className="border-paper-line bg-paper/85 sticky top-0 z-50 border-b pt-[env(safe-area-inset-top)] backdrop-blur-md">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <Link href="/" className="flex items-center gap-5">
-            <span className="flex items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/icon.svg" alt="" className="h-7 w-7" />
-              <span className="font-display hidden text-lg font-bold tracking-tight sm:inline">
-                ROSM
-              </span>
-            </span>
-            <span className="text-ink-dim hidden font-mono text-[0.65rem] tracking-[0.22em] uppercase sm:inline">
-              Running for Open-Sourced Maps
-            </span>
-          </Link>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <Link
-              href="/public-fountains"
-              className="group border-ink text-ink hover:bg-ink hover:text-paper inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-bold whitespace-nowrap transition sm:px-5"
-            >
-              <MapTrifoldIcon size={16} weight="bold" />
-              <span className="hidden sm:inline">Fountains near you</span>
-              <span className="sm:hidden">Fountains</span>
-            </Link>
-            <Link
-              href="/plan"
-              className="group border-ink bg-ink text-paper hover:text-ink inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-bold whitespace-nowrap transition hover:bg-transparent sm:px-5"
-            >
-              Plan a route
-              <ArrowRightIcon
-                size={16}
-                weight="bold"
-                className="hidden transition-transform group-hover:translate-x-1 sm:inline"
-              />
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <SiteNav />
 
       {/* HERO */}
       <section className="relative overflow-hidden">
@@ -246,11 +210,7 @@ export default function LandingPage() {
         <div className="text-ink-dim mx-auto flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm">
           <span>
             Made with{" "}
-            <HeartIcon
-              weight="fill"
-              className="text-sky-deep inline-block align-middle"
-            />{" "}
-            by{" "}
+            <HeartIcon weight="fill" className="text-sky-deep inline-block align-middle" /> by{" "}
             <a
               href="https://jamesm.it/about"
               target="_blank"

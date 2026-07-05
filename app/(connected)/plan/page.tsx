@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -92,6 +93,10 @@ const STEPS = [
 let planRequestSeq = 0;
 let recenterSeq = 0;
 
+// The device class can't change mid-session, so the mobile check never
+// re-notifies — subscribe is a stable no-op (required by useSyncExternalStore).
+const subscribeNever = () => () => {};
+
 export default function PlannerPage() {
   const router = useRouter();
   const setPlan = useRun((s) => s.setPlan);
@@ -104,14 +109,14 @@ export default function PlannerPage() {
   const [step, setStep] = useState(0);
 
   // Route planning + the live run rely on the phone's GPS and compass, so the
-  // planner is gated to mobile. null = not yet determined (avoids an SSR flash
-  // of the wrong screen before the client can check the device).
-  const [isMobileDevice, setIsMobileDevice] = useState<boolean | null>(null);
-  useEffect(() => {
-    setIsMobileDevice(
+  // planner is gated to mobile. null = not yet determined (the server snapshot,
+  // so SSR never flashes the wrong screen before the client checks the device).
+  const isMobileDevice = useSyncExternalStore<boolean | null>(
+    subscribeNever,
+    () =>
       isNative() || (window.matchMedia("(pointer: coarse)").matches && "ontouchstart" in window),
-    );
-  }, []);
+    () => null,
+  );
 
   // The live run, fed from the shared hook. Armed only once we reach the run
   // phase so the location prompt doesn't fire while building a route.
@@ -810,12 +815,12 @@ export default function PlannerPage() {
           <p className="text-ink-dim">
             Routes have to be planned on your phone since that&apos;s how you navigate around!
           </p>
-          <a
+          <Link
             href="/"
             className="border-ink text-ink hover:bg-ink hover:text-paper rounded-full border px-5 py-2 text-sm font-bold transition"
           >
             Back home
-          </a>
+          </Link>
         </div>
       </main>
     );
