@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -108,6 +109,9 @@ export default function PlannerPage() {
   // of the wrong screen before the client can check the device).
   const [isMobileDevice, setIsMobileDevice] = useState<boolean | null>(null);
   useEffect(() => {
+    // One-shot capability check on browser-only globals. Deliberately set in
+    // the effect (not lazy init) so the server and first client render agree.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobileDevice(
       isNative() || (window.matchMedia("(pointer: coarse)").matches && "ontouchstart" in window),
     );
@@ -810,12 +814,12 @@ export default function PlannerPage() {
           <p className="text-ink-dim">
             Routes have to be planned on your phone since that&apos;s how you navigate around!
           </p>
-          <a
+          <Link
             href="/"
             className="border-ink text-ink hover:bg-ink hover:text-paper rounded-full border px-5 py-2 text-sm font-bold transition"
           >
             Back home
-          </a>
+          </Link>
         </div>
       </main>
     );

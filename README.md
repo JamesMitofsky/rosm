@@ -80,7 +80,7 @@ be gentle. No keys required except your OSM OAuth client ID.
 
 ### Naming/branding
 
-~~Crowd~~-sourced maps &nbsp;<sub>*(runner)* ✎</sub>
+~~Crowd~~-sourced maps &nbsp;<sub>_(runner)_ ✎</sub>
 
 Free word association:
 

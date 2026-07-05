@@ -4,7 +4,12 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import NativeEntryRedirect from "@/components/NativeEntryRedirect";
-import { ArrowRightIcon, MapTrifoldIcon, GlobeHemisphereWestIcon, HeartIcon } from "@phosphor-icons/react";
+import {
+  ArrowRightIcon,
+  MapTrifoldIcon,
+  GlobeHemisphereWestIcon,
+  HeartIcon,
+} from "@phosphor-icons/react";
 
 const DemoRunMap = dynamic(() => import("@/components/DemoRunMap"), { ssr: false });
 
@@ -246,11 +251,7 @@ export default function LandingPage() {
         <div className="text-ink-dim mx-auto flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm">
           <span>
             Made with{" "}
-            <HeartIcon
-              weight="fill"
-              className="text-sky-deep inline-block align-middle"
-            />{" "}
-            by{" "}
+            <HeartIcon weight="fill" className="text-sky-deep inline-block align-middle" /> by{" "}
             <a
               href="https://jamesm.it/about"
               target="_blank"

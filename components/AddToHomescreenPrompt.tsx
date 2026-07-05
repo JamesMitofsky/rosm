@@ -27,6 +27,9 @@ export default function AddToHomescreenPrompt() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    // One-shot capability check on browser-only globals. Deliberately set in
+    // the effect (not lazy init) so the server and first client render agree.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (shouldPrompt()) setShow(true);
   }, []);
 
