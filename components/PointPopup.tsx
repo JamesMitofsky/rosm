@@ -67,7 +67,7 @@ export default function PointPopup({
   onToggleRoute,
 }: Props) {
   const map = useMap();
-  const name = fountain.tags.name ?? `node ${fountain.id}`;
+  const name = fountain.tags.name ?? "Unnamed fountain";
   // Advanced OSM params, prefilled from the node's current tags so the surveyor
   // sees and can edit what's already there.
   const [advancedOpen, setAdvancedOpen] = useState(false);

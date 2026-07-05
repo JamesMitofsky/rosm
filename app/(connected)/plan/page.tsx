@@ -467,7 +467,7 @@ export default function PlannerPage() {
   const outboxUnsent = outboxCounts(outboxItems).unsent;
 
   function markLabel(f: Fountain) {
-    return f.tags.name ?? `mark #${f.id}`;
+    return f.tags.name ?? "Unnamed fountain";
   }
 
   function geolocate() {

@@ -141,7 +141,7 @@ function FailedRow({ item, sub }: { item: OutboxItem; sub: string }) {
     <li className="flex items-start gap-2 py-1.5 text-xs">
       <WarningCircleIcon size={14} className="mt-0.5 shrink-0 text-red-500" />
       <span className="flex-1">
-        <span className="font-medium">{item.name ?? `node ${item.nodeId}`}</span>
+        <span className="font-medium">{item.name ?? "Unnamed fountain"}</span>
         <span className={sub}> · {item.summary}</span>
         {item.error && <span className="block text-red-500">{item.error}</span>}
       </span>

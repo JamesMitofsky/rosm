@@ -76,7 +76,7 @@ function recencyOf(tags: Record<string, string>, cutoffMs: number): Recency {
 }
 
 function fountainName(f: Fountain): string {
-  return f.tags.name ?? `Fountain #${f.id}`;
+  return f.tags.name ?? "Unnamed fountain";
 }
 
 // Read-only popup: name, last-checked date, status flags, OSM link. No edit

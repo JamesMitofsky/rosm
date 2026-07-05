@@ -227,7 +227,7 @@ export default function EditMapPage() {
             edit={edit}
             busy={false}
             onAction={(action, extras) =>
-              updatePoint(f.id, action, f.tags.name ?? `mark #${f.id}`, extras)
+              updatePoint(f.id, action, f.tags.name ?? "Unnamed fountain", extras)
             }
           />
         ),

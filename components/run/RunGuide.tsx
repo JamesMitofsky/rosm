@@ -282,7 +282,7 @@ export default function RunGuide({
         <div className={`flex items-center gap-2 rounded p-2 text-sm ${t.saved}`}>
           <CheckCircleIcon size={18} className="shrink-0" />
           <span className="flex-1 text-left">
-            Saved · node {lastSaved.nodeId} · {lastSaved.summary}
+            Saved · {lastSaved.summary}
           </span>
         </div>
       )}
