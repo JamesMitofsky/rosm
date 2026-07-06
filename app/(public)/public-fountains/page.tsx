@@ -15,6 +15,8 @@ import {
 import type { Fountain } from "@/lib/schemas";
 import type { MapMarker } from "@/components/MapView";
 import BottomSheet from "@/components/BottomSheet";
+import Pill from "@/components/ui/Pill";
+import ErrorNotice from "@/components/ui/ErrorNotice";
 import PointPopup from "@/components/PointPopup";
 import EditSyncPanel from "@/components/EditSyncPanel";
 import OsmSignInLink from "@/components/OsmSignInLink";
@@ -116,31 +118,6 @@ function FountainPopup({ f, distM }: { f: Fountain; distM: number | null }) {
         View on OpenStreetMap
       </a>
     </div>
-  );
-}
-
-// One filter pill: label + low-emphasis match count, active/inactive states.
-function Pill({
-  active,
-  count,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  count: number;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-        active ? "bg-sky-deep text-ink" : "bg-paper/40 text-ink-dim hover:text-ink"
-      }`}
-    >
-      {children}
-      <span className={`font-normal ${active ? "text-ink/55" : "text-ink-dim/55"}`}>{count}</span>
-    </button>
   );
 }
 
@@ -367,18 +344,7 @@ function PanelHead({
         counts={counts}
       />
 
-      {err && (
-        <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-700">
-          <span>{err}</span>
-          <button
-            onClick={onSearch}
-            disabled={busy}
-            className="self-start rounded-md border border-red-500/40 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
-          >
-            Try again
-          </button>
-        </div>
-      )}
+      {err && <ErrorNotice message={err} tone="light" onRetry={onSearch} retrying={busy} />}
 
       {searched && !busy && !err && (
         <span className="bg-sky/15 text-sky-deep w-fit rounded-full px-2 py-0.5 text-xs font-semibold">

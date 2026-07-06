@@ -27,6 +27,9 @@ import type { MapMarker } from "@/components/MapView";
 import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";
 import PointPopup from "@/components/PointPopup";
 import EditSyncPanel from "@/components/EditSyncPanel";
+import Button from "@/components/ui/Button";
+import ErrorNotice from "@/components/ui/ErrorNotice";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 import RunGuide from "@/components/run/RunGuide";
 import RunComplete from "@/components/run/RunComplete";
 import CompassEnableModal from "@/components/run/CompassEnableModal";
@@ -65,6 +68,12 @@ const RECENCY_MODES: { key: RecencyMode; label: string }[] = [
   { key: "fresh", label: "Checked within" },
   { key: "any", label: "Any time" },
 ];
+
+// Route sizing modes, shown as a segmented control on the map phase.
+const SIZE_MODES = [
+  { key: "distance", label: "Target distance" },
+  { key: "points", label: "By waypoints" },
+] as const;
 
 // The guided config steps, answered one at a time before the map takes over.
 const STEPS = [
@@ -829,18 +838,12 @@ export default function PlannerPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={resumeDraft}
-              className="bg-ink text-paper hover:bg-ink-soft flex-1 rounded-full py-2 text-sm font-bold transition"
-            >
+            <Button onClick={resumeDraft} size="sm" className="flex-1">
               Resume
-            </button>
-            <button
-              onClick={dismissDraft}
-              className="border-paper-line text-ink-dim hover:text-ink rounded-full border px-4 py-2 text-sm font-semibold transition"
-            >
+            </Button>
+            <Button onClick={dismissDraft} variant="outline" size="sm">
               Start fresh
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -916,17 +919,11 @@ export default function PlannerPage() {
                       surveyed (OSM check_date). Defaults to points not checked in
                       the last 6 months: the ones worth verifying on the ground. */}
                   <div className="flex flex-col gap-2">
-                    <div className="border-paper-line flex overflow-hidden rounded-lg border text-xs">
-                      {RECENCY_MODES.map((m) => (
-                        <button
-                          key={m.key}
-                          onClick={() => setRecencyMode(m.key)}
-                          className={`flex-1 py-1.5 transition ${recencyMode === m.key ? "bg-sky-deep text-ink font-semibold" : "bg-paper/40 text-ink-dim hover:text-ink"}`}
-                        >
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
+                    <SegmentedControl
+                      options={RECENCY_MODES}
+                      value={recencyMode}
+                      onChange={setRecencyMode}
+                    />
                     {recencyMode !== "any" && (
                       <label className="flex items-center gap-2 text-sm">
                         <input
@@ -955,19 +952,11 @@ export default function PlannerPage() {
             </div>
 
             {err && (
-              <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">
-                <span>{err}</span>
-                {errRetryable && (
-                  <button
-                    type="button"
-                    onClick={findPoints}
-                    disabled={busy === "find"}
-                    className="self-start rounded-md border border-red-500/40 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-50"
-                  >
-                    {busy === "find" ? "Trying…" : "Try again"}
-                  </button>
-                )}
-              </div>
+              <ErrorNotice
+                message={err}
+                onRetry={errRetryable ? findPoints : undefined}
+                retrying={busy === "find"}
+              />
             )}
 
             {/* Wizard nav */}
@@ -981,23 +970,23 @@ export default function PlannerPage() {
                 Back
               </button>
               {step < STEPS.length - 1 ? (
-                <button
+                <Button
                   onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
                   disabled={!canAdvance}
-                  className="bg-ink text-paper hover:bg-ink-soft disabled:hover:bg-ink ml-auto flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-bold transition disabled:opacity-40"
+                  className="ml-auto flex items-center gap-1.5"
                 >
                   Next
                   <ArrowRightIcon size={16} />
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button
                   onClick={finishConfig}
                   disabled={!center || busy !== null}
-                  className="bg-ink text-paper hover:bg-ink-soft disabled:hover:bg-ink ml-auto flex w-40 items-center justify-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-bold disabled:opacity-40"
+                  className="ml-auto flex w-40 items-center justify-center gap-1.5"
                 >
                   <MapPinIcon size={16} />
                   {busy === "find" ? "Finding…" : "Find points"}
-                </button>
+                </Button>
               )}
             </div>
           </section>
@@ -1037,20 +1026,12 @@ export default function PlannerPage() {
                     transition={{ duration: 0.25 }}
                     className="flex flex-col gap-2 overflow-hidden"
                   >
-                    <div className="border-paper-line flex overflow-hidden rounded-lg border text-sm">
-                      <button
-                        onClick={() => setSizeMode("distance")}
-                        className={`flex-1 py-1.5 transition ${sizeMode === "distance" ? "bg-sky-deep text-ink font-semibold" : "bg-paper/40 text-ink-dim hover:text-ink"}`}
-                      >
-                        Target distance
-                      </button>
-                      <button
-                        onClick={() => setSizeMode("points")}
-                        className={`flex-1 py-1.5 transition ${sizeMode === "points" ? "bg-sky-deep text-ink font-semibold" : "bg-paper/40 text-ink-dim hover:text-ink"}`}
-                      >
-                        By waypoints
-                      </button>
-                    </div>
+                    <SegmentedControl
+                      options={SIZE_MODES}
+                      value={sizeMode}
+                      onChange={setSizeMode}
+                      textSize="sm"
+                    />
                     {sizeMode === "distance" && (
                       <label className="flex flex-col gap-1 text-sm">
                         Target run (mi)
@@ -1128,14 +1109,14 @@ export default function PlannerPage() {
                     transition={{ duration: 0.25 }}
                     className="border-paper-line flex flex-col gap-2 overflow-hidden border-t pt-4"
                   >
-                    <button
+                    <Button
                       onClick={makeRoute}
                       disabled={fountains.length === 0 || busy !== null || !sizingReady}
-                      className="bg-ink text-paper hover:bg-ink-soft disabled:hover:bg-ink flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold transition disabled:opacity-40"
+                      className="flex items-center justify-center gap-2"
                     >
                       <PathIcon size={16} />
                       {busy === "route" ? "Planning…" : "Plan route"}
-                    </button>
+                    </Button>
                     {fountains.length > 0 && !sizingReady && planHint && (
                       <p className="text-ink-dim text-center text-xs">{planHint}</p>
                     )}
@@ -1160,14 +1141,15 @@ export default function PlannerPage() {
                   )}
                   <div className="mt-3 flex gap-2">
                     {stops.length > 1 && (
-                      <button
+                      <Button
                         onClick={reverseRoute}
                         disabled={busy !== null}
-                        className="border-sky-deep/40 text-sky-deep hover:bg-sky/10 flex flex-1 items-center justify-center gap-2 rounded-full border py-2.5 text-sm font-semibold transition disabled:opacity-40 disabled:hover:bg-transparent"
+                        variant="accent"
+                        className="flex flex-1 items-center justify-center gap-2"
                       >
                         <ArrowsLeftRightIcon size={16} />
                         {busy === "reverse" ? "Reversing…" : "Direction"}
-                      </button>
+                      </Button>
                     )}
                     <button
                       onClick={startRun}
@@ -1183,8 +1165,11 @@ export default function PlannerPage() {
               <EditSyncPanel osmEdits={osmEdits} />
 
               {err && (
-                <div className="flex flex-col gap-1 rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">
-                  <span>{err}</span>
+                <ErrorNotice
+                  message={err}
+                  onRetry={errRetryable ? findPoints : undefined}
+                  retrying={busy === "find"}
+                >
                   {islandPt && (
                     <span className="text-xs text-red-300/80">
                       It&apos;s marked <span className="font-bold">!</span> in red on the map.
@@ -1192,17 +1177,7 @@ export default function PlannerPage() {
                       its own.
                     </span>
                   )}
-                  {errRetryable && (
-                    <button
-                      type="button"
-                      onClick={findPoints}
-                      disabled={busy === "find"}
-                      className="self-start rounded-md border border-red-500/40 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-50"
-                    >
-                      {busy === "find" ? "Trying…" : "Try again"}
-                    </button>
-                  )}
-                </div>
+                </ErrorNotice>
               )}
             </section>
           </div>
