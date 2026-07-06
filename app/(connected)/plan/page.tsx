@@ -24,6 +24,7 @@ import type { Turn } from "@/lib/brouter";
 import type { Fountain, RecencyMode } from "@/lib/schemas";
 import { useRun, type RunStop } from "@/store/run";
 import type { MapMarker } from "@/components/MapView";
+import AccountChip from "@/components/AccountChip";
 import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";
 import PointPopup from "@/components/PointPopup";
 import EditSyncPanel from "@/components/EditSyncPanel";
@@ -820,9 +821,12 @@ export default function PlannerPage() {
       {/* Top bar: OSM status, floating over the map. Hidden during a run so the
           map is the topmost element on the route — nothing overlaps its top edge. */}
       {phase !== "run" && (
-        <header className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex flex-wrap items-center justify-start gap-3 p-4 md:p-5">
+        <header className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex flex-wrap items-center justify-between gap-3 p-4 md:p-5">
           <div className="pointer-events-auto">
             <OsmStatusBar />
+          </div>
+          <div className="pointer-events-auto ml-auto">
+            <AccountChip />
           </div>
         </header>
       )}

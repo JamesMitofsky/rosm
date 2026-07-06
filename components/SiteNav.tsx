@@ -3,11 +3,19 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRightIcon, ListIcon, MapTrifoldIcon, XIcon } from "@phosphor-icons/react";
+import {
+  ArrowRightIcon,
+  ListIcon,
+  MapTrifoldIcon,
+  PersonSimpleRunIcon,
+  XIcon,
+} from "@phosphor-icons/react";
+import AccountChip from "@/components/AccountChip";
 
 // The site pages, in nav order. `cta` renders as the filled primary action.
 const NAV_LINKS = [
   { href: "/fountains", label: "Fountains near you", icon: MapTrifoldIcon },
+  { href: "/profile", label: "Your runs", icon: PersonSimpleRunIcon },
   { href: "/plan", label: "Plan a route", icon: ArrowRightIcon, cta: true },
 ] as const;
 
@@ -31,17 +39,21 @@ export default function SiteNav() {
             </span>
           </Link>
 
-          {/* Mobile: hamburger toggle. */}
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-            aria-controls="site-nav-menu"
-            aria-label={open ? "Close menu" : "Open menu"}
-            className="border-ink text-ink hover:bg-ink hover:text-paper rounded-full border p-2 transition md:hidden"
-          >
-            {open ? <XIcon size={20} weight="bold" /> : <ListIcon size={20} weight="bold" />}
-          </button>
+          {/* Mobile: account chip + hamburger toggle. The account affordance stays
+              visible outside the menu so sign-in state is always one glance away. */}
+          <div className="flex items-center gap-2 md:hidden">
+            <AccountChip />
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              aria-controls="site-nav-menu"
+              aria-label={open ? "Close menu" : "Open menu"}
+              className="border-ink text-ink hover:bg-ink hover:text-paper rounded-full border p-2 transition"
+            >
+              {open ? <XIcon size={20} weight="bold" /> : <ListIcon size={20} weight="bold" />}
+            </button>
+          </div>
 
           {/* Desktop: inline links. */}
           <div className="hidden shrink-0 items-center gap-3 md:flex">
@@ -65,6 +77,7 @@ export default function SiteNav() {
                 />
               </Link>
             ))}
+            <AccountChip showName />
           </div>
         </div>
 

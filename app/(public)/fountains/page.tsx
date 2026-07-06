@@ -6,6 +6,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
 import type { Fountain } from "@/lib/schemas";
 import type { MapMarker } from "@/components/MapView";
+import AccountChip from "@/components/AccountChip";
 import BottomSheet from "@/components/BottomSheet";
 import Panel from "@/components/ui/Panel";
 import PointPopup from "@/components/PointPopup";
@@ -252,8 +253,8 @@ export default function FountainsPage() {
         />
       </div>
 
-      {/* Back link, floating over the map. */}
-      <header className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex items-center p-4 md:p-5">
+      {/* Back link + account, floating over the map. */}
+      <header className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex items-center justify-between p-4 md:p-5">
         <Link
           href="/"
           className="border-paper-line bg-paper/90 text-ink-dim hover:text-ink pointer-events-auto flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur transition"
@@ -261,6 +262,9 @@ export default function FountainsPage() {
           <ArrowLeftIcon size={14} />
           Home
         </Link>
+        <div className="pointer-events-auto">
+          <AccountChip />
+        </div>
       </header>
 
       {/* Mobile: draggable bottom sheet. */}
