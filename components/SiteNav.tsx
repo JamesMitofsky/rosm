@@ -7,7 +7,7 @@ import { ArrowRightIcon, ListIcon, MapTrifoldIcon, XIcon } from "@phosphor-icons
 
 // The site pages, in nav order. `cta` renders as the filled primary action.
 const NAV_LINKS = [
-  { href: "/public-fountains", label: "Fountains near you", icon: MapTrifoldIcon },
+  { href: "/fountains", label: "Fountains near you", icon: MapTrifoldIcon },
   { href: "/plan", label: "Plan a route", icon: ArrowRightIcon, cta: true },
 ] as const;
 

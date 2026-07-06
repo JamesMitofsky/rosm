@@ -16,6 +16,12 @@ const nextConfig: NextConfig = isCapacitor
       images: { unoptimized: true },
     }
   : {
+      async redirects() {
+        return [
+          // Old URL for the fountain browser — keep bookmarks/PWA shortcuts alive.
+          { source: "/public-fountains", destination: "/fountains", permanent: true },
+        ];
+      },
       async headers() {
         return [
           {
