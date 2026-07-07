@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import { motion } from "framer-motion";
+import FreshnessLegend, { type Bucket } from "@/components/FreshnessLegend";
 import HomeRunCard from "@/components/HomeRunCard";
 import NativeEntryRedirect from "@/components/NativeEntryRedirect";
 import SiteNav from "@/components/SiteNav";
@@ -14,6 +16,7 @@ import {
 } from "@phosphor-icons/react";
 
 const DemoRunMap = dynamic(() => import("@/components/DemoRunMap"), { ssr: false });
+const LiveFountainMap = dynamic(() => import("@/components/LiveFountainMap"), { ssr: false });
 
 /* ------------------------------------------------------------------ */
 /* Decorative topographic contour field.                              */
@@ -76,6 +79,9 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 export default function LandingPage() {
+  // Freshness counts surfaced by the live hero map, shown in the label row.
+  const [legend, setLegend] = useState<Record<Bucket, number> | null>(null);
+
   return (
     <main className="paper-grain bg-paper font-body text-ink relative">
       <NativeEntryRedirect />
@@ -112,20 +118,21 @@ export default function LandingPage() {
           <motion.div
             {...fadeUp}
             transition={{ ...fadeUp.transition, delay: 0.24 }}
-            className="mt-14 flex items-center justify-between gap-4 px-1 pb-2"
+            className="mt-14 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
           >
-            <Label>Washington DC</Label>
+            <Label>Live · Washington DC</Label>
+            {legend && <FreshnessLegend counts={legend} />}
           </motion.div>
 
-          {/* Sky panel — an interactive demo run on a real sample route,
-              framed like a print plate. All edits stay in local state. */}
+          {/* Sky panel — live OSM drinking-water points within 1.5 mi of DC,
+              colored by verification freshness. Framed like a print plate. */}
           <motion.div
             {...fadeUp}
             transition={{ ...fadeUp.transition, delay: 0.28 }}
             className="border-ink/10 bg-sky relative overflow-hidden rounded-xl border"
           >
             <div className="relative isolate z-0 h-[clamp(340px,48vw,560px)] w-full">
-              <DemoRunMap />
+              <LiveFountainMap onCountsChange={setLegend} />
             </div>
           </motion.div>
         </div>
@@ -166,6 +173,44 @@ export default function LandingPage() {
                 proof of concept is locked down, branching out to recording and maintaining data for
                 other public amenities. Things like public restrooms, picnic tables, parks, etc.
               </p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS — interactive demo of the run + edit flow */}
+      <section className="border-paper-line border-t">
+        <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
+          <motion.h2
+            {...fadeUp}
+            className="font-display text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+          >
+            How it works
+          </motion.h2>
+          <motion.p
+            {...fadeUp}
+            transition={{ ...fadeUp.transition, delay: 0.1 }}
+            className="text-ink-dim mt-8 max-w-2xl text-lg leading-relaxed"
+          >
+            Plan a run past unverified fountains, then log each one&apos;s real-world state as you
+            pass it. This very similar to what the run screen actually looks like. This is just a
+            toy demo, so definitely tap around!
+          </motion.p>
+
+          <motion.div
+            {...fadeUp}
+            transition={{ ...fadeUp.transition, delay: 0.18 }}
+            className="mt-10 flex items-center justify-between gap-4 px-1 pb-2"
+          >
+            <Label>Sample route · Washington DC</Label>
+          </motion.div>
+          <motion.div
+            {...fadeUp}
+            transition={{ ...fadeUp.transition, delay: 0.22 }}
+            className="border-ink/10 bg-sky relative overflow-hidden rounded-xl border"
+          >
+            <div className="relative isolate z-0 h-[clamp(340px,48vw,560px)] w-full">
+              <DemoRunMap />
             </div>
           </motion.div>
         </div>

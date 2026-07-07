@@ -10,7 +10,7 @@ import { fmtDist } from "@/lib/geo";
 export default function FountainPopup({ f, distM }: { f: Fountain; distM: number | null }) {
   return (
     <div className="flex w-52 flex-col gap-1 text-neutral-800">
-      <div className="leading-tight font-semibold">{fountainName(f)}</div>
+      {f.tags.name && <div className="leading-tight font-semibold">{fountainName(f)}</div>}
       {distM != null && <div className="text-xs text-neutral-500">{fmtDist(distM)} away</div>}
       {f.tags.check_date ? (
         <div className="text-xs text-neutral-500">Last checked in OSM: {f.tags.check_date}</div>

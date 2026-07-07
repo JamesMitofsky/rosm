@@ -55,6 +55,8 @@ type Props = {
   // When set (>=2 points), the map zooms to fit all points instead of just
   // centering on `center`. Used to keep user + next target both in view.
   fitPoints?: [number, number][];
+  // Tuning for the `fitPoints` bounding-box fit. Defaults to a roomy frame.
+  fitOptions?: { padding?: [number, number]; maxZoom?: number };
   className?: string;
 };
 
@@ -140,15 +142,20 @@ function Recenter({
   center,
   recenterKey,
   fitPoints,
+  fitOptions,
 }: {
   center: [number, number];
   recenterKey?: string;
   fitPoints?: [number, number][];
+  fitOptions?: { padding?: [number, number]; maxZoom?: number };
 }) {
   const map = useMap();
   useEffect(() => {
     if (fitPoints && fitPoints.length >= 2) {
-      map.fitBounds(L.latLngBounds(fitPoints), { padding: [60, 60], maxZoom: 16 });
+      map.fitBounds(L.latLngBounds(fitPoints), {
+        padding: fitOptions?.padding ?? [60, 60],
+        maxZoom: fitOptions?.maxZoom ?? 16,
+      });
     } else {
       map.setView(center);
     }
@@ -193,6 +200,7 @@ export default function MapView({
   onUserPan,
   recenterKey,
   fitPoints,
+  fitOptions,
   className,
 }: Props) {
   return (
@@ -216,7 +224,12 @@ export default function MapView({
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <StripAttributionPrefix />
-      <Recenter center={center} recenterKey={recenterKey} fitPoints={fitPoints} />
+      <Recenter
+        center={center}
+        recenterKey={recenterKey}
+        fitPoints={fitPoints}
+        fitOptions={fitOptions}
+      />
       <ClickHandler onMapClick={onMapClick} onUserPan={onUserPan} />
       {circle && (
         <Circle
