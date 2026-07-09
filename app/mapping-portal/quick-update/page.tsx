@@ -34,7 +34,6 @@ export default function QuickUpdatePage() {
   return (
     <FountainMap
       editable={osmEdits}
-      autoLocate
       defaultRadiusMi={0.2}
       backHref="/mapping-portal"
       backLabel="Mapping Portal"

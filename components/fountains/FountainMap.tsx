@@ -43,8 +43,6 @@ type Props = {
   // (FountainPopup only). The parent owns the hook so a read-only map never
   // instantiates the outbox-backed edit machinery.
   editable?: OsmEdits;
-  // On mount, acquire a GPS fix and search immediately (Quick Update).
-  autoLocate?: boolean;
   defaultRadiusMi?: number;
   // Floating back link, top-left over the map.
   backHref: string;
@@ -61,7 +59,6 @@ type Props = {
 // browser; editable for the connected Quick Update surface.
 export default function FountainMap({
   editable,
-  autoLocate = false,
   defaultRadiusMi = DEFAULT_RADIUS_MI,
   backHref,
   backLabel,
@@ -154,15 +151,16 @@ export default function FountainMap({
     [center, radiusMi, locate],
   );
 
-  // Quick Update auto-locates and searches on mount, once.
+  // On mount, request a GPS fix once and search from it as soon as access is
+  // granted. A denied/failed fix leaves search available via the button.
   const autoRan = useRef(false);
   useEffect(() => {
-    if (!autoLocate || autoRan.current) return;
+    if (autoRan.current) return;
     autoRan.current = true;
     locate().then((here) => {
       if (here) search(here);
     });
-  }, [autoLocate, locate, search]);
+  }, [locate, search]);
 
   // Dropping a pin moves the search anchor; results refresh on the next search.
   const dropPin = useCallback((lat: number, lon: number) => {
@@ -230,9 +228,7 @@ export default function FountainMap({
       <SearchPanel
         busy={busy}
         err={err}
-        searched={searchedAt != null}
         anchor={anchor}
-        visibleN={visible.length}
         counts={counts}
         svc={svc}
         setSvc={setSvc}
@@ -242,7 +238,6 @@ export default function FountainMap({
         setRec={setRec}
         radiusMi={radiusMi}
         onRadiusChange={setRadiusMi}
-        onLocate={locate}
         onSearch={() => search()}
       />
       {footer}

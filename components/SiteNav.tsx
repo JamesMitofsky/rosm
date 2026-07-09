@@ -62,9 +62,6 @@ export default function SiteNav() {
                 <img src="/icons/icon.svg" alt="" className="h-7 w-7" />
                 <span className="font-display text-lg font-bold tracking-tight">ROSM</span>
               </span>
-              <span className="text-ink-dim hidden font-mono text-[0.65rem] tracking-[0.22em] uppercase lg:inline">
-                Running for Open-Sourced Maps
-              </span>
             </Link>
 
             {/* Mobile: one button toggles the drawer, morphing between the

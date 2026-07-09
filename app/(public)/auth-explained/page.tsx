@@ -14,6 +14,22 @@ const fadeUp = {
 // Q&A content for the FAQ page. Each entry animates in as its own block.
 const FAQS: { q: string; a: ReactNode }[] = [
   {
+    q: "How is this different from other fountain maps?",
+    a: (
+      <>
+        <p>
+          As someone using the map, it is easier to trust that this map is kept up to date—in fact,
+          it requires no faith, since you can see how long ago a fountain was verified. From the
+          perspective of a community maintainer contributing to the map, this being a decentralized
+          piece of information means there is no bottleneck for updating the map. Anyone can make a
+          contribution to the map in real time. And even if—EVEN IF—the whole ROSM project blew up
+          and vanished, the data and contribution history is actually stored with the
+          long-established and well-reputed OpenStreetMap.
+        </p>
+      </>
+    ),
+  },
+  {
     q: "How does authentication work?",
     a: (
       <>
@@ -59,17 +75,17 @@ const FAQS: { q: string; a: ReactNode }[] = [
           <a href="mailto:james@btv.dev" className="text-sky-deep underline">
             send me a message
           </a>
+          ! And if you have a little experience writing code, feel free to{" "}
+          <a
+            href="https://github.com/JamesMitofsky/run-for-maps"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-deep underline"
+          >
+            make a pull request
+          </a>
           !
         </p>
-        <p>If you have a little experience writing code, feel free to make a pull request!</p>
-        <a
-          href="https://github.com/JamesMitofsky/run-for-maps"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="border-paper-line hover:border-ink/20 mt-1 inline-flex w-fit items-center gap-3 rounded-sm border px-6 py-3 font-medium transition"
-        >
-          Github
-        </a>
       </>
     ),
   },

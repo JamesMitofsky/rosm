@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  CaretDownIcon,
-  CrosshairIcon,
-  DropIcon,
-  MagnifyingGlassIcon,
-  SpinnerIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon, MagnifyingGlassIcon, SpinnerIcon } from "@phosphor-icons/react";
 import FilterPills from "@/components/fountains/FilterPills";
 import ErrorNotice from "@/components/ui/ErrorNotice";
 import type { Counts, Recency, Svc, Water } from "@/lib/fountainFilters";
@@ -18,7 +12,6 @@ export const DEFAULT_RADIUS_MI = 1;
 const MIN_RADIUS_MI = 0.1;
 const MAX_RADIUS_MI = 25;
 const clampRadius = (mi: number) => Math.min(MAX_RADIUS_MI, Math.max(MIN_RADIUS_MI, mi));
-const radiusLabel = (mi: number) => `${mi} ${mi === 1 ? "mile" : "miles"}`;
 
 // Where the search anchor came from: GPS fix or a pin dropped on the map.
 export type Anchor = "gps" | "pin";
@@ -28,9 +21,7 @@ export type Anchor = "gps" | "pin";
 export default function SearchPanel({
   busy,
   err,
-  searched,
   anchor,
-  visibleN,
   counts,
   svc,
   setSvc,
@@ -40,14 +31,11 @@ export default function SearchPanel({
   setRec,
   radiusMi,
   onRadiusChange,
-  onLocate,
   onSearch,
 }: {
   busy: boolean;
   err: string | null;
-  searched: boolean;
   anchor: Anchor | null;
-  visibleN: number;
   counts: Counts;
   svc: Set<Svc>;
   setSvc: (s: Set<Svc>) => void;
@@ -57,7 +45,6 @@ export default function SearchPanel({
   setRec: (s: Set<Recency>) => void;
   radiusMi: number;
   onRadiusChange: (mi: number) => void;
-  onLocate: () => void;
   onSearch: () => void;
 }) {
   // Local draft so the user can freely type (incl. an empty field) before we
@@ -74,30 +61,6 @@ export default function SearchPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-display flex items-center gap-2 text-xl leading-tight font-bold">
-            <DropIcon size={22} weight="duotone" className="text-sky-deep" />
-            Fountains near you
-          </h1>
-          {searched && (
-            <p className="text-ink-dim text-sm">
-              {`Public drinking water within ${radiusLabel(radiusMi)} of your ${
-                anchor === "pin" ? "pin" : "location"
-              }, from OpenStreetMap.`}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={onLocate}
-          disabled={busy}
-          title="Use my location"
-          className="border-paper-line bg-paper/40 text-ink hover:border-sky-deep/60 hover:text-sky-deep shrink-0 rounded-lg border px-3 py-2 transition disabled:opacity-40"
-        >
-          <CrosshairIcon size={18} />
-        </button>
-      </div>
-
       {/* Radius + explicit search. Enter in the field commits and searches. */}
       <form
         onSubmit={(e) => {
@@ -163,12 +126,6 @@ export default function SearchPanel({
       </form>
 
       {err && <ErrorNotice message={err} tone="light" onRetry={onSearch} retrying={busy} />}
-
-      {searched && !busy && !err && (
-        <span className="bg-sky/15 text-sky-deep w-fit rounded-full px-2 py-0.5 text-xs font-semibold">
-          {visibleN} shown
-        </span>
-      )}
     </div>
   );
 }
