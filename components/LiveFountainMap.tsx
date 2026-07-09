@@ -111,6 +111,9 @@ export default function LiveFountainMap({
   }, []);
 
   useEffect(() => {
+    // Fetch fountains once on mount. `load` flips busy/error state up front as
+    // its loading UI — that's the intended effect, not an accidental cascade.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

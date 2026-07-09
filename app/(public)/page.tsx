@@ -64,7 +64,7 @@ const fadeUp = {
   // each block starts revealing while still under the fold — no scrolling an
   // element deep into view before it appears (felt especially late on mobile).
   // `amount: "some"` fires as soon as any part of the block crosses the line.
-  viewport: { once: true, margin: "0px 0px 20% 0px", amount: "some" },
+  viewport: { once: true, margin: "0px 0px 20% 0px", amount: "some" as const },
   transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
 };
 
