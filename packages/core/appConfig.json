@@ -3,6 +3,7 @@
   "appName": "ROSM",
   "appTagline": "Running for Open-Sourced Maps",
   "scheme": "rosm",
+  "apiBase": "https://rosm.vercel.app",
   "nativeBackground": "#0c0d0a",
   "pwaThemeColor": "#f1ebdd",
   "colors": {
