@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRightIcon, PathIcon, DropIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, PathIcon, DropIcon, CircleNotchIcon } from "@phosphor-icons/react";
 import SiteNav from "@/components/SiteNav";
 import SyncStatus from "@/components/SyncStatus";
 import AccountCard from "@/components/connected/AccountCard";
@@ -33,10 +33,25 @@ export default function MappingPortalPage() {
     };
   }, []);
 
+  // `status === null` = still resolving whether the user is signed in. Show only
+  // a spinner until we know, so neither the connected nor the connect view flashes
+  // before we can pick the right one.
+  if (!status) {
+    return (
+      <>
+        <SiteNav />
+        <main className="bg-paper font-body text-ink min-h-screen">
+          <div className="mx-auto flex max-w-2xl items-center justify-center px-5 py-24">
+            <CircleNotchIcon size={28} weight="bold" className="text-ink-dim animate-spin" />
+          </div>
+        </main>
+      </>
+    );
+  }
+
   // Not connected → nothing but the header and a connect button. The portal's
   // actions all lead to OSM edits, so gate the whole thing behind sign-in.
-  // `status === null` = still loading; render nothing to avoid a connect-flash.
-  if (status && !status.loggedIn) {
+  if (!status.loggedIn) {
     return (
       <>
         <SiteNav />
