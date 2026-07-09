@@ -3,7 +3,8 @@
 import {
   Circle,
   MapContainer,
-  TileLayer,
+  Polygon,
+  Rectangle,
   Marker,
   Polyline,
   Popup,
@@ -12,7 +13,9 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useEffect, useRef, type ReactNode } from "react";
+import "maplibre-gl/dist/maplibre-gl.css";
+import "@maplibre/maplibre-gl-leaflet";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 
 export type MapMarker = {
   id: number | string;
@@ -45,6 +48,9 @@ type Props = {
   line?: [number, number][];
   // Radius indicator (e.g. search-area preview) drawn under the markers.
   circle?: { center: [number, number]; radiusM: number };
+  // The box covering the last-searched area: everything outside is dimmed and a
+  // crisp outline is drawn around it. [[south, west], [north, east]].
+  searchedBox?: [[number, number], [number, number]];
   userPos?: [number, number] | null;
   // Compass heading in degrees (0 = north, clockwise). Draws a direction cone.
   userHeading?: number | null;
@@ -137,8 +143,78 @@ function MarkerView({ m }: { m: MapMarker }) {
   );
 }
 
+// Dims everything outside the searched box and outlines it. The dimming is a
+// world-spanning polygon with the box punched out as a hole; a Rectangle draws
+// the crisp edge. Both are non-interactive so map clicks (drop-a-pin) still
+// reach the tiles underneath.
+function SearchedMask({ box }: { box: [[number, number], [number, number]] }) {
+  // A dedicated SVG renderer with generous padding: Leaflet only paints vector
+  // overlays a little beyond the viewport by default, so a fast drag can reveal
+  // an un-dimmed edge before the pane re-renders. Padding 4 = the pane extends
+  // ~4 viewports past each edge, keeping the dim layer covering the screen
+  // throughout any drag. One static polygon, so the extra area is cheap.
+  const renderer = useMemo(() => L.svg({ padding: 4 }), []);
+  const [[s, w], [n, e]] = box;
+  const world: [number, number][] = [
+    [-90, -180],
+    [90, -180],
+    [90, 180],
+    [-90, 180],
+  ];
+  const hole: [number, number][] = [
+    [s, w],
+    [s, e],
+    [n, e],
+    [n, w],
+  ];
+  return (
+    <>
+      <Polygon
+        positions={[world, hole]}
+        pathOptions={{ stroke: false, fillColor: "#0f172a", fillOpacity: 0.22, renderer }}
+        interactive={false}
+      />
+      <Rectangle
+        bounds={box}
+        pathOptions={{ color: "#0f172a", weight: 1.5, opacity: 0.4, fill: false, renderer }}
+        interactive={false}
+      />
+    </>
+  );
+}
+
 // Drop the "Leaflet" prefix (with flag) from the attribution control, keeping
 // only the required OSM credit.
+// Vector basemap from OpenFreeMap (fully free, no API key, self-hostable) via the
+// maplibre-gl-leaflet bridge, so every existing Leaflet overlay keeps working on
+// top. Colors, hidden POI layers, and label choices are all baked into our custom
+// style at public/map-style.json (edited in Maputnik); its sources/glyphs/sprite
+// still resolve to tiles.openfreemap.org, so nothing else needs hosting.
+function VectorBasemap() {
+  const map = useMap();
+  useEffect(() => {
+    const glLayer = (
+      L as unknown as {
+        maplibreGL: (opts: {
+          style: string;
+          interactive?: boolean;
+          attribution?: string;
+        }) => L.Layer;
+      }
+    ).maplibreGL({
+      style: "/map-style.json",
+      interactive: false,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &middot; <a href="https://openfreemap.org">OpenFreeMap</a>',
+    });
+    glLayer.addTo(map);
+    return () => {
+      map.removeLayer(glLayer);
+    };
+  }, [map]);
+  return null;
+}
+
 function StripAttributionPrefix() {
   const map = useMap();
   useEffect(() => {
@@ -232,6 +308,7 @@ export default function MapView({
   markers = [],
   line,
   circle,
+  searchedBox,
   userPos,
   userHeading,
   onMapClick,
@@ -258,10 +335,7 @@ export default function MapView({
       keyboard={interactive}
       touchZoom={interactive}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <VectorBasemap />
       <StripAttributionPrefix />
       <Recenter
         center={center}
@@ -278,6 +352,7 @@ export default function MapView({
           pathOptions={{ color: "#0284c7", weight: 1.5, opacity: 0.5, fillOpacity: 0.06 }}
         />
       )}
+      {searchedBox && <SearchedMask box={searchedBox} />}
       {line && line.length > 1 && (
         <Polyline positions={line} pathOptions={{ color: "#2563eb", weight: 5, opacity: 0.8 }} />
       )}
