@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useRun, type RunPlan, type RunStop } from "@/store/run";
-import type { Fountain } from "@/lib/schemas";
+import type { Fountain } from "@rosm/core/schemas";
 
 const stop = (id: number): RunStop => ({ id, lat: id, lon: id, tags: {}, status: "pending" });
 

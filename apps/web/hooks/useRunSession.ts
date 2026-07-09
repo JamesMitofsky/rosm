@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRun, type RunStop, type StopStatus } from "@/store/run";
 import { useOutbox } from "@/store/outbox";
-import { bearing, compass, haversine, nearestCumDistOnPath, type Pt } from "@/lib/geo";
-import { ptLabel } from "@/lib/pointTypes";
+import { bearing, compass, haversine, nearestCumDistOnPath, type Pt } from "@rosm/core/geo";
+import { ptLabel } from "@rosm/core/pointTypes";
 import type { MapMarker } from "@/components/MapView";
-import type { EditAction, EditExtras } from "@/lib/schemas";
-import { editSummary, todayLocal } from "@/lib/editSummary";
+import type { EditAction, EditExtras } from "@rosm/core/schemas";
+import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { useOsmStatus } from "@/components/OsmStatus";
 import PointPopup from "@/components/PointPopup";
 import { celebratePoint } from "@/lib/confetti";

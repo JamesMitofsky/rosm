@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHECK_DATE_KEYS, lastCheckedMs, matchesRecency, parseCheckDate } from "@/lib/checkDate";
+import { CHECK_DATE_KEYS, lastCheckedMs, matchesRecency, parseCheckDate } from "../src/checkDate";
 
 describe("parseCheckDate", () => {
   it("parses a full YYYY-MM-DD date", () => {

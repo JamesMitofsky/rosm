@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { EditAction, EditExtras } from "@/lib/schemas";
+import type { EditAction, EditExtras } from "@rosm/core/schemas";
 import type { StopStatus } from "@/store/run";
 import type { PointEdit } from "@/components/PointPopup";
 import { useOutbox, outboxCounts } from "@/store/outbox";

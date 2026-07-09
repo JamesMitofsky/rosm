@@ -14,7 +14,7 @@ import {
   DogIcon,
 } from "@phosphor-icons/react";
 import type { RunSession } from "@/hooks/useRunSession";
-import { fmtDist, maneuver } from "@/lib/geo";
+import { fmtDist, maneuver } from "@rosm/core/geo";
 import SyncStatus from "@/components/SyncStatus";
 import OsmSignInLink from "@/components/OsmSignInLink";
 

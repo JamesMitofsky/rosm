@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { RouteRequest } from "@/lib/schemas";
-import { footRoute, RouteError } from "@/lib/brouter";
+import { RouteRequest } from "@rosm/core/schemas";
+import { footRoute, RouteError } from "@rosm/core/brouter";
 
 export async function POST(req: Request) {
   const parsed = RouteRequest.safeParse(await req.json());

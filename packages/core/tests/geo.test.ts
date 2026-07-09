@@ -12,7 +12,7 @@ import {
   pathLength,
   toDeg,
   toRad,
-} from "@/lib/geo";
+} from "../src/geo";
 
 // 1 degree of latitude (or of longitude at the equator) on the R=6371000 sphere.
 const ONE_DEG_M = (6371000 * Math.PI) / 180; // ≈ 111194.93

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 import { getOsmToken } from "@/lib/osmToken";
-import { EditRequest } from "@/lib/schemas";
+import { EditRequest } from "@rosm/core/schemas";
 import {
   openChangeset,
   getNode,
@@ -13,7 +13,7 @@ import {
   isChangesetClosed,
 } from "@/lib/osm";
 import { appendJson } from "@/lib/db";
-import { editSummary } from "@/lib/editSummary";
+import { editSummary } from "@rosm/core/editSummary";
 
 const CHANGESET_COMMENT = "Survey: drinking water / amenity status check";
 const MAX_ATTEMPTS = 3;

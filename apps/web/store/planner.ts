@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { planRoute } from "@/lib/plan";
-import { milesToMeters, type Pt } from "@/lib/geo";
-import type { Turn } from "@/lib/brouter";
-import type { Fountain, RecencyMode } from "@/lib/schemas";
+import { planRoute } from "@rosm/core/plan";
+import { milesToMeters, type Pt } from "@rosm/core/geo";
+import type { Turn } from "@rosm/core/brouter";
+import type { Fountain, RecencyMode } from "@rosm/core/schemas";
 import { useRun, type RunStop } from "@/store/run";
 import { apiFetch } from "@/lib/api";
 import { getCurrentPosition } from "@/lib/geolocation";

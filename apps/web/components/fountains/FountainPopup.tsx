@@ -1,9 +1,9 @@
 "use client";
 
 import { DogIcon, WrenchIcon } from "@phosphor-icons/react";
-import type { Fountain } from "@/lib/schemas";
-import { fountainName, isDogWater, isOutOfService } from "@/lib/fountainFilters";
-import { fmtDist } from "@/lib/geo";
+import type { Fountain } from "@rosm/core/schemas";
+import { fountainName, isDogWater, isOutOfService } from "@rosm/core/fountainFilters";
+import { fmtDist } from "@rosm/core/geo";
 
 // Read-only popup: name, last-checked date, status flags, OSM link. No edit
 // controls — this view is purely for finding water nearby.

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RouteError, footRoute } from "@/lib/brouter";
+import { RouteError, footRoute } from "../src/brouter";
 
 // Minimal BRouter geojson envelope.
 function geojson(

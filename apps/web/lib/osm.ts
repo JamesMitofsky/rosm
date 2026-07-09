@@ -1,7 +1,7 @@
 // OSM OAuth2 (PKCE) + edit operations: changesets and node tag updates.
 // Read endpoints use .json; writes use XML per OSM API 0.6.
 import crypto from "crypto";
-import type { EditAction, EditExtras } from "./schemas";
+import type { EditAction, EditExtras } from "@rosm/core/schemas";
 
 export const OAUTH_BASE = process.env.OSM_OAUTH_BASE || "https://www.openstreetmap.org";
 export const API_BASE = process.env.OSM_API_BASE || "https://api.openstreetmap.org";

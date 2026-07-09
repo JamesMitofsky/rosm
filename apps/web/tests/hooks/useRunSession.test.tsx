@@ -12,7 +12,7 @@ import { hapticSuccess } from "@/lib/haptics";
 import { allowSleep, keepAwake } from "@/lib/keepAwake";
 import { notifyProximity, notifyRunComplete } from "@/lib/notify";
 import { watchRunPosition } from "@/lib/geolocation";
-import type { EditAction } from "@/lib/schemas";
+import type { EditAction } from "@rosm/core/schemas";
 
 type Watcher = {
   onPoint: (p: { lat: number; lon: number; heading: number | null }) => void;

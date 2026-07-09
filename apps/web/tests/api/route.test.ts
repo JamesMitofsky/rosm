@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/route/route";
-import { RouteError, footRoute } from "@/lib/brouter";
+import { RouteError, footRoute } from "@rosm/core/brouter";
 
-vi.mock("@/lib/brouter", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/brouter")>();
+vi.mock("@rosm/core/brouter", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@rosm/core/brouter")>();
   return { ...actual, footRoute: vi.fn() };
 });
 

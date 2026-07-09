@@ -2,7 +2,13 @@
 
 import type { ReactNode } from "react";
 import Pill from "@/components/ui/Pill";
-import { toggled, type Counts, type Recency, type Svc, type Water } from "@/lib/fountainFilters";
+import {
+  toggled,
+  type Counts,
+  type Recency,
+  type Svc,
+  type Water,
+} from "@rosm/core/fountainFilters";
 
 function PillRow({ label, children }: { label: string; children: ReactNode }) {
   return (

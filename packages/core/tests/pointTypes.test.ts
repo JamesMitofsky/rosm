@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { POINT_TYPES, ptKey, ptLabel } from "@/lib/pointTypes";
+import { POINT_TYPES, ptKey, ptLabel } from "../src/pointTypes";
 
 describe("POINT_TYPES", () => {
   it("has unique key=value entries", () => {

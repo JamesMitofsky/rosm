@@ -10,7 +10,7 @@ import { SyncBadge } from "@/components/SyncStatus";
 import type { MapMarker } from "@/components/MapView";
 import { getArchivedRoutes, type ArchivedRoute } from "@/lib/routeArchive";
 import { EDIT_LABEL, STATUS_COLOR } from "@/lib/editStatus";
-import { fmtDist } from "@/lib/geo";
+import { fmtDist } from "@rosm/core/geo";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 

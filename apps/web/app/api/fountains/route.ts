@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { FountainsRequest } from "@/lib/schemas";
+import { FountainsRequest } from "@rosm/core/schemas";
 import { fetchFountains, OverpassError } from "@/lib/overpass";
 import { writeJson } from "@/lib/db";
 

@@ -2,7 +2,7 @@
 
 import Button from "@/components/ui/Button";
 import { usePlanner } from "@/store/planner";
-import { fmtDist } from "@/lib/geo";
+import { fmtDist } from "@rosm/core/geo";
 
 // Resume offer: a route from a prior session survived a refresh. Renders
 // nothing unless the draft load found one.

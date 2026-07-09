@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editSummary, todayLocal } from "@/lib/editSummary";
+import { editSummary, todayLocal } from "../src/editSummary";
 
 const T = "2026-01-02";
 

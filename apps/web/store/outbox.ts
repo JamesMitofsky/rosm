@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { EditAction, EditExtras } from "@/lib/schemas";
-import { editSummary, todayLocal } from "@/lib/editSummary";
+import type { EditAction, EditExtras } from "@rosm/core/schemas";
+import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { idbGetAll, idbPut, idbClearOutbox, idbGetMeta, idbSetMeta } from "@/lib/idb";
 import { apiFetch } from "@/lib/api";
 

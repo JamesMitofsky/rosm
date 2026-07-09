@@ -5,7 +5,7 @@ import type { MapMarker } from "@/components/MapView";
 import PointPopup, { type PointEdit } from "@/components/PointPopup";
 import { usePlanner, inRouteIdsOf } from "@/store/planner";
 import { EDIT_COLOR, EDIT_LABEL } from "@/lib/editStatus";
-import type { EditAction, EditExtras, Fountain } from "@/lib/schemas";
+import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
 
 function markLabel(f: Fountain) {
   return f.tags.name ?? "Unnamed fountain";

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/osm/edit/route";
 import { API_BASE, OAUTH_BASE } from "@/lib/osm";
-import { editSummary } from "@/lib/editSummary";
+import { editSummary } from "@rosm/core/editSummary";
 import { appendJson } from "@/lib/db";
 
 // Cookie jar backing the next/headers mock (web auth path).

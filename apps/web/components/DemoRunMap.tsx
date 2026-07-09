@@ -4,11 +4,11 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/MapView";
 import PointPopup, { type PointEdit } from "@/components/PointPopup";
-import type { EditAction, EditExtras, Fountain } from "@/lib/schemas";
+import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
 import type { StopStatus } from "@/store/run";
-import { editSummary, todayLocal } from "@/lib/editSummary";
+import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { celebratePoint } from "@/lib/confetti";
-import { bearing } from "@/lib/geo";
+import { bearing } from "@rosm/core/geo";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 

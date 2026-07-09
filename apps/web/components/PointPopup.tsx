@@ -13,7 +13,7 @@ import {
   SnowflakeIcon,
 } from "@phosphor-icons/react";
 import { useMap } from "react-leaflet";
-import type { Fountain, EditAction, EditExtras } from "@/lib/schemas";
+import type { Fountain, EditAction, EditExtras } from "@rosm/core/schemas";
 import type { StopStatus } from "@/store/run";
 import OsmSignInLink from "@/components/OsmSignInLink";
 import type { SyncState } from "@/store/outbox";

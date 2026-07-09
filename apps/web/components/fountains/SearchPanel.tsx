@@ -5,7 +5,7 @@ import { CaretDownIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import FilterPills from "@/components/fountains/FilterPills";
 import SearchProgress from "@/components/fountains/SearchProgress";
 import ErrorNotice from "@/components/ui/ErrorNotice";
-import type { Counts, Recency, Svc, Water } from "@/lib/fountainFilters";
+import type { Counts, Recency, Svc, Water } from "@rosm/core/fountainFilters";
 
 // Default radius to look for fountains around the search point; user can override.
 export const DEFAULT_RADIUS_MI = 1;

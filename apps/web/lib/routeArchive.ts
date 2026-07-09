@@ -1,8 +1,8 @@
 "use client";
 
-import type { Pt } from "@/lib/geo";
-import type { Turn } from "@/lib/brouter";
-import type { Fountain } from "@/lib/schemas";
+import type { Pt } from "@rosm/core/geo";
+import type { Turn } from "@rosm/core/brouter";
+import type { Fountain } from "@rosm/core/schemas";
 import type { RunStop } from "@/store/run";
 import type { OutboxItem } from "@/store/outbox";
 

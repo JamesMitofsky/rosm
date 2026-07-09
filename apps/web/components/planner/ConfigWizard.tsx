@@ -14,7 +14,7 @@ import Button from "@/components/ui/Button";
 import ErrorNotice from "@/components/ui/ErrorNotice";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { usePlanner } from "@/store/planner";
-import type { RecencyMode } from "@/lib/schemas";
+import type { RecencyMode } from "@rosm/core/schemas";
 
 // Recency filter modes, shown as a segmented control in the radius step.
 const RECENCY_MODES: { key: RecencyMode; label: string }[] = [

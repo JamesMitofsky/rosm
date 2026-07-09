@@ -9,8 +9,8 @@ import {
   svcOf,
   toggled,
   waterOf,
-} from "@/lib/fountainFilters";
-import type { Fountain } from "@/lib/schemas";
+} from "../src/fountainFilters";
+import type { Fountain } from "@rosm/core/schemas";
 
 const f = (id: number, lat: number, lon: number, tags: Record<string, string> = {}): Fountain => ({
   id,

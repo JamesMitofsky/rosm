@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowRightIcon, PathIcon, PersonSimpleRunIcon } from "@phosphor-icons/react";
 import { getArchivedRoutes, type ArchivedRoute } from "@/lib/routeArchive";
 import { apiFetch, isNative } from "@/lib/api";
-import { fmtDist } from "@/lib/geo";
+import { fmtDist } from "@rosm/core/geo";
 
 type CardState =
   | { kind: "active" } // a run is mid-flight — offer to jump back in

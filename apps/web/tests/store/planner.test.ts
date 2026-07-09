@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePlanner, inRouteIdsOf, pinnedOf, removedOf, type Draft } from "@/store/planner";
 import { useRun } from "@/store/run";
 import { apiFetch } from "@/lib/api";
-import type { Fountain } from "@/lib/schemas";
+import type { Fountain } from "@rosm/core/schemas";
 
 vi.mock("@/lib/api", () => ({
   apiFetch: vi.fn(),

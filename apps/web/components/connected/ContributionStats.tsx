@@ -2,7 +2,7 @@
 
 import type { ArchivedRoute } from "@/lib/routeArchive";
 import { EDIT_LABEL, EDIT_COLOR } from "@/lib/editStatus";
-import { fmtDist } from "@/lib/geo";
+import { fmtDist } from "@rosm/core/geo";
 import type { StopStatus } from "@/store/run";
 
 const ACTION_LABEL: Partial<Record<StopStatus, string>> = {

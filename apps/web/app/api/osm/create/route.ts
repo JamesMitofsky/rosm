@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOsmToken } from "@/lib/osmToken";
-import { CreateNodeRequest } from "@/lib/schemas";
+import { CreateNodeRequest } from "@rosm/core/schemas";
 import { openChangeset, createNode, todayIso, changesetUrl, isChangesetClosed } from "@/lib/osm";
 import { appendJson } from "@/lib/db";
 

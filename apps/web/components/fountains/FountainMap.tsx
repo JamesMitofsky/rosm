@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
-import type { Fountain } from "@/lib/schemas";
+import type { Fountain } from "@rosm/core/schemas";
 import type { MapMarker } from "@/components/MapView";
 import type { OsmEdits } from "@/hooks/useOsmEdits";
 import AccountChip from "@/components/AccountChip";
@@ -21,10 +21,10 @@ import {
   type Recency,
   type Svc,
   type Water,
-} from "@/lib/fountainFilters";
+} from "@rosm/core/fountainFilters";
 import { apiFetch } from "@/lib/api";
 import { getCurrentPosition } from "@/lib/geolocation";
-import { milesToMeters, type Pt } from "@/lib/geo";
+import { milesToMeters, type Pt } from "@rosm/core/geo";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 

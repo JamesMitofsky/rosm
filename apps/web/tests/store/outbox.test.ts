@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { outboxCounts, useOutbox, type OutboxItem } from "@/store/outbox";
-import { editSummary, todayLocal } from "@/lib/editSummary";
+import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { apiFetch } from "@/lib/api";
 import { idbClearOutbox, idbGetAll, idbGetMeta, idbPut, idbSetMeta } from "@/lib/idb";
 

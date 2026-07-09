@@ -7,7 +7,7 @@ import {
   FountainsRequest,
   RouteRequest,
   TagFilterSchema,
-} from "@/lib/schemas";
+} from "../src/schemas";
 
 describe("FountainSchema", () => {
   it("accepts an OSM point and defaults tags to {}", () => {

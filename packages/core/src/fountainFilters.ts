@@ -1,6 +1,6 @@
-import type { Fountain } from "@/lib/schemas";
-import { lastCheckedMs } from "@/lib/checkDate";
-import { haversine, type Pt } from "@/lib/geo";
+import type { Fountain } from "./schemas";
+import { lastCheckedMs } from "./checkDate";
+import { haversine, type Pt } from "./geo";
 
 // Pure classification + ranking helpers for the fountain browser's filters.
 

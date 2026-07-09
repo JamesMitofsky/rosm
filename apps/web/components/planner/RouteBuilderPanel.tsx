@@ -9,8 +9,8 @@ import SegmentedControl from "@/components/ui/SegmentedControl";
 import EditSyncPanel from "@/components/EditSyncPanel";
 import type { OsmEdits } from "@/hooks/useOsmEdits";
 import { usePlanner, pinnedOf, removedOf } from "@/store/planner";
-import type { Fountain } from "@/lib/schemas";
-import { fmtDist } from "@/lib/geo";
+import type { Fountain } from "@rosm/core/schemas";
+import { fmtDist } from "@rosm/core/geo";
 
 // Route sizing modes, shown as a segmented control on the map phase.
 const SIZE_MODES = [

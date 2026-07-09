@@ -1,9 +1,10 @@
 // Foot routing via BRouter public API (free, no key). Returns street geometry + distance.
 import { bearing, haversine, type Pt } from "./geo";
+import { env } from "./env";
 
-const BROUTER_URL = process.env.BROUTER_URL || "https://brouter.de/brouter";
+const BROUTER_URL = env("BROUTER_URL") || "https://brouter.de/brouter";
 // Foot profile available on the public brouter.de server.
-const BROUTER_PROFILE = process.env.BROUTER_PROFILE || "hiking-beta";
+const BROUTER_PROFILE = env("BROUTER_PROFILE") || "hiking-beta";
 
 // A turn-by-turn maneuver, precomputed from the route geometry so the live HUD can
 // just pick the next one by distance. `angle` is the heading change at the vertex
