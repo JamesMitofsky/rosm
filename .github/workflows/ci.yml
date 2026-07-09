@@ -1,10 +1,17 @@
-# Deployment gate for main.
+# CI + production deploy for main.
 #
-# Runs on every PR targeting main and on every push to main. Vercel's Git
-# integration deploys main on push, so the way to keep untested code out of
-# production is to make this job required: in GitHub, enable branch protection
-# on `main` with "Require status checks to pass" and select "CI". Merges (and
-# therefore deploys) then only happen on a green suite.
+# Vercel's Git integration is disabled (see vercel.json: git.deploymentEnabled
+# = false), so nothing deploys automatically on push. Instead the `deploy` job
+# below promotes main to production via the Vercel CLI, and only after Quality
+# and Build pass (`needs`) — untested code never reaches production.
+#
+# Preview deploys for feature branches are opt-in: comment `/deploy` on a PR to
+# trigger deploy-preview.yml. No other branch deploys.
+#
+# Belt-and-suspenders: also enable branch protection on `main` with "Require
+# status checks to pass" for "Quality" and "Build" so merges need a green suite.
+#
+# Requires repo secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
 name: CI
 
 on:
@@ -22,8 +29,8 @@ env:
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
-  ci:
-    name: CI
+  quality:
+    name: Quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,19 +42,69 @@ jobs:
           node-version: 24 # match the Vercel runtime
           cache: pnpm
 
-      # Persist Turborepo's local cache between runs so unchanged packages skip
-      # lint/typecheck/test/build.
-      - uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: turbo-${{ runner.os }}-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Prettier
         run: pnpm format:check
 
-      - name: Lint, typecheck, test, build
-        run: pnpm exec turbo run lint typecheck test build
+      - name: ESLint
+        run: pnpm lint
+
+      - name: TypeScript
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Next.js production build
+        run: pnpm build
+
+  deploy:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    # Only promote to production on a green push to main. PRs and other branches
+    # never reach this job.
+    needs: [quality, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Pull Vercel production env
+        run: pnpm dlx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: pnpm dlx vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output to production
+        run: pnpm dlx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

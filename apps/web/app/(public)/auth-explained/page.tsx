@@ -14,19 +14,6 @@ const fadeUp = {
 // Q&A content for the FAQ page. Each entry animates in as its own block.
 const FAQS: { q: string; a: ReactNode }[] = [
   {
-    q: "What is OpenStreetMap?",
-    a: (
-      <>
-        <p>
-          OpenStreetMap (OSM) is the Wikipedia of mapping—a crowd-sourced, openly licensed
-          alternative to Big Map. Instead of one company owning the map, anyone can add and verify
-          places, and the data belongs to the public. ROSM writes every fountain update straight to
-          OSM, so the information lives somewhere durable and open.
-        </p>
-      </>
-    ),
-  },
-  {
     q: "How is this different from other fountain maps?",
     a: (
       <>
@@ -38,6 +25,19 @@ const FAQS: { q: string; a: ReactNode }[] = [
           contribution to the map in real time. And even if—EVEN IF—the whole ROSM project blew up
           and vanished, the data and contribution history is actually stored with the
           long-established and well-reputed OpenStreetMap.
+        </p>
+      </>
+    ),
+  },
+  {
+    q: "What is OpenStreetMap?",
+    a: (
+      <>
+        <p>
+          OpenStreetMap (OSM) is the Wikipedia of mapping—a crowd-sourced, openly licensed
+          alternative to Big Map. Instead of one company owning the map, anyone can add and verify
+          places, and the data belongs to the public. ROSM writes every fountain update straight to
+          OSM, so the information lives somewhere durable and open.
         </p>
       </>
     ),

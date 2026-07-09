@@ -102,3 +102,19 @@ Top row is the latest; the Status column reads `● Ready`, `● Building`, or `
 Pull requests welcome — the project lives at
 [github.com/JamesMitofsky/run-for-maps](https://github.com/JamesMitofsky/run-for-maps).
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and PR conventions.
+
+## Deploy setup (TODO)
+
+Vercel git auto-deploy is disabled (`vercel.json`). Production deploys on a green
+push to `main` via CI; previews are opt-in by commenting `/deploy` on a PR.
+To activate, one-time:
+
+- [ ] Add repo secrets: `VERCEL_TOKEN` ([create token](https://vercel.com/account/settings/tokens)),
+      `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+      Get the IDs via `vercel link` → read `.vercel/project.json` (`orgId`, `projectId`).
+      Do not commit `.vercel/`.
+- [ ] Merge this config to `main` — `vercel.json` git settings only apply once on
+      the production branch, and `/deploy` (an `issue_comment` workflow) only runs
+      from the default branch.
+- [ ] Enable branch protection on `main`: require the `Quality` and `Build` status
+      checks to pass before merge.

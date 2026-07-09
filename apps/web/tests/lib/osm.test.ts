@@ -17,6 +17,7 @@ import {
   putNode,
   todayIso,
 } from "@/lib/osm";
+import { APP_NAME } from "@/lib/appConfig";
 
 const T = "2026-01-02";
 
@@ -184,7 +185,7 @@ describe("changesets", () => {
     expect(init.method).toBe("PUT");
     expect(init.headers.Authorization).toBe("Bearer tok");
     expect(init.headers["Content-Type"]).toBe("text/xml");
-    expect(init.body).toContain('<tag k="created_by" v="run-for-maps"/>');
+    expect(init.body).toContain(`<tag k="created_by" v="${APP_NAME}"/>`);
     expect(init.body).toContain('<tag k="comment" v="Survey run"/>');
   });
 

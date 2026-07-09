@@ -2,8 +2,13 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeftIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import {
+  ArrowLeftIcon,
+  MagnifyingGlassIcon,
+  MapPinIcon,
+  SlidersHorizontalIcon,
+} from "@phosphor-icons/react";
 import type { Fountain } from "@rosm/core/schemas";
 import type { MapMarker } from "@/components/MapView";
 import type { OsmEdits } from "@/hooks/useOsmEdits";
@@ -77,19 +82,32 @@ export default function FountainMap({
   const [fountains, setFountains] = useState<Fountain[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [radiusMi, setRadiusMi] = useState(defaultRadiusMi);
+  // Latest settled map view (center + corner-reaching radius), and whether the
+  // user has moved the map away from the last search — which surfaces the
+  // floating "Search this area" button.
+  const [mapView, setMapView] = useState<{ lat: number; lon: number; radiusM: number } | null>(
+    null,
+  );
+  const [showSearchArea, setShowSearchArea] = useState(false);
+  // Radius for anchor-based searches (GPS fix / dropped pin). No longer user-
+  // editable — panning the map and hitting "Search this area" is the way to widen.
+  const defaultRadiusM = milesToMeters(defaultRadiusMi);
   // Filters: default to in-service only; both water types and all recencies on.
   const [svc, setSvc] = useState<Set<Svc>>(() => new Set<Svc>(["in"]));
   const [water, setWater] = useState<Set<Water>>(() => new Set<Water>(["human"]));
   const [rec, setRec] = useState<Set<Recency>>(() => new Set<Recency>(["fresh"]));
-  // The search/filter surface opens as a full-screen modal on mount and stays up
-  // while points load; it collapses to a reopen button once a search succeeds.
-  const [modalOpen, setModalOpen] = useState(true);
+  // The search/filter surface. Stays closed until the location-consent gate is
+  // resolved, then collapses to a reopen button once a search succeeds.
+  const [modalOpen, setModalOpen] = useState(false);
+  // Location-consent gate: shown first, before we ever touch the system
+  // permission. Only once the user agrees here do we fire the device prompt.
+  const [askConsent, setAskConsent] = useState(true);
 
   // Acquire a GPS fix and make it the search anchor. Does not search — that
-  // stays an explicit action.
-  const locate = useCallback(async () => {
-    setBusy(true);
+  // stays an explicit action. `quiet` skips the loading animation while the
+  // system permission prompt is up, so the loader only starts once we hold a fix.
+  const locate = useCallback(async (quiet = false) => {
+    if (!quiet) setBusy(true);
     setErr(null);
     try {
       const p = await getCurrentPosition().catch(() => {
@@ -107,15 +125,16 @@ export default function FountainMap({
       setErr((e as Error).message);
       return null;
     } finally {
-      setBusy(false);
+      if (!quiet) setBusy(false);
     }
   }, []);
 
-  // Fetch the drinking-water points around the anchor; with no anchor yet, fall
-  // back to acquiring the GPS fix first. We ask for out-of-service variants too
-  // so the Service filter has something to reveal.
+  // Fetch the drinking-water points around a center; with no anchor yet, fall
+  // back to acquiring the GPS fix first. `radiusM` defaults to the anchor radius
+  // but "Search this area" passes the current viewport radius. We ask for
+  // out-of-service variants too so the Service filter has something to reveal.
   const search = useCallback(
-    async (at?: Pt) => {
+    async (at?: Pt, radiusM: number = defaultRadiusM) => {
       let from = at ?? center;
       if (!from) {
         from = await locate();
@@ -129,7 +148,7 @@ export default function FountainMap({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...from,
-            radiusM: milesToMeters(radiusMi),
+            radiusM,
             tag: TAG,
             recencyMode: "any",
             includeDisused: true,
@@ -144,6 +163,8 @@ export default function FountainMap({
         }
         setFountains(j.fountains as Fountain[]);
         setSearchedAt(from);
+        // Fresh results match the current view — hide the "search this area" nudge.
+        setShowSearchArea(false);
         // Points landed — drop the modal so the map is visible. It reopens on demand.
         setModalOpen(false);
       } catch (e) {
@@ -152,19 +173,41 @@ export default function FountainMap({
         setBusy(false);
       }
     },
-    [center, radiusMi, locate],
+    [center, defaultRadiusM, locate],
   );
 
-  // On mount, request a GPS fix once and search from it as soon as access is
-  // granted. A denied/failed fix leaves search available via the button.
-  const autoRan = useRef(false);
-  useEffect(() => {
-    if (autoRan.current) return;
-    autoRan.current = true;
-    locate().then((here) => {
-      if (here) search(here);
-    });
+  // The map settled after a pan/zoom: remember the view, and if the user drove
+  // the move, offer to re-search the now-visible area.
+  const onViewChange = useCallback(
+    (view: { lat: number; lon: number; radiusM: number }, userInitiated: boolean) => {
+      setMapView(view);
+      if (userInitiated) setShowSearchArea(true);
+    },
+    [],
+  );
+
+  // Search the currently visible map area (center + corner-reaching radius).
+  const searchArea = useCallback(() => {
+    if (!mapView) return;
+    search({ lat: mapView.lat, lon: mapView.lon }, mapView.radiusM);
+  }, [mapView, search]);
+
+  // Consent granted: dismiss the gate, fire the system permission prompt (no
+  // loader yet), and only once we hold a fix begin the search — which flips on
+  // the loading animation. A denied/failed fix falls back to the search panel.
+  const startWithLocation = useCallback(async () => {
+    setAskConsent(false);
+    const here = await locate(true);
+    setModalOpen(true);
+    if (here) search(here);
   }, [locate, search]);
+
+  // Consent declined: skip location entirely and open the search panel so the
+  // user can drop a pin and search manually.
+  const declineLocation = useCallback(() => {
+    setAskConsent(false);
+    setModalOpen(true);
+  }, []);
 
   // Dropping a pin moves the search anchor; results refresh on the next search.
   const dropPin = useCallback((lat: number, lon: number) => {
@@ -240,8 +283,7 @@ export default function FountainMap({
         setWater={setWater}
         rec={rec}
         setRec={setRec}
-        radiusMi={radiusMi}
-        onRadiusChange={setRadiusMi}
+        showFilters={searchedAt !== null}
         onSearch={() => search()}
       />
       {footer}
@@ -264,13 +306,9 @@ export default function FountainMap({
             zoom={15}
             recenterKey={recenterKey}
             markers={markers}
-            circle={
-              center
-                ? { center: [center.lat, center.lon], radiusM: milesToMeters(radiusMi) }
-                : undefined
-            }
             userPos={pos ? [pos.lat, pos.lon] : undefined}
             onMapClick={dropPin}
+            onViewChange={onViewChange}
             className="absolute inset-0 h-full w-full"
           />
         </div>
@@ -301,6 +339,49 @@ export default function FountainMap({
             {!nav && <AccountChip />}
           </div>
         </header>
+
+        {/* "Search this area": appears once the user pans/zooms away from the
+            last search, and re-runs the query over the now-visible viewport. */}
+        {showSearchArea && !modalOpen && !askConsent && !busy && (
+          <div className="safe-top pointer-events-none absolute inset-x-0 top-14 z-[1000] flex justify-center md:top-16">
+            <button
+              type="button"
+              onClick={searchArea}
+              className="border-paper-line bg-paper/95 text-ink hover:text-sky-deep pointer-events-auto flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold shadow-md backdrop-blur transition"
+            >
+              <MagnifyingGlassIcon size={14} />
+              Search this area
+            </button>
+          </div>
+        )}
+
+        {/* Location-consent gate: shown before the system prompt. Agreeing here
+            fires the device permission; declining drops into manual pin search. */}
+        <Modal open={askConsent} onClose={declineLocation} contained title="Find water near you">
+          <div className="flex flex-col gap-4">
+            <p className="text-ink-dim text-sm leading-relaxed">
+              Share your location to find drinking fountains around you. Your device will ask
+              permission next. Nothing is stored or shared.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={startWithLocation}
+                className="bg-sky-deep text-ink hover:bg-sky-deep/85 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition"
+              >
+                <MapPinIcon size={16} />
+                Use my location
+              </button>
+              <button
+                type="button"
+                onClick={declineLocation}
+                className="text-ink-dim hover:text-ink px-3 py-2 text-sm font-semibold transition"
+              >
+                Not now — I&apos;ll drop a pin
+              </button>
+            </div>
+          </div>
+        </Modal>
 
         <Modal
           open={modalOpen}

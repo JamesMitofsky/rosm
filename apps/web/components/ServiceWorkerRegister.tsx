@@ -15,8 +15,14 @@ export default function ServiceWorkerRegister() {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
     let reloading = false;
+    // On the first-ever visit the page loads uncontrolled, then the freshly
+    // activated worker's `clients.claim()` seizes it — firing `controllerchange`
+    // with no prior controller. Reloading there re-runs the whole page (the
+    // reveal animations play twice). Only reload when an EXISTING controller is
+    // being replaced, i.e. a genuine update.
+    const hadController = !!navigator.serviceWorker.controller;
     const onControllerChange = () => {
-      if (reloading) return;
+      if (reloading || !hadController) return;
       reloading = true;
       window.location.reload();
     };

@@ -1,0 +1,92 @@
+# On-demand preview deploys.
+#
+# Vercel Git auto-deploys are off (vercel.json). To preview a PR, comment
+# `/deploy` on it. This builds the PR head and deploys a Vercel preview, then
+# posts the URL back on the PR. Only repo owners/members/collaborators can
+# trigger it, so outside contributors can't spend build minutes or leak secrets.
+#
+# Requires repo secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
+name: Preview Deploy
+
+on:
+  issue_comment:
+    types: [created]
+
+# Least privilege: read code, comment on the PR.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    name: Preview Deploy
+    runs-on: ubuntu-latest
+    # Gate on: comment is on a PR, starts with `/deploy`, and the commenter is
+    # trusted (author of a fork PR is COLLABORATOR only if actually granted).
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/deploy') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    # One live preview per PR; a newer /deploy cancels an in-flight one.
+    concurrency:
+      group: preview-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Acknowledge request
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body "🚀 Building a preview deploy for this PR…"
+        env:
+          PR: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+
+      # Resolve and check out the PR head commit (the code being reviewed).
+      - name: Resolve PR head SHA
+        id: pr
+        run: echo "sha=$(gh pr view "$PR" --repo "$REPO" --json headRefOid -q .headRefOid)" >> "$GITHUB_OUTPUT"
+        env:
+          PR: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.sha }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Pull Vercel preview env
+        run: pnpm dlx vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: pnpm dlx vercel build --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output (preview)
+        id: deploy
+        run: echo "url=$(pnpm dlx vercel deploy --prebuilt --token="$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
+
+      - name: Post preview URL
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body "✅ Preview ready: $URL (commit \`${SHA:0:7}\`)"
+        env:
+          PR: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          URL: ${{ steps.deploy.outputs.url }}
+          SHA: ${{ steps.pr.outputs.sha }}
+
+      - name: Report failure
+        if: failure()
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body "❌ Preview deploy failed. See the [run log]($RUN)."
+        env:
+          PR: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

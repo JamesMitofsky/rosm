@@ -51,6 +51,15 @@ type Props = {
   onMapClick?: (lat: number, lon: number) => void;
   // Fired when the user drags the map, so callers can drop "follow me" mode.
   onUserPan?: () => void;
+  // Fired after any pan/zoom settles, with the current center and a radius (m)
+  // reaching the viewport corner — enough to cover everything visible. The
+  // `userInitiated` flag is true only when the move came from a drag/zoom
+  // gesture (not a programmatic recenter), so callers can surface a
+  // "search this area" affordance. Only mounted when a handler is supplied.
+  onViewChange?: (
+    view: { lat: number; lon: number; radiusM: number },
+    userInitiated: boolean,
+  ) => void;
   recenterKey?: string; // change to force recenter on `center`
   // When set (>=2 points), the map zooms to fit all points instead of just
   // centering on `center`. Used to keep user + next target both in view.
@@ -183,6 +192,35 @@ function ClickHandler({
   return null;
 }
 
+// Reports the map view (center + a corner-reaching radius) after every settled
+// pan/zoom. Tracks whether the move began with a user gesture so a "search this
+// area" button only appears when the user themselves moved the map.
+function ViewHandler({
+  onViewChange,
+}: {
+  onViewChange: (
+    view: { lat: number; lon: number; radiusM: number },
+    userInitiated: boolean,
+  ) => void;
+}) {
+  const userMoved = useRef(false);
+  const map = useMapEvents({
+    dragstart() {
+      userMoved.current = true;
+    },
+    zoomstart() {
+      userMoved.current = true;
+    },
+    moveend() {
+      const c = map.getCenter();
+      const radiusM = c.distanceTo(map.getBounds().getNorthEast());
+      onViewChange({ lat: c.lat, lon: c.lng, radiusM }, userMoved.current);
+      userMoved.current = false;
+    },
+  });
+  return null;
+}
+
 export default function MapView({
   center,
   zoom = 14,
@@ -198,6 +236,7 @@ export default function MapView({
   userHeading,
   onMapClick,
   onUserPan,
+  onViewChange,
   recenterKey,
   fitPoints,
   fitOptions,
@@ -231,6 +270,7 @@ export default function MapView({
         fitOptions={fitOptions}
       />
       <ClickHandler onMapClick={onMapClick} onUserPan={onUserPan} />
+      {onViewChange && <ViewHandler onViewChange={onViewChange} />}
       {circle && (
         <Circle
           center={circle.center}
