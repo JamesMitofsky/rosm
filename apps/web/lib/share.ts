@@ -1,20 +1,16 @@
 "use client";
 
-// Share a finished run through Capacitor — the iOS share sheet natively, the Web
-// Share API on the PWA (the plugin's web implementation). No-ops if unavailable.
-
-import { isNative } from "@/lib/api";
-
-// Whether to offer a share affordance: native always; web only where the Web Share
-// API exists (which is exactly what Capacitor's web Share impl drives).
+// Share a finished run through the Web Share API (mobile browsers). No-ops where
+// the API is absent (most desktop browsers).
 export function canShare(): boolean {
-  return isNative() || (typeof navigator !== "undefined" && !!navigator.share);
+  return typeof navigator !== "undefined" && !!navigator.share;
 }
 
 export async function shareRun(url: string, text: string): Promise<void> {
   try {
-    const { Share } = await import("@capacitor/share");
-    await Share.share({ title: "ROSM run", text, url });
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ title: "ROSM run", text, url });
+    }
   } catch {
     /* user cancelled or share unavailable — ignore */
   }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRightIcon, PathIcon, PersonSimpleRunIcon } from "@phosphor-icons/react";
 import { getArchivedRoutes, type ArchivedRoute } from "@rosm/core/routeArchive";
-import { apiFetch, isNative } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { fmtDist } from "@rosm/core/geo";
 
 type CardState =
@@ -23,27 +23,19 @@ export default function HomeRunCard() {
       const latest = getArchivedRoutes()[0];
       return latest ? { kind: "last", route: latest } : null;
     };
-    // Mirror the planner's recovery source: on-device archive on native, the
-    // server-persisted run on web. An unfinished run wins over history.
+    // The planner's recovery source: the server-persisted run. An unfinished run
+    // wins over history.
     const isActive = (plan: { stops?: unknown[]; index?: number } | null) =>
       !!plan?.stops?.length && (plan.index ?? 0) < plan.stops.length;
-    if (isNative()) {
-      Promise.resolve().then(() => {
+    apiFetch("/api/run")
+      .then((r) => r.json())
+      .then((plan) => {
         if (!alive) return;
-        const latest = getArchivedRoutes()[0];
-        setState(isActive(latest?.plan ?? null) ? { kind: "active" } : lastArchived());
+        setState(isActive(plan) ? { kind: "active" } : lastArchived());
+      })
+      .catch(() => {
+        if (alive) setState(lastArchived());
       });
-    } else {
-      apiFetch("/api/run")
-        .then((r) => r.json())
-        .then((plan) => {
-          if (!alive) return;
-          setState(isActive(plan) ? { kind: "active" } : lastArchived());
-        })
-        .catch(() => {
-          if (alive) setState(lastArchived());
-        });
-    }
     return () => {
       alive = false;
     };

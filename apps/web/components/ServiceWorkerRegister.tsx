@@ -1,20 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { isNative } from "@/lib/api";
 
 /**
  * Registers the service worker and applies updates safely:
  * when a new worker finishes installing, it is told to activate, and the
  * page reloads once control passes to it so users get the latest assets.
  *
- * The service worker is the WEB PWA's offline shell only — it's the one piece
- * Capacitor doesn't own. On native the bundled assets are the shell, so skip it
- * (and keep it from ever competing with the native runtime).
+ * The service worker is the web PWA's offline shell.
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
-    if (isNative()) return;
     if (process.env.NODE_ENV !== "production") return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 

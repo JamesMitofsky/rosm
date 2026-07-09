@@ -7,8 +7,7 @@ import OsmSignInLink from "@/components/OsmSignInLink";
 import { useOsmStatus } from "@/components/OsmStatus";
 import { useOsmUser } from "@/hooks/useOsmUser";
 import { useOutbox, outboxCounts } from "@rosm/core/stores/outbox";
-import { apiFetch, isNative } from "@/lib/api";
-import { signOutOsm } from "@/lib/osmAuth";
+import { apiFetch } from "@/lib/api";
 
 // Who you are on OSM, and the way out. Signed out → a connect card, since the
 // rest of the page (device-local archive) still works without an account.
@@ -49,12 +48,8 @@ export default function AccountCard() {
     }
     setSigningOut(true);
     try {
-      if (isNative()) {
-        await signOutOsm();
-      } else {
-        await apiFetch("/api/osm/status", { method: "DELETE" });
-        window.dispatchEvent(new Event("osm-auth-changed"));
-      }
+      await apiFetch("/api/osm/status", { method: "DELETE" });
+      window.dispatchEvent(new Event("osm-auth-changed"));
     } finally {
       setSigningOut(false);
     }

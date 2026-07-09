@@ -6,6 +6,16 @@ import prettier from "eslint-config-prettier";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Underscore-prefixed args/vars are intentionally unused (e.g. no-op adapter
+  // signatures kept for cross-platform parity).
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
+  },
   // Disable ESLint rules that conflict with Prettier. Keep last so it wins.
   prettier,
   // Override default ignores of eslint-config-next.

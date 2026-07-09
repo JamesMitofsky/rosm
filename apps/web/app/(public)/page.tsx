@@ -6,7 +6,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import FreshnessLegend, { type Bucket } from "@/components/FreshnessLegend";
 import HomeRunCard from "@/components/HomeRunCard";
-import NativeEntryRedirect from "@/components/NativeEntryRedirect";
 import SiteNav from "@/components/SiteNav";
 import { HeartIcon } from "@phosphor-icons/react";
 
@@ -111,7 +110,6 @@ export default function LandingPage() {
 
   return (
     <main className="paper-grain bg-paper font-body text-ink relative">
-      <NativeEntryRedirect />
       <SiteNav />
 
       {/* HERO */}

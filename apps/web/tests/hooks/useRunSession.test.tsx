@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useRunSession } from "@/hooks/useRunSession";
 import { useRun, type RunPlan } from "@rosm/core/stores/run";
 import { useOutbox } from "@rosm/core/stores/outbox";
-import { archiveRoute, getArchivedRoutes } from "@rosm/core/routeArchive";
+import { getArchivedRoutes } from "@rosm/core/routeArchive";
 import { apiFetch } from "@/lib/api";
 import { celebratePoint } from "@/lib/confetti";
 import { hapticSuccess } from "@/lib/haptics";
@@ -22,7 +22,6 @@ type Watcher = {
 };
 
 const h = vi.hoisted(() => ({
-  native: { value: false },
   osm: { value: { loggedIn: true, apiBase: "https://api.test", live: false } },
   watchers: [] as {
     onPoint: (p: { lat: number; lon: number; heading: number | null }) => void;
@@ -33,7 +32,6 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@/lib/api", () => ({
   apiFetch: vi.fn(),
-  isNative: () => h.native.value,
 }));
 vi.mock("@/lib/geolocation", () => ({
   watchRunPosition: vi.fn(async (onPoint: Watcher["onPoint"], onError: Watcher["onError"]) => {
@@ -109,7 +107,6 @@ function arm(plan: RunPlan = basePlan) {
 }
 
 beforeEach(() => {
-  h.native.value = false;
   h.osm.value = { loggedIn: true, apiBase: "https://api.test", live: false };
   h.watchers.length = 0;
   window.localStorage.clear();
@@ -162,23 +159,6 @@ describe("hydration", () => {
     await waitFor(() => expect(result.current.hydrating).toBe(false));
     expect(useRun.getState().hasPlan).toBe(false);
     expect(result.current.done).toBe(false);
-  });
-
-  it("recovers the latest archived route on a native cold mount", async () => {
-    h.native.value = true;
-    archiveRoute({
-      routeId: "archived-1",
-      plan: { ...structuredClone(basePlan), index: 1 },
-      edits: [],
-    });
-
-    const { result } = renderHook(() => useRunSession());
-    await waitFor(() => expect(result.current.hydrating).toBe(false));
-
-    expect(useRun.getState().hasPlan).toBe(true);
-    expect(useRun.getState().index).toBe(1);
-    // Native never asks the server for run state.
-    expect(apiFetchMock.mock.calls.filter((c) => c[0] === "/api/run")).toHaveLength(0);
   });
 
   it("skips hydration when the planner already installed a plan", async () => {

@@ -3,18 +3,16 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DeviceMobileIcon, XIcon } from "@phosphor-icons/react";
-import { isNative } from "@/lib/api";
 
 // Caught right before sign-in: a mobile visitor on the plain website (not the
-// installed PWA and not the native build). The planner leans on a long-lived,
-// offline-tolerant session, and a browser tab is the shakiest place to run it —
-// so we nudge them to install to the homescreen first. Fully bypassable: this is
-// a heads-up, not a gate.
+// installed PWA). The planner leans on a long-lived, offline-tolerant session, and
+// a browser tab is the shakiest place to run it — so we nudge them to install to
+// the homescreen first. Fully bypassable: this is a heads-up, not a gate.
 //
 // Detection is client-only (guards SSR): mobile pointer + touch, and NOT already
-// running standalone (display-mode / iOS navigator.standalone), and NOT native.
+// running standalone (display-mode / iOS navigator.standalone).
 function shouldPrompt(): boolean {
-  if (typeof window === "undefined" || isNative()) return false;
+  if (typeof window === "undefined") return false;
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches ||
     // iOS Safari exposes standalone here instead of via display-mode.

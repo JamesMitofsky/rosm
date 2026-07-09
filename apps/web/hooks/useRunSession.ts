@@ -13,8 +13,8 @@ import { useOsmStatus } from "@/components/OsmStatus";
 import PointPopup from "@/components/PointPopup";
 import { celebratePoint } from "@/lib/confetti";
 import { useHeading } from "@/lib/useHeading";
-import { archiveRoute, getArchivedRoutes } from "@rosm/core/routeArchive";
-import { apiFetch, isNative } from "@/lib/api";
+import { archiveRoute } from "@rosm/core/routeArchive";
+import { apiFetch } from "@/lib/api";
 import { watchRunPosition, type GeoWatch } from "@/lib/geolocation";
 import { hapticSuccess } from "@/lib/haptics";
 import { keepAwake, allowSleep } from "@/lib/keepAwake";
@@ -59,17 +59,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   // above covers that first render; `finally` clears it).
   useEffect(() => {
     if (!enabled || useRun.getState().hasPlan) return;
-    // Native has no server run state (the /api/run JSON file is web-only) — recover
-    // the most recent run from the on-device route archive instead. Works offline.
-    // Deferred off the effect body so the state update doesn't cascade-render.
-    if (isNative()) {
-      Promise.resolve().then(() => {
-        const latest = getArchivedRoutes()[0];
-        if (latest?.plan?.stops?.length) useRun.getState().hydrate(latest.plan);
-        setHydrating(false);
-      });
-      return;
-    }
+    // Recover the server-persisted run (the /api/run JSON file) on a cold standalone
+    // mount (direct nav to /run, or the PWA "Start a run" shortcut).
     apiFetch("/api/run")
       .then((r) => r.json())
       .then((plan) => {
@@ -124,7 +115,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   // All live-run geometry (distance/bearing to target, route progress, next
   // maneuver, auto-arrival) is derived by the shared core helper so the web and
   // Expo run hooks stay in lockstep.
-  const { distToTarget, bearingTo, traveledM, nextTurn, distToTurn, autoArrived } = runGuidance(
+  const { distToTarget, bearingTo, nextTurn, distToTurn, autoArrived } = runGuidance(
     pos,
     target ?? null,
     run.routeCoords,

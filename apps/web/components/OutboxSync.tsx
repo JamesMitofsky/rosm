@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useOutbox, outboxCounts } from "@rosm/core/stores/outbox";
-import { notifySyncPending } from "@/lib/notify";
+import { useOutbox } from "@rosm/core/stores/outbox";
 
 // Drives the offline outbox app-wide: loads the queue on start, then flushes
 // pending edits to OSM whenever we (re)gain connectivity or the tab becomes
@@ -12,32 +11,18 @@ export default function OutboxSync() {
     const { hydrate, flush } = useOutbox.getState();
     hydrate().then(() => flush());
 
-    const flushPending = () => {
-      const unsent = outboxCounts(useOutbox.getState().items).unsent;
-      if (unsent > 0) notifySyncPending(unsent);
-      useOutbox.getState().flush();
-    };
+    const flushPending = () => useOutbox.getState().flush();
 
     const onVisible = () => {
-      if (document.visibilityState === "visible") useOutbox.getState().flush();
+      if (document.visibilityState === "visible") flushPending();
     };
     document.addEventListener("visibilitychange", onVisible);
-
-    // Connectivity via Capacitor Network — one API for both targets (its web impl
-    // wraps navigator.onLine + online/offline). Re-sync queued edits, and nudge the
-    // user (native), the moment we're back online.
-    let removeNet: (() => void) | undefined;
-    import("@capacitor/network").then(({ Network }) => {
-      Network.addListener("networkStatusChange", (s) => {
-        if (s.connected) flushPending();
-      }).then((h) => {
-        removeNet = () => h.remove();
-      });
-    });
+    // Re-sync queued edits the moment the browser reports we're back online.
+    window.addEventListener("online", flushPending);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
-      removeNet?.();
+      window.removeEventListener("online", flushPending);
     };
   }, []);
 

@@ -20,8 +20,7 @@ import CompassEnableModal from "@/components/run/CompassEnableModal";
 import { useRunSession } from "@/hooks/useRunSession";
 import { useOsmEdits } from "@/hooks/useOsmEdits";
 import { usePlannerDraftSync } from "@/hooks/usePlannerDraftSync";
-import { apiFetch, isNative } from "@/lib/api";
-import { getArchivedRoutes } from "@rosm/core/routeArchive";
+import { apiFetch } from "@/lib/api";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -50,8 +49,7 @@ export default function PlannerPage() {
   // so SSR never flashes the wrong screen before the client checks the device).
   const isMobileDevice = useSyncExternalStore<boolean | null>(
     subscribeNever,
-    () =>
-      isNative() || (window.matchMedia("(pointer: coarse)").matches && "ontouchstart" in window),
+    () => window.matchMedia("(pointer: coarse)").matches && "ontouchstart" in window,
     () => null,
   );
 
@@ -98,19 +96,7 @@ export default function PlannerPage() {
   // finished run (index past the last stop) is ignored so it can't hijack a
   // fresh planning session.
   useEffect(() => {
-    // Native: recover an interrupted run from the on-device archive (no server
-    // run state). Web: read it back from /api/run. Deferred off the effect body so
-    // the state update doesn't cascade-render synchronously.
-    if (isNative()) {
-      Promise.resolve().then(() => {
-        const plan = getArchivedRoutes()[0]?.plan;
-        if (plan && plan.stops?.length && (plan.index ?? 0) < plan.stops.length) {
-          useRun.getState().hydrate(plan);
-          usePlanner.getState().setPhase("run");
-        }
-      });
-      return;
-    }
+    // Recover an interrupted run from the server-persisted /api/run on mount.
     apiFetch("/api/run")
       .then((r) => r.json())
       .then((plan) => {
