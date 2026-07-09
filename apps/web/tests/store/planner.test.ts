@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePlanner, inRouteIdsOf, pinnedOf, removedOf, type Draft } from "@/store/planner";
-import { useRun } from "@/store/run";
+import { useRun } from "@rosm/core/stores/run";
 import { apiFetch } from "@/lib/api";
 import type { Fountain } from "@rosm/core/schemas";
 

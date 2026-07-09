@@ -3,7 +3,7 @@
 import type { Pt } from "@rosm/core/geo";
 import type { Turn } from "@rosm/core/brouter";
 import type { Fountain } from "@rosm/core/schemas";
-import type { RunStop } from "@/store/run";
+import type { RunStop } from "@rosm/core/stores/run";
 import type { OutboxItem } from "@/store/outbox";
 
 // Durable on-device record of every route the surveyor runs. Replaces the old

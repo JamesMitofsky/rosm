@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useRunSession } from "@/hooks/useRunSession";
-import { useRun, type RunPlan } from "@/store/run";
+import { useRun, type RunPlan } from "@rosm/core/stores/run";
 import { useOutbox } from "@/store/outbox";
 import { archiveRoute, getArchivedRoutes } from "@/lib/routeArchive";
 import { apiFetch } from "@/lib/api";

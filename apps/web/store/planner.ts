@@ -3,7 +3,7 @@ import { planRoute } from "@rosm/core/plan";
 import { milesToMeters, type Pt } from "@rosm/core/geo";
 import type { Turn } from "@rosm/core/brouter";
 import type { Fountain, RecencyMode } from "@rosm/core/schemas";
-import { useRun, type RunStop } from "@/store/run";
+import { useRun, type RunStop } from "@rosm/core/stores/run";
 import { apiFetch } from "@/lib/api";
 import { getCurrentPosition } from "@/lib/geolocation";
 

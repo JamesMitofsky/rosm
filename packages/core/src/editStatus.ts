@@ -1,4 +1,4 @@
-import type { StopStatus } from "@/store/run";
+import type { StopStatus } from "./stores/run";
 
 // Single source of truth for the point-status palette. These are TS constants
 // (not Tailwind classes) because they're injected into Leaflet divIcon HTML

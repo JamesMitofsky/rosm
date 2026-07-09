@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRun, type RunStop, type StopStatus } from "@/store/run";
+import { useRun, type RunStop, type StopStatus } from "@rosm/core/stores/run";
 import { useOutbox } from "@/store/outbox";
-import { bearing, compass, haversine, nearestCumDistOnPath, type Pt } from "@rosm/core/geo";
+import { compass, type Pt } from "@rosm/core/geo";
+import { runGuidance, ARRIVAL_RADIUS_M, PROXIMITY_RADIUS_M } from "@rosm/core/guidance";
 import { ptLabel } from "@rosm/core/pointTypes";
 import type { MapMarker } from "@/components/MapView";
 import type { EditAction, EditExtras } from "@rosm/core/schemas";
@@ -19,7 +20,7 @@ import { hapticSuccess } from "@/lib/haptics";
 import { keepAwake, allowSleep } from "@/lib/keepAwake";
 import { ensureNotifyPermission, notifyProximity, notifyRunComplete } from "@/lib/notify";
 import { startRunActivity, updateRunActivity, endRunActivity } from "@/lib/liveActivity";
-import { STATUS_COLOR } from "@/lib/editStatus";
+import { STATUS_COLOR } from "@rosm/core/editStatus";
 import { createElement } from "react";
 
 // Everything the active-run UI needs, in one place: live GPS, the guidance
@@ -120,20 +121,19 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const target = stops[index];
   const done = run.hasPlan && index >= stops.length;
 
-  const distToTarget = pos && target ? haversine(pos, target) : null;
-  const bearingTo = pos && target ? bearing(pos, target) : 0;
+  // All live-run geometry (distance/bearing to target, route progress, next
+  // maneuver, auto-arrival) is derived by the shared core helper so the web and
+  // Expo run hooks stay in lockstep.
+  const { distToTarget, bearingTo, traveledM, nextTurn, distToTurn, autoArrived } = runGuidance(
+    pos,
+    target ?? null,
+    run.routeCoords,
+    run.turns,
+  );
   const heading = target ? compass(bearingTo) : "";
 
-  // Next turn-by-turn maneuver: where we are along the route (meters traveled),
-  // then the first precomputed turn still ahead of us. Travel-relative — the HUD
-  // rotates an arrow by `angle` (0 = straight on), no compass needed.
-  const traveledM =
-    pos && run.routeCoords.length > 1 ? nearestCumDistOnPath(run.routeCoords, pos) : 0;
-  const nextTurn = pos ? (run.turns.find((tn) => tn.distM > traveledM + 5) ?? null) : null;
-  const distToTurn = nextTurn ? nextTurn.distM - traveledM : null;
-
-  // Derived: armed manually ("I'm here") or auto within 30 m.
-  const arrived = manualArrived || (distToTarget != null && distToTarget < 30);
+  // Derived: armed manually ("I'm here") or auto within the arrival radius.
+  const arrived = manualArrived || autoArrived;
 
   // Proximity alert for the current target — useful when the phone is pocketed or
   // the app is backgrounded. Fires once per target as you close within ~80 m
@@ -142,7 +142,11 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const notifiedProxRef = useRef<number>(-1);
   useEffect(() => {
     if (!enabled || !target || distToTarget == null) return;
-    if (distToTarget < 80 && distToTarget >= 30 && notifiedProxRef.current !== index) {
+    if (
+      distToTarget < PROXIMITY_RADIUS_M &&
+      distToTarget >= ARRIVAL_RADIUS_M &&
+      notifiedProxRef.current !== index
+    ) {
       notifiedProxRef.current = index;
       notifyProximity(target.tags?.name || `node ${target.id}`, distToTarget);
     }

@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { Fountain } from "@rosm/core/schemas";
-import type { Pt } from "@rosm/core/geo";
-import type { Turn } from "@rosm/core/brouter";
+import type { Fountain } from "../schemas";
+import type { Pt } from "../geo";
+import type { Turn } from "../brouter";
 
 export type StopStatus =
   "pending" | "confirm" | "dog_only" | "out_of_order" | "removed" | "skipped";

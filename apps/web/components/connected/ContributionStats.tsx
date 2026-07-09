@@ -1,9 +1,9 @@
 "use client";
 
 import type { ArchivedRoute } from "@/lib/routeArchive";
-import { EDIT_LABEL, EDIT_COLOR } from "@/lib/editStatus";
+import { EDIT_LABEL, EDIT_COLOR } from "@rosm/core/editStatus";
 import { fmtDist } from "@rosm/core/geo";
-import type { StopStatus } from "@/store/run";
+import type { StopStatus } from "@rosm/core/stores/run";
 
 const ACTION_LABEL: Partial<Record<StopStatus, string>> = {
   confirm: "Working",

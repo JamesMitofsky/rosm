@@ -9,7 +9,7 @@ import Panel from "@/components/ui/Panel";
 import { SyncBadge } from "@/components/SyncStatus";
 import type { MapMarker } from "@/components/MapView";
 import { getArchivedRoutes, type ArchivedRoute } from "@/lib/routeArchive";
-import { EDIT_LABEL, STATUS_COLOR } from "@/lib/editStatus";
+import { EDIT_LABEL, STATUS_COLOR } from "@rosm/core/editStatus";
 import { fmtDist } from "@rosm/core/geo";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });

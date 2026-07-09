@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRunSession } from "@/hooks/useRunSession";
-import { useRun } from "@/store/run";
+import { useRun } from "@rosm/core/stores/run";
 import RunGuide from "@/components/run/RunGuide";
 import RunComplete from "@/components/run/RunComplete";
 import CompassEnableModal from "@/components/run/CompassEnableModal";

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import type { EditAction, EditExtras } from "@rosm/core/schemas";
-import type { StopStatus } from "@/store/run";
+import type { StopStatus } from "@rosm/core/stores/run";
 import type { PointEdit } from "@/components/PointPopup";
 import { useOutbox, outboxCounts } from "@/store/outbox";
 import { celebratePoint } from "@/lib/confetti";

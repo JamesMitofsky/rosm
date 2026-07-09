@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/MapView";
 import PointPopup, { type PointEdit } from "@/components/PointPopup";
 import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
-import type { StopStatus } from "@/store/run";
+import type { StopStatus } from "@rosm/core/stores/run";
 import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { celebratePoint } from "@/lib/confetti";
 import { bearing } from "@rosm/core/geo";

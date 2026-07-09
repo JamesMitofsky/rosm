@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { MapMarker } from "@/components/MapView";
 import PointPopup, { type PointEdit } from "@/components/PointPopup";
 import { usePlanner, inRouteIdsOf } from "@/store/planner";
-import { EDIT_COLOR, EDIT_LABEL } from "@/lib/editStatus";
+import { EDIT_COLOR, EDIT_LABEL } from "@rosm/core/editStatus";
 import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
 
 function markLabel(f: Fountain) {

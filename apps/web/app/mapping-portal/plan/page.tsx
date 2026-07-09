@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { DeviceMobileIcon } from "@phosphor-icons/react";
-import { useRun } from "@/store/run";
+import { useRun } from "@rosm/core/stores/run";
 import { usePlanner } from "@/store/planner";
 import AccountChip from "@/components/AccountChip";
 import OsmStatusBar, { useOsmStatus } from "@/components/OsmStatus";

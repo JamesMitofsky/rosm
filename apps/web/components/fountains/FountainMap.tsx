@@ -12,7 +12,7 @@ import Modal from "@/components/ui/Modal";
 import PointPopup from "@/components/PointPopup";
 import FountainPopup from "@/components/fountains/FountainPopup";
 import SearchPanel, { DEFAULT_RADIUS_MI, type Anchor } from "@/components/fountains/SearchPanel";
-import { EDIT_COLOR, EDIT_LABEL } from "@/lib/editStatus";
+import { EDIT_COLOR, EDIT_LABEL } from "@rosm/core/editStatus";
 import {
   countBy,
   fountainName,
