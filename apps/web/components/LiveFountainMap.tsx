@@ -64,6 +64,16 @@ export default function LiveFountainMap({
   const [nowMs, setNowMs] = useState(0);
   // Bumped once the fountains land so MapView refits to their bounding box.
   const [recenterKey, setRecenterKey] = useState("init");
+  // Narrow viewports get a further-out default frame: a small phone screen at
+  // the desktop fit zoom shows only a couple of blocks, which reads as "lost".
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -159,15 +169,15 @@ export default function LiveFountainMap({
       <MapView
         className="hero-map"
         center={DC_CENTER}
-        zoom={15}
+        zoom={isMobile ? 13 : 15}
         minZoom={12}
         maxZoom={18}
         interactive
         circle={{ center: DC_CENTER, radiusM: milesToMeters(RADIUS_MI) }}
         markers={markers}
         fitPoints={fitPoints}
-        fitOptions={{ padding: [4, 4], maxZoom: 18 }}
-        recenterKey={recenterKey}
+        fitOptions={{ padding: [4, 4], maxZoom: isMobile ? 14 : 18 }}
+        recenterKey={`${recenterKey}-${isMobile}`}
       />
 
       {/* First-load: a spacious, self-narrating loader. The empty map reads as

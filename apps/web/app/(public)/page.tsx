@@ -59,7 +59,11 @@ function Contours({ className = "" }: { className?: string }) {
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
   whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: "-80px" },
+  // Positive bottom margin extends the trigger zone *below* the viewport, so
+  // each block starts revealing while still under the fold — no scrolling an
+  // element deep into view before it appears (felt especially late on mobile).
+  // `amount: "some"` fires as soon as any part of the block crosses the line.
+  viewport: { once: true, margin: "0px 0px 20% 0px", amount: "some" },
   transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
 };
 
@@ -201,7 +205,7 @@ export default function LandingPage() {
               </p>
               <ol className="text-ink-dim mt-4 list-decimal space-y-1 pl-6 text-lg leading-relaxed">
                 <li>literally anyone looking for a working fountain</li>
-                <li>runner (or avid walkers!) who want to verify fountains</li>
+                <li>runners (or avid walkers!) who want to verify fountains</li>
               </ol>
               <p className="text-ink-dim mt-4 text-lg leading-relaxed">
                 If you&apos;re part of this second group, awesome! I&apos;ll mention there may be
