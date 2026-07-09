@@ -64,6 +64,38 @@ const fadeUp = {
   transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
 };
 
+/*
+ * Torn-paper silhouette for the manifesto plate. Irregular px offsets along the
+ * top and bottom edges read as a hand-torn strip; the left/right sides stay
+ * straight for the full-bleed section. Offsets are hardcoded — not random — so
+ * SSR and client render the same edge (no hydration mismatch, no jitter).
+ *
+ * clip-path and the raising drop-shadow MUST live on separate elements: on one
+ * element the clip runs after the filter and would clip the shadow away to
+ * nothing. So the wrapper carries `tornShadow` (drop-shadow hugs the clipped
+ * child silhouette, unlike box-shadow) and the inner section carries `tornClip`.
+ */
+const tornShadow = {
+  filter:
+    "drop-shadow(0 2px 3px rgba(60, 48, 24, 0.32)) drop-shadow(0 9px 18px rgba(60, 48, 24, 0.24))",
+} as const;
+
+const tornClip = {
+  clipPath: `polygon(
+    0% 10px, 4% 2px, 7% 18px, 13% 4px, 17% 21px, 21% 7px, 26% 14px, 31% 1px,
+    34% 19px, 40% 5px, 44% 22px, 49% 9px, 53% 3px, 58% 17px, 63% 6px, 68% 20px,
+    71% 11px, 77% 2px, 82% 16px, 86% 5px, 91% 23px, 96% 8px, 100% 13px,
+    100% calc(100% - 11px), 96% calc(100% - 3px), 91% calc(100% - 19px),
+    86% calc(100% - 6px), 82% calc(100% - 22px), 77% calc(100% - 8px),
+    71% calc(100% - 15px), 68% calc(100% - 2px), 63% calc(100% - 20px),
+    58% calc(100% - 5px), 53% calc(100% - 23px), 49% calc(100% - 9px),
+    44% calc(100% - 4px), 40% calc(100% - 17px), 34% calc(100% - 7px),
+    31% calc(100% - 21px), 26% calc(100% - 12px), 21% calc(100% - 3px),
+    17% calc(100% - 18px), 13% calc(100% - 6px), 7% calc(100% - 22px),
+    4% calc(100% - 9px), 0% calc(100% - 14px)
+  )`,
+} as const;
+
 /* Tiny mono corner label, as in the reference layouts. */
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -146,46 +178,51 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* MANIFESTO SPLIT */}
-      <section className="border-paper-line bg-paper-deep border-t">
-        <div className="mx-auto max-w-3xl px-5 py-20 md:py-28">
-          <motion.div {...fadeUp}>
-            <h2 className="font-display text-[clamp(2rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight">
-              What&apos;s the deal?
-            </h2>
-            <p className="text-ink-dim mt-6 text-lg leading-relaxed">
-              In the summer heat, I just wanted to know where I could get a sip of water on my runs.
-              And so I thought I&apos;d put together a little map. But then, by stopping at the
-              fountains on my map, I realized a bunch of them were out of order (some were
-              missing!). So this got me to thinking about having a system for updating the
-              fountains. And then it hit me: if I was already planning my runs to include passing
-              one or two fountains for a drink, why not just plan a run optimized for passing the
-              most fountains possible! After my first beta test of this system, I visited 23
-              fountains in 7 miles, and that&apos;s when I realized even just a few runners could
-              make light work of covering the whole city!
-            </p>
-            <p className="text-ink-dim mt-4 text-lg leading-relaxed">ROSM caters to two groups:</p>
-            <ol className="text-ink-dim mt-4 list-decimal space-y-1 pl-6 text-lg leading-relaxed">
-              <li>literally anyone looking for a working fountain</li>
-              <li>runner (or avid walkers!) who want to verify fountains</li>
-            </ol>
-            <p className="text-ink-dim mt-4 text-lg leading-relaxed">
-              If you&apos;re part of this second group, awesome! I&apos;ll mention there may be some
-              rough edges, but if you discover something, shoot me a message{" "}
-              <a
-                href="mailto:james@btv.dev"
-                className="text-ink decoration-sky-deep/50 hover:decoration-sky-deep font-medium underline underline-offset-4"
-              >
-                james@btv.dev
-              </a>{" "}
-              and we&apos;ll get things squared away!
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      {/* MANIFESTO SPLIT — a raised, hand-torn paper strip over the page.
+          Wrapper casts the shadow; inner section carries the torn clip. */}
+      <div className="relative z-10 -my-6" style={tornShadow}>
+        <section className="bg-paper-deep" style={tornClip}>
+          <div className="mx-auto max-w-3xl px-5 py-20 md:py-28">
+            <motion.div {...fadeUp}>
+              <h2 className="font-display text-[clamp(2rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight">
+                What&apos;s the deal?
+              </h2>
+              <p className="text-ink-dim mt-6 text-lg leading-relaxed">
+                In the summer heat, I just wanted to know where I could get a sip of water on my
+                runs. And so I thought I&apos;d put together a little map. But then, by stopping at
+                the fountains on my map, I realized a bunch of them were out of order (some were
+                missing!). So this got me to thinking about having a system for updating the
+                fountains. And then it hit me: if I was already planning my runs to include passing
+                one or two fountains for a drink, why not just plan a run optimized for passing the
+                most fountains possible! After my first beta test of this system, I visited 23
+                fountains in 7 miles, and that&apos;s when I realized even just a few runners could
+                make light work of covering the whole city!
+              </p>
+              <p className="text-ink-dim mt-4 text-lg leading-relaxed">
+                ROSM caters to two groups:
+              </p>
+              <ol className="text-ink-dim mt-4 list-decimal space-y-1 pl-6 text-lg leading-relaxed">
+                <li>literally anyone looking for a working fountain</li>
+                <li>runner (or avid walkers!) who want to verify fountains</li>
+              </ol>
+              <p className="text-ink-dim mt-4 text-lg leading-relaxed">
+                If you&apos;re part of this second group, awesome! I&apos;ll mention there may be
+                some rough edges, but if you discover something, shoot me a message{" "}
+                <a
+                  href="mailto:james@btv.dev"
+                  className="text-ink decoration-sky-deep/50 hover:decoration-sky-deep font-medium underline underline-offset-4"
+                >
+                  james@btv.dev
+                </a>{" "}
+                and we&apos;ll get things squared away!
+              </p>
+            </motion.div>
+          </div>
+        </section>
+      </div>
 
       {/* HOW IT WORKS — interactive demo of the run + edit flow */}
-      <section className="border-paper-line border-t">
+      <section>
         <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
           <motion.h2
             {...fadeUp}
