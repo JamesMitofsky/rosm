@@ -2,10 +2,9 @@
 #
 # Runs on every PR targeting main and on every push to main. Vercel's Git
 # integration deploys main on push, so the way to keep untested code out of
-# production is to make these jobs required: in GitHub, enable branch
-# protection on `main` with "Require status checks to pass" and select
-# "Quality" and "Build". Merges (and therefore deploys) then only happen on a
-# green suite.
+# production is to make this job required: in GitHub, enable branch protection
+# on `main` with "Require status checks to pass" and select "CI". Merges (and
+# therefore deploys) then only happen on a green suite.
 name: CI
 
 on:
@@ -23,8 +22,8 @@ env:
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
-  quality:
-    name: Quality
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,36 +35,19 @@ jobs:
           node-version: 24 # match the Vercel runtime
           cache: pnpm
 
+      # Persist Turborepo's local cache between runs so unchanged packages skip
+      # lint/typecheck/test/build.
+      - uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Prettier
         run: pnpm format:check
 
-      - name: ESLint
-        run: pnpm lint
-
-      - name: TypeScript
-        run: pnpm typecheck
-
-      - name: Tests
-        run: pnpm test
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Next.js production build
-        run: pnpm build
+      - name: Lint, typecheck, test, build
+        run: pnpm exec turbo run lint typecheck test build

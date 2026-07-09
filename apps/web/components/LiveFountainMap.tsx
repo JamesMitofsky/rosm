@@ -101,6 +101,11 @@ export default function LiveFountainMap({
   }, []);
 
   useEffect(() => {
+    // Fetch-on-mount: load() sets state only inside its async continuation
+    // (after the first await), which is the intended pattern here. The
+    // set-state-in-effect rule can't see across the async boundary, so it is
+    // scoped-off rather than worked around with a data-fetching library.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

@@ -2,6 +2,8 @@
 out/
 build/
 node_modules/
+.turbo/
+.context/
 ios/
 .api-stash/
 data/
