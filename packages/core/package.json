@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./*": "./src/*.ts",
+    "./appConfig.json": "./appConfig.json",
     "./package.json": "./package.json"
   },
   "scripts": {

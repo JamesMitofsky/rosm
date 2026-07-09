@@ -1,0 +1,22 @@
+{
+  "appId": "org.rosm.app",
+  "appName": "ROSM",
+  "appTagline": "Running for Open-Sourced Maps",
+  "scheme": "rosm",
+  "nativeBackground": "#0c0d0a",
+  "pwaThemeColor": "#f1ebdd",
+  "colors": {
+    "ink": "#0c0d0a",
+    "ink-soft": "#16180f",
+    "ink-dim": "#57544a",
+    "volt": "#ccff2e",
+    "volt-deep": "#a6d600",
+    "cream": "#f4f3ea",
+    "cream-dim": "#b9b8ac",
+    "paper": "#f7f2e8",
+    "paper-deep": "#e7dfcc",
+    "paper-line": "#d6cdb6",
+    "sky": "#abdcec",
+    "sky-deep": "#4fafd4"
+  }
+}

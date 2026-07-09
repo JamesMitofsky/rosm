@@ -1,9 +1,7 @@
-// App identity for the web PWA manifest (app/manifest.ts). Plain module, no
-// framework imports. (The native app's identity — bundle id, URL scheme, splash
-// colors — now lives with the Expo app.)
+// Web PWA identity (app/manifest.ts), re-exported from the shared @rosm/core
+// source so web and the Expo app agree on names/colors.
+import cfg from "@rosm/core/appConfig.json";
 
-export const APP_NAME = "ROSM";
-export const APP_TAGLINE = "Running for Open-Sourced Maps";
-
-// Web PWA theme + background — warm paper, matches the landing.
-export const PWA_THEME_COLOR = "#f1ebdd";
+export const APP_NAME = cfg.appName;
+export const APP_TAGLINE = cfg.appTagline;
+export const PWA_THEME_COLOR = cfg.pwaThemeColor;
