@@ -21,6 +21,22 @@ export function metersToMiles(m: number): number {
   return m / MILES_TO_M;
 }
 
+// A map viewport's [west, south, east, north] extent (MapLibre bounds order).
+export type Bounds = [west: number, south: number, east: number, north: number];
+
+// Center of a viewport bounds.
+export function boundsCenter([w, s, e, n]: Bounds): Pt {
+  return { lat: (s + n) / 2, lon: (w + e) / 2 };
+}
+
+// Radius (m) of the smallest circle covering the whole viewport: center to a
+// corner. Lets a map's zoom drive the query size — zoom out, bigger radius.
+export function boundsRadiusM(bounds: Bounds): number {
+  const c = boundsCenter(bounds);
+  const [, , e, n] = bounds;
+  return haversine(c, { lat: n, lon: e });
+}
+
 // Great-circle distance in meters between two points.
 export function haversine(a: Pt, b: Pt): number {
   const dLat = toRad(b.lat - a.lat);

@@ -16,6 +16,20 @@ export type RosmMarker = {
 
 type PressEvent = { lngLat: [number, number] };
 type PressEventWithFeatures = { features: Feature[] };
+// MapLibre onRegionDidChange payload (subset we use). bounds is [w, s, e, n].
+type RegionEvent = {
+  center: [number, number]; // [lon, lat]
+  zoom: number;
+  bounds: [number, number, number, number];
+  userInteraction: boolean;
+};
+
+// Viewport after the user pans/zooms, in the [lat, lon] convention this map uses.
+export type RosmRegion = {
+  center: [number, number]; // [lat, lon]
+  zoom: number;
+  bounds: [number, number, number, number]; // [w, s, e, n]
+};
 
 type Props = {
   center: [number, number]; // [lat, lon]
@@ -25,6 +39,11 @@ type Props = {
   userPos?: [number, number] | null; // [lat, lon]
   onMarkerPress?: (id: RosmMarker["id"]) => void;
   onMapPress?: (lat: number, lon: number) => void;
+  // Fires after a user-driven pan/zoom settles (not programmatic camera moves).
+  onRegionChange?: (region: RosmRegion) => void;
+  // Position the camera once, then leave it under the user's finger. Without this
+  // the controlled center/zoom re-applies on every render and snaps panning back.
+  initialOnly?: boolean;
   recenterKey?: string;
   fitPoints?: [number, number][]; // [lat, lon][]
   style?: ViewStyle;
@@ -79,6 +98,8 @@ export function RosmMap({
   userPos,
   onMarkerPress,
   onMapPress,
+  onRegionChange,
+  initialOnly,
   fitPoints,
   style,
 }: Props) {
@@ -94,9 +115,25 @@ export function RosmMap({
     onMapPress?.(lat, lon);
   };
 
+  const onRegion = (e: NativeSyntheticEvent<RegionEvent>) => {
+    const { center: c, zoom: z, bounds, userInteraction } = e.nativeEvent;
+    // Ignore camera-driven settles so a recenter doesn't masquerade as a search.
+    if (!userInteraction) return;
+    onRegionChange?.({ center: [c[1], c[0]], zoom: z, bounds });
+  };
+
   return (
-    <Map style={[StyleSheet.absoluteFill, style]} mapStyle={OSM_STYLE_JSON} onPress={onMap}>
-      <Camera center={view.center} zoom={view.zoom} />
+    <Map
+      style={[StyleSheet.absoluteFill, style]}
+      mapStyle={OSM_STYLE_JSON}
+      onPress={onMap}
+      onRegionDidChange={onRegionChange ? onRegion : undefined}
+    >
+      {initialOnly ? (
+        <Camera initialViewState={{ center: view.center, zoom: view.zoom }} />
+      ) : (
+        <Camera center={view.center} zoom={view.zoom} />
+      )}
 
       {line && line.length > 1 ? (
         <GeoJSONSource id="route" data={lineFeature(line)}>

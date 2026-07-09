@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   MILES_TO_M,
   bearing,
+  boundsCenter,
+  boundsRadiusM,
   compass,
   fmtDist,
   haversine,
@@ -76,6 +78,34 @@ describe("haversine", () => {
     const d = haversine({ lat: 0, lon: 0 }, { lat: 0, lon: 180 });
     expect(Number.isFinite(d)).toBe(true);
     expect(d).toBeCloseTo(Math.PI * 6371000, 0);
+  });
+});
+
+describe("boundsCenter", () => {
+  it("returns the midpoint of a [w, s, e, n] extent", () => {
+    expect(boundsCenter([2, 48, 4, 50])).toEqual({ lat: 49, lon: 3 });
+  });
+
+  it("handles a bounds spanning the antimeridian sign flip symmetrically", () => {
+    expect(boundsCenter([-1, -1, 1, 1])).toEqual({ lat: 0, lon: 0 });
+  });
+});
+
+describe("boundsRadiusM", () => {
+  it("is the center-to-corner great-circle distance", () => {
+    const bounds: [number, number, number, number] = [2, 48, 4, 50];
+    const center = boundsCenter(bounds);
+    expect(boundsRadiusM(bounds)).toBeCloseTo(haversine(center, { lat: 50, lon: 4 }), 6);
+  });
+
+  it("grows as the viewport widens (zoom out => larger radius)", () => {
+    const narrow = boundsRadiusM([2.9, 48.9, 3.1, 49.1]);
+    const wide = boundsRadiusM([2, 48, 4, 50]);
+    expect(wide).toBeGreaterThan(narrow);
+  });
+
+  it("is zero for a degenerate point bounds", () => {
+    expect(boundsRadiusM([3, 49, 3, 49])).toBe(0);
   });
 });
 
