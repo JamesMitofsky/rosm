@@ -2,13 +2,17 @@
 // Read endpoints use .json; writes use XML per OSM API 0.6.
 import crypto from "crypto";
 import type { EditAction, EditExtras } from "./schemas";
+import { APP_NAME } from "./appConfig";
 
 export const OAUTH_BASE = process.env.OSM_OAUTH_BASE || "https://www.openstreetmap.org";
 export const API_BASE = process.env.OSM_API_BASE || "https://api.openstreetmap.org";
 const CLIENT_ID = process.env.OSM_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.OSM_CLIENT_SECRET || ""; // optional (confidential client)
 const SCOPE = "read_prefs write_api";
-const CREATED_BY = "run-for-maps";
+// OSM `created_by` changeset tag — the editor/app attribution shown on every
+// changeset we open. Client-controlled (nothing OSM-side); we set it here. Uses
+// the brand name so app edits read as "ROSM" on osm.org, not the repo slug.
+const CREATED_BY = APP_NAME;
 
 // A returnTo is safe only as a same-origin relative path: one leading slash and
 // not `//`/`/\` (which browsers treat as a protocol-relative absolute URL). This

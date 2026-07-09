@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import FreshnessLegend, { type Bucket } from "@/components/FreshnessLegend";
+import FountainLeaderboard from "@/components/FountainLeaderboard";
 import HomeRunCard from "@/components/HomeRunCard";
 import NativeEntryRedirect from "@/components/NativeEntryRedirect";
 import SiteNav from "@/components/SiteNav";
@@ -242,10 +243,21 @@ export default function LandingPage() {
             Here&apos;s a live coverage map of the fountains in DC.
           </motion.p>
 
+          {/* Contributor leaderboard — self-hides when there's no attributed
+              edit data yet. */}
+          <motion.div
+            {...fadeUp}
+            transition={{ ...fadeUp.transition, delay: 0.14 }}
+            className="mt-12"
+          >
+            <Label>Top contributors</Label>
+            <FountainLeaderboard className="mt-6" />
+          </motion.div>
+
           <motion.div
             {...fadeUp}
             transition={{ ...fadeUp.transition, delay: 0.18 }}
-            className="mt-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
+            className="mt-12 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
           >
             <Label>Live · Washington DC</Label>
             {legend && <FreshnessLegend counts={legend} />}
