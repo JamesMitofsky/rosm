@@ -55,6 +55,38 @@ describe("FountainsRequest", () => {
     expect(FountainsRequest.safeParse({ ...base, radiusM: -5 }).success).toBe(false);
   });
 
+  it("rejects a radius past the max search radius", () => {
+    expect(FountainsRequest.safeParse({ ...base, radiusM: 30_001 }).success).toBe(false);
+  });
+
+  it("accepts a bounds (bbox) mode search", () => {
+    const parsed = FountainsRequest.parse({
+      bounds: [48.8, 2.3, 48.82, 2.32],
+      tag: { key: "amenity", value: "bench" },
+    });
+    expect(parsed.bounds).toEqual([48.8, 2.3, 48.82, 2.32]);
+  });
+
+  it("requires exactly one of radius-triplet or bounds", () => {
+    const tag = { key: "amenity", value: "bench" };
+    // Neither mode.
+    expect(FountainsRequest.safeParse({ tag }).success).toBe(false);
+    // Both modes.
+    expect(FountainsRequest.safeParse({ ...base, bounds: [48.8, 2.3, 48.82, 2.32] }).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects a bbox whose half-diagonal exceeds the max search radius", () => {
+    // ~1° lat ≈ 111 km; half-diagonal well past the 30 km cap.
+    expect(
+      FountainsRequest.safeParse({
+        bounds: [48, 2, 49, 3],
+        tag: { key: "amenity", value: "bench" },
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects unknown recency modes", () => {
     expect(FountainsRequest.safeParse({ ...base, recencyMode: "old" }).success).toBe(false);
   });

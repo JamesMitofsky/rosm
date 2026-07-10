@@ -78,10 +78,8 @@ export function usePlannerMarkers({
         lon: f.lon,
         color,
         label,
-        // Tap adds/removes the point; the route re-plans automatically.
-        onClick: () => toggleStop(f.id),
-        // Long-press / right-click opens the popup to update the point in OSM.
-        popupTrigger: "contextmenu" as const,
+        // Tapping the point opens its popup; the route toggle + OSM updates live
+        // inside it (no hidden long-press gesture on the GL layer).
         popup: (
           <PointPopup
             fountain={f}

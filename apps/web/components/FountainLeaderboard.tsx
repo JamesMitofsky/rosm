@@ -10,6 +10,7 @@ import type { LeaderboardEntry } from "@/app/api/leaderboard/route";
 // there's data — an empty leaderboard reads as broken, not "no contributors yet".
 export default function FountainLeaderboard({ className = "" }: { className?: string }) {
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -18,13 +19,41 @@ export default function FountainLeaderboard({ className = "" }: { className?: st
       .then((j: { leaders: LeaderboardEntry[] } | null) => {
         if (alive && j) setLeaders(j.leaders);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
     return () => {
       alive = false;
     };
   }, []);
 
-  if (leaders.length === 0) return null;
+  // While the fetch is in flight, show the headers with pulsing skeleton rows so
+  // the section doesn't pop in.
+  if (loading) {
+    return (
+      <div className={`flex flex-col gap-x-16 gap-y-8 sm:flex-row ${className}`}>
+        {[0, 1].map((ci) => (
+          <div key={ci} className="w-full sm:max-w-xs">
+            <Row header rank="#" name="Contributor" points="Points" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Loaded, but nobody's edits have been attributed yet. Say so explicitly
+  // instead of hiding the section — a blank gap reads as a bug.
+  if (leaders.length === 0) {
+    return (
+      <p className={`text-ink-dim text-sm ${className}`}>
+        No contributors yet — be the first to update a fountain.
+      </p>
+    );
+  }
 
   const columns = [leaders.slice(0, 5), leaders.slice(5, 10)].filter((c) => c.length > 0);
 
@@ -52,6 +81,18 @@ export default function FountainLeaderboard({ className = "" }: { className?: st
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Placeholder body row while the leaderboard loads. Same grid as Row so widths
+// match; the bars pulse to signal loading rather than a real (empty) value.
+function SkeletonRow() {
+  return (
+    <div className="border-paper-line grid grid-cols-[1.5rem_1fr_auto] items-center gap-3 border-b py-2.5 last:border-b-0">
+      <span className="bg-ink/10 h-3 w-3 animate-pulse rounded" />
+      <span className="bg-ink/10 h-3 w-28 animate-pulse rounded" />
+      <span className="bg-ink/10 h-3 w-6 animate-pulse justify-self-end rounded" />
     </div>
   );
 }

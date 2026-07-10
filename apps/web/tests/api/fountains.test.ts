@@ -50,9 +50,7 @@ describe("POST /api/fountains", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ fountains: [{ id: 1, lat: 48.8, lon: 2.3, tags: {} }] });
     expect(fetchFountainsMock).toHaveBeenCalledWith(
-      48.85,
-      2.35,
-      1500,
+      { lat: 48.85, lon: 2.35, radiusM: 1500 },
       { key: "amenity", value: "drinking_water" },
       "any",
       6,
@@ -65,9 +63,7 @@ describe("POST /api/fountains", () => {
       post({ ...validBody, recencyMode: "stale", recencyMonths: 12, includeDisused: true }),
     );
     expect(fetchFountainsMock).toHaveBeenCalledWith(
-      48.85,
-      2.35,
-      1500,
+      { lat: 48.85, lon: 2.35, radiusM: 1500 },
       { key: "amenity", value: "drinking_water" },
       "stale",
       12,

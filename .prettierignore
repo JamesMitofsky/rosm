@@ -3,6 +3,7 @@ out/
 build/
 node_modules/
 .turbo/
+.api-stash/
 .context/
 data/
 pnpm-lock.yaml

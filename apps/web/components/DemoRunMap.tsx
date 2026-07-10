@@ -402,7 +402,7 @@ export default function DemoRunMap({ className }: { className?: string }) {
   // Leaflet's zoom is initial-only, so pick it once at mount. Same breakpoint
   // as the hero-map zoom-control CSS (md, 768px).
   const [zoom] = useState(() =>
-    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? 12 : 13,
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? 11 : 12,
   );
   const [statuses, setStatuses] = useState<Record<number, StopStatus>>(SEED_STATUSES);
   const [edits, setEdits] = useState<Record<number, PointEdit>>(seedEdits);
@@ -469,7 +469,7 @@ export default function DemoRunMap({ className }: { className?: string }) {
         className="hero-map"
         center={DC_CENTER}
         zoom={zoom}
-        minZoom={12}
+        minZoom={8}
         maxZoom={18}
         line={DC_ROUTE}
         markers={markers}

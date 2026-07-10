@@ -120,23 +120,34 @@ type OverpassEl = {
   tags?: Record<string, string>;
 };
 
-// Build a query for nodes/ways/relations matching key=value within radius.
+// The area a search covers: either a circle (`around` an anchor) or the exact
+// viewport rectangle (`bounds`). A rectangle query returns only points inside
+// the drawn box — a circle circumscribing the viewport would spill past its
+// edges — so viewport ("Search this area") searches use bounds, while anchored
+// GPS/pin searches stay circular.
+export type SearchRegion =
+  { lat: number; lon: number; radiusM: number } | { bounds: [number, number, number, number] }; // [south, west, north, east]
+
+// Overpass area filter for a region: `(around:r,lat,lon)` or a `(s,w,n,e)` bbox.
+function areaFilter(region: SearchRegion): string {
+  if ("bounds" in region) {
+    const [s, w, n, e] = region.bounds;
+    return `(${s},${w},${n},${e})`;
+  }
+  return `(around:${Math.round(region.radiusM)},${region.lat},${region.lon})`;
+}
+
+// Build a query for nodes/ways/relations matching key=value within a region.
 // With `includeDisused`, also match the OSM lifecycle-prefixed variants
 // (disused:key / abandoned:key) so out-of-service points come back too; the
 // prefix is preserved in each element's tags for client-side classification.
-export function buildQuery(
-  lat: number,
-  lon: number,
-  radiusM: number,
-  tag: TagFilter,
-  includeDisused = false,
-): string {
-  const around = `(around:${Math.round(radiusM)},${lat},${lon})`;
+export function buildQuery(region: SearchRegion, tag: TagFilter, includeDisused = false): string {
+  const area = areaFilter(region);
   const prefixes = includeDisused ? ["", "disused:", "abandoned:"] : [""];
   const stmts = prefixes
     .flatMap((prefix) => {
       const sel = `["${prefix}${tag.key}"="${tag.value}"]`;
-      return [`node${sel}${around};`, `way${sel}${around};`, `relation${sel}${around};`];
+      return [`node${sel}${area};`, `way${sel}${area};`, `relation${sel}${area};`];
     })
     .map((s) => `  ${s}`)
     .join("\n");
@@ -148,15 +159,13 @@ out center tags;`;
 }
 
 export async function fetchFountains(
-  lat: number,
-  lon: number,
-  radiusM: number,
+  region: SearchRegion,
   tag: TagFilter,
   recencyMode: RecencyMode = "any",
   recencyMonths = 6,
   includeDisused = false,
 ): Promise<Fountain[]> {
-  const query = buildQuery(lat, lon, radiusM, tag, includeDisused);
+  const query = buildQuery(region, tag, includeDisused);
   const cutoffMs = monthsAgo(recencyMonths);
   const json = await fetchOverpass(query);
   return json.elements

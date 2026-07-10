@@ -6,7 +6,6 @@ import {
   isDogWater,
   isOutOfService,
   rankFountains,
-  recencyOf,
   svcOf,
   toggled,
   waterOf,
@@ -19,8 +18,6 @@ const f = (id: number, lat: number, lon: number, tags: Record<string, string> = 
   lon,
   tags,
 });
-
-const CUTOFF = new Date("2026-01-01T00:00:00Z").getTime();
 
 describe("classification", () => {
   it("flags dog water", () => {
@@ -40,12 +37,6 @@ describe("classification", () => {
     expect(svcOf({})).toBe("in");
   });
 
-  it("classifies verification recency against a cutoff", () => {
-    expect(recencyOf({}, CUTOFF)).toBe("never");
-    expect(recencyOf({ check_date: "2026-03-01" }, CUTOFF)).toBe("fresh");
-    expect(recencyOf({ check_date: "2020-01-01" }, CUTOFF)).toBe("stale");
-  });
-
   it("names fountains with a fallback", () => {
     expect(fountainName(f(1, 0, 0, { name: "Central" }))).toBe("Central");
     expect(fountainName(f(1, 0, 0))).toBe("Unnamed fountain");
@@ -55,13 +46,13 @@ describe("classification", () => {
 describe("rankFountains", () => {
   it("sorts nearest-first from the anchor", () => {
     const anchor = { lat: 0, lon: 0 };
-    const ranked = rankFountains([f(1, 1, 1), f(2, 0.1, 0.1), f(3, 0.5, 0.5)], anchor, CUTOFF);
+    const ranked = rankFountains([f(1, 1, 1), f(2, 0.1, 0.1), f(3, 0.5, 0.5)], anchor);
     expect(ranked.map((r) => r.f.id)).toEqual([2, 3, 1]);
     expect(ranked[0].distM).toBeGreaterThan(0);
   });
 
   it("leaves distances null without an anchor", () => {
-    const ranked = rankFountains([f(1, 1, 1)], null, CUTOFF);
+    const ranked = rankFountains([f(1, 1, 1)], null);
     expect(ranked[0].distM).toBeNull();
   });
 });
@@ -75,16 +66,12 @@ describe("countBy", () => {
         f(3, 0, 0, { disused: "yes", check_date: "2019-01-01" }),
       ],
       null,
-      CUTOFF,
     );
     expect(countBy(ranked)).toEqual({
       inN: 2,
       outN: 1,
       humanN: 2,
       dogN: 1,
-      freshN: 1,
-      staleN: 1,
-      neverN: 1,
     });
   });
 });
