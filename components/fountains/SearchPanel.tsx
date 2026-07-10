@@ -1,10 +1,10 @@
 "use client";
 
-import { CaretDownIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import FilterPills from "@/components/fountains/FilterPills";
 import SearchProgress from "@/components/fountains/SearchProgress";
 import ErrorNotice from "@/components/ui/ErrorNotice";
-import type { Counts, Recency, Svc, Water } from "@/lib/fountainFilters";
+import type { Counts, Svc, Water } from "@/lib/fountainFilters";
 
 // Radius for anchor-based searches (GPS fix / dropped pin). Widening happens by
 // panning the map and hitting "Search this area", so this is no longer editable.
@@ -24,8 +24,6 @@ export default function SearchPanel({
   setSvc,
   water,
   setWater,
-  rec,
-  setRec,
   showFilters,
   onSearch,
 }: {
@@ -37,8 +35,6 @@ export default function SearchPanel({
   setSvc: (s: Set<Svc>) => void;
   water: Set<Water>;
   setWater: (s: Set<Water>) => void;
-  rec: Set<Recency>;
-  setRec: (s: Set<Recency>) => void;
   // Hidden until the first search lands — nothing to filter before results.
   showFilters: boolean;
   onSearch: () => void;
@@ -54,23 +50,13 @@ export default function SearchPanel({
         className="flex flex-col gap-2"
       >
         {showFilters && (
-          <details className="group border-paper-line rounded-lg border">
-            <summary className="text-ink hover:text-sky-deep flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold">
-              Filters
-              <CaretDownIcon size={16} className="text-ink-dim transition group-open:rotate-180" />
-            </summary>
-            <div className="border-paper-line border-t px-3 py-3">
-              <FilterPills
-                svc={svc}
-                setSvc={setSvc}
-                water={water}
-                setWater={setWater}
-                rec={rec}
-                setRec={setRec}
-                counts={counts}
-              />
-            </div>
-          </details>
+          <FilterPills
+            svc={svc}
+            setSvc={setSvc}
+            water={water}
+            setWater={setWater}
+            counts={counts}
+          />
         )}
 
         {/* While a search runs, the button gives way to the self-narrating

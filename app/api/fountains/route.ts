@@ -8,23 +8,18 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { lat, lon, radiusM, tag, recencyMode, recencyMonths, includeDisused } = parsed.data;
+  const { lat, lon, radiusM, bounds, tag, recencyMode, recencyMonths, includeDisused } =
+    parsed.data;
+  // The schema guarantees exactly one mode; assert non-null for the chosen one.
+  const region = bounds
+    ? { bounds }
+    : { lat: lat as number, lon: lon as number, radiusM: radiusM as number };
   try {
-    const fountains = await fetchFountains(
-      lat,
-      lon,
-      radiusM,
-      tag,
-      recencyMode,
-      recencyMonths,
-      includeDisused,
-    );
+    const fountains = await fetchFountains(region, tag, recencyMode, recencyMonths, includeDisused);
     // Cache write is best-effort; a failure must not break the response.
     await writeJson("fountains-cache.json", {
       at: new Date().toISOString(),
-      lat,
-      lon,
-      radiusM,
+      ...region,
       tag,
       recencyMode,
       recencyMonths,

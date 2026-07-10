@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_SEARCH_RADIUS_M, boundsHalfDiagonalM } from "./geo";
 
 // A point fetched from OSM (Overpass), with its raw tags.
 export const FountainSchema = z.object({
@@ -34,18 +35,39 @@ export type TagFilter = z.infer<typeof TagFilterSchema>;
 export const RecencyMode = z.enum(["any", "stale", "fresh"]);
 export type RecencyMode = z.infer<typeof RecencyMode>;
 
-export const FountainsRequest = z.object({
-  lat: z.number(),
-  lon: z.number(),
-  radiusM: z.number().positive(),
-  tag: TagFilterSchema,
-  recencyMode: RecencyMode.default("any"),
-  recencyMonths: z.number().positive().default(6),
-  // Also fetch lifecycle-prefixed variants (disused:/abandoned:) so out-of-service
-  // points can be surfaced and filtered client-side. Off by default so the survey
-  // tool keeps seeing only active points.
-  includeDisused: z.boolean().default(false),
-});
+// A search covers either a circle (anchor lat/lon + radiusM) or the exact
+// viewport rectangle (bounds = [south, west, north, east]). Exactly one mode
+// must be supplied. Both are size-capped so a zoomed-way-out query can't sweep
+// a whole region off the shared Overpass mirrors — the backstop for the
+// client-side "Search this area" button gate.
+const Bounds = z.tuple([z.number(), z.number(), z.number(), z.number()]);
+
+export const FountainsRequest = z
+  .object({
+    lat: z.number().optional(),
+    lon: z.number().optional(),
+    radiusM: z.number().positive().max(MAX_SEARCH_RADIUS_M).optional(),
+    bounds: Bounds.optional(),
+    tag: TagFilterSchema,
+    recencyMode: RecencyMode.default("any"),
+    recencyMonths: z.number().positive().default(6),
+    // Also fetch lifecycle-prefixed variants (disused:/abandoned:) so out-of-service
+    // points can be surfaced and filtered client-side. Off by default so the survey
+    // tool keeps seeing only active points.
+    includeDisused: z.boolean().default(false),
+  })
+  .refine(
+    (d) => {
+      const circle = d.lat != null && d.lon != null && d.radiusM != null;
+      const box = d.bounds != null;
+      return circle !== box; // exactly one mode
+    },
+    { message: "Provide either lat/lon/radiusM or bounds, not both." },
+  )
+  .refine((d) => d.bounds == null || boundsHalfDiagonalM(d.bounds) <= MAX_SEARCH_RADIUS_M, {
+    message: "Search area too large.",
+    path: ["bounds"],
+  });
 
 // Create a brand-new OSM node at a surveyed location, tagged with the point
 // type currently being surveyed (e.g. amenity=drinking_water).

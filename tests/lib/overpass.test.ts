@@ -25,7 +25,7 @@ const errText = (status: number, body = "err") => new Response(body, { status })
 
 describe("buildQuery", () => {
   it("targets nodes, ways and relations for the tag within a rounded radius", () => {
-    const q = mod.buildQuery(48.85, 2.35, 123.7, tag);
+    const q = mod.buildQuery({ lat: 48.85, lon: 2.35, radiusM: 123.7 }, tag);
     expect(q).toContain("[out:json][timeout:25];");
     expect(q).toContain('node["amenity"="drinking_water"](around:124,48.85,2.35);');
     expect(q).toContain('way["amenity"="drinking_water"](around:124,48.85,2.35);');
@@ -34,8 +34,16 @@ describe("buildQuery", () => {
     expect(q).not.toContain("disused:");
   });
 
+  it("targets a bbox rectangle when bounds are given", () => {
+    const q = mod.buildQuery({ bounds: [48.8, 2.3, 48.9, 2.4] }, tag);
+    expect(q).toContain('node["amenity"="drinking_water"](48.8,2.3,48.9,2.4);');
+    expect(q).toContain('way["amenity"="drinking_water"](48.8,2.3,48.9,2.4);');
+    expect(q).toContain('relation["amenity"="drinking_water"](48.8,2.3,48.9,2.4);');
+    expect(q).not.toContain("around:");
+  });
+
   it("adds lifecycle-prefixed selectors when includeDisused is set", () => {
-    const q = mod.buildQuery(48.85, 2.35, 500, tag, true);
+    const q = mod.buildQuery({ lat: 48.85, lon: 2.35, radiusM: 500 }, tag, true);
     expect(q).toContain('node["disused:amenity"="drinking_water"]');
     expect(q).toContain('node["abandoned:amenity"="drinking_water"]');
     // 3 element kinds × 3 prefixes.
@@ -57,7 +65,7 @@ describe("fetchFountains — element mapping", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const fountains = await mod.fetchFountains(48.85, 2.35, 500, tag);
+    const fountains = await mod.fetchFountains({ lat: 48.85, lon: 2.35, radiusM: 500 }, tag);
     expect(fountains).toEqual([
       { id: 1, lat: 48.1, lon: 2.1, tags: { name: "A" } },
       { id: 2, lat: 48.2, lon: 2.2, tags: { name: "B" } },
@@ -70,7 +78,7 @@ describe("fetchFountains — element mapping", () => {
     expect(init.method).toBe("POST");
     expect(init.headers["User-Agent"]).toContain("run-for-maps");
     const sent = new URLSearchParams(init.body as string).get("data");
-    expect(sent).toBe(mod.buildQuery(48.85, 2.35, 500, tag));
+    expect(sent).toBe(mod.buildQuery({ lat: 48.85, lon: 2.35, radiusM: 500 }, tag));
   });
 
   it("applies the recency filter server-side of the API route", async () => {
@@ -87,13 +95,14 @@ describe("fetchFountains — element mapping", () => {
       .mockResolvedValueOnce(okJson({ elements }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const stale = await mod.fetchFountains(0, 0, 500, tag, "stale", 6);
+    const region = { lat: 0, lon: 0, radiusM: 500 };
+    const stale = await mod.fetchFountains(region, tag, "stale", 6);
     expect(stale.map((x) => x.id)).toEqual([2, 3]);
 
-    const fresh = await mod.fetchFountains(0, 0, 500, tag, "fresh", 6);
+    const fresh = await mod.fetchFountains(region, tag, "fresh", 6);
     expect(fresh.map((x) => x.id)).toEqual([1]);
 
-    const any = await mod.fetchFountains(0, 0, 500, tag, "any", 6);
+    const any = await mod.fetchFountains(region, tag, "any", 6);
     expect(any.map((x) => x.id)).toEqual([1, 2, 3]);
   });
 });
@@ -108,7 +117,7 @@ describe("fetchFountains — retries and mirror fallback", () => {
       .mockResolvedValueOnce(okJson({ elements: [{ type: "node", id: 7, lat: 1, lon: 1 }] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const p = mod.fetchFountains(0, 0, 500, tag);
+    const p = mod.fetchFountains({ lat: 0, lon: 0, radiusM: 500 }, tag);
     await vi.runAllTimersAsync();
     const fountains = await p;
 
@@ -124,7 +133,7 @@ describe("fetchFountains — retries and mirror fallback", () => {
     const fetchMock = vi.fn().mockResolvedValue(errText(400, "bad query"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const err = await mod.fetchFountains(0, 0, 500, tag).catch((e) => e);
+    const err = await mod.fetchFountains({ lat: 0, lon: 0, radiusM: 500 }, tag).catch((e) => e);
     expect(err).toBeInstanceOf(mod.OverpassError);
     expect(err.retryable).toBe(false);
     expect(err.status).toBe(400);
@@ -137,7 +146,7 @@ describe("fetchFountains — retries and mirror fallback", () => {
     const fetchMock = vi.fn().mockImplementation(async () => errText(429, "Too Many Requests"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const p = mod.fetchFountains(0, 0, 500, tag);
+    const p = mod.fetchFountains({ lat: 0, lon: 0, radiusM: 500 }, tag);
     const assertion = expect(p).rejects.toMatchObject({
       name: "OverpassError",
       retryable: true,
@@ -158,7 +167,7 @@ describe("fetchFountains — retries and mirror fallback", () => {
     const fetchMock = vi.fn().mockRejectedValue(abortErr);
     vi.stubGlobal("fetch", fetchMock);
 
-    const p = mod.fetchFountains(0, 0, 500, tag);
+    const p = mod.fetchFountains({ lat: 0, lon: 0, radiusM: 500 }, tag);
     const assertion = expect(p).rejects.toMatchObject({
       retryable: true,
       status: null,
@@ -173,7 +182,7 @@ describe("fetchFountains — retries and mirror fallback", () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const p = mod.fetchFountains(0, 0, 500, tag);
+    const p = mod.fetchFountains({ lat: 0, lon: 0, radiusM: 500 }, tag);
     const assertion = expect(p).rejects.toMatchObject({
       retryable: true,
       message: expect.stringContaining("Check your connection"),
@@ -187,7 +196,7 @@ describe("fetchFountains — retries and mirror fallback", () => {
     const fetchMock = vi.fn().mockImplementation(async () => errText(504, "gateway timeout"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const p = mod.fetchFountains(0, 0, 500, tag);
+    const p = mod.fetchFountains({ lat: 0, lon: 0, radiusM: 500 }, tag);
     const assertion = expect(p).rejects.toMatchObject({
       message: expect.stringContaining("busy right now"),
     });
