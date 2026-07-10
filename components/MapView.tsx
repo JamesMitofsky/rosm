@@ -57,13 +57,20 @@ type Props = {
   onMapClick?: (lat: number, lon: number) => void;
   // Fired when the user drags the map, so callers can drop "follow me" mode.
   onUserPan?: () => void;
-  // Fired after any pan/zoom settles, with the current center and a radius (m)
-  // reaching the viewport corner — enough to cover everything visible. The
-  // `userInitiated` flag is true only when the move came from a drag/zoom
-  // gesture (not a programmatic recenter), so callers can surface a
-  // "search this area" affordance. Only mounted when a handler is supplied.
+  // Fired after any pan/zoom settles, with the current center, a radius (m)
+  // reaching the viewport corner — enough to cover everything visible — and the
+  // exact viewport bounds ([[south, west], [north, east]]) so callers can draw a
+  // searched-area box matching the visible rectangle. The `userInitiated` flag is
+  // true only when the move came from a drag/zoom gesture (not a programmatic
+  // recenter), so callers can surface a "search this area" affordance. Only
+  // mounted when a handler is supplied.
   onViewChange?: (
-    view: { lat: number; lon: number; radiusM: number },
+    view: {
+      lat: number;
+      lon: number;
+      radiusM: number;
+      bounds: [[number, number], [number, number]];
+    },
     userInitiated: boolean,
   ) => void;
   recenterKey?: string; // change to force recenter on `center`
@@ -155,11 +162,16 @@ function SearchedMask({ box }: { box: [[number, number], [number, number]] }) {
   // throughout any drag. One static polygon, so the extra area is cheap.
   const renderer = useMemo(() => L.svg({ padding: 4 }), []);
   const [[s, w], [n, e]] = box;
+  // Web Mercator's pole limit. The true ±90 projects to ±infinity, so the fill
+  // path gets enormous pixel coords that browsers clip past their SVG coordinate
+  // ceiling — a pan then drags the clipped (undimmed) edge into view. Clamping to
+  // the projection's valid latitude keeps every coordinate finite.
+  const MAX_LAT = 85.05112878;
   const world: [number, number][] = [
-    [-90, -180],
-    [90, -180],
-    [90, 180],
-    [-90, 180],
+    [-MAX_LAT, -180],
+    [MAX_LAT, -180],
+    [MAX_LAT, 180],
+    [-MAX_LAT, 180],
   ];
   const hole: [number, number][] = [
     [s, w],
@@ -275,7 +287,12 @@ function ViewHandler({
   onViewChange,
 }: {
   onViewChange: (
-    view: { lat: number; lon: number; radiusM: number },
+    view: {
+      lat: number;
+      lon: number;
+      radiusM: number;
+      bounds: [[number, number], [number, number]];
+    },
     userInitiated: boolean,
   ) => void;
 }) {
@@ -289,8 +306,15 @@ function ViewHandler({
     },
     moveend() {
       const c = map.getCenter();
-      const radiusM = c.distanceTo(map.getBounds().getNorthEast());
-      onViewChange({ lat: c.lat, lon: c.lng, radiusM }, userMoved.current);
+      const b = map.getBounds();
+      const sw = b.getSouthWest();
+      const ne = b.getNorthEast();
+      const radiusM = c.distanceTo(ne);
+      const bounds: [[number, number], [number, number]] = [
+        [sw.lat, sw.lng],
+        [ne.lat, ne.lng],
+      ];
+      onViewChange({ lat: c.lat, lon: c.lng, radiusM, bounds }, userMoved.current);
       userMoved.current = false;
     },
   });

@@ -5,6 +5,15 @@ export type Pt = { lat: number; lon: number };
 const R_EARTH_M = 6371000;
 export const MILES_TO_M = 1609.344;
 
+// Largest search radius we allow (meters), measured center→corner of the viewport.
+// Caps how much OSM data a single query can pull: a viewport whose corner reaches
+// past this is refused rather than sweeping a region/country of drinking-water
+// nodes off the shared public Overpass mirrors. ~30 km comfortably covers a whole
+// metro while blocking zoomed-way-out queries. Enforced both server-side (request
+// schema) and client-side (the "Search this area" button gates on it). Because it
+// is a real-world distance, the cap behaves identically on every screen size.
+export const MAX_SEARCH_RADIUS_M = 30_000;
+
 export function toRad(d: number): number {
   return (d * Math.PI) / 180;
 }
@@ -21,16 +30,40 @@ export function metersToMiles(m: number): number {
   return m / MILES_TO_M;
 }
 
-// Axis-aligned lat/lon box centered on `c`, extending `radiusM` in each
-// cardinal direction — a square that fully contains the searched circle.
+// Axis-aligned lat/lon box centered on `c`. `radiusM` is the vertical half-
+// extent; the horizontal half-extent is `radiusM * aspect`, so passing the
+// viewport's width/height ratio yields a box shaped like the screen (landscape →
+// wider) instead of a square. Default aspect 1 is a square containing the circle.
 // Returned as [[south, west], [north, east]] for Leaflet bounds.
-export function boxAround(c: Pt, radiusM: number): [[number, number], [number, number]] {
+export function boxAround(
+  c: Pt,
+  radiusM: number,
+  aspect = 1,
+): [[number, number], [number, number]] {
   const dLat = radiusM / 111320;
-  const dLon = radiusM / (111320 * Math.cos(toRad(c.lat)));
+  const dLon = (radiusM * aspect) / (111320 * Math.cos(toRad(c.lat)));
   return [
     [c.lat - dLat, c.lon - dLon],
     [c.lat + dLat, c.lon + dLon],
   ];
+}
+
+// Width/height ratio of a lat/lon box in meters — the on-screen aspect ratio of
+// a viewport with those bounds. >1 landscape, <1 portrait.
+export function boxAspect(box: [[number, number], [number, number]]): number {
+  const [[s, w], [n, e]] = box;
+  const midLat = (s + n) / 2;
+  const widthM = (e - w) * 111320 * Math.cos(toRad(midLat));
+  const heightM = (n - s) * 111320;
+  return heightM > 0 ? widthM / heightM : 1;
+}
+
+// Half-diagonal (center→corner) of a [south, west, north, east] bbox, in meters.
+// Same metric as a viewport's center→corner search radius, so MAX_SEARCH_RADIUS_M
+// caps circle and box queries on equal footing.
+export function boundsHalfDiagonalM(bounds: [number, number, number, number]): number {
+  const [s, w, n, e] = bounds;
+  return haversine({ lat: (s + n) / 2, lon: (w + e) / 2 }, { lat: n, lon: e });
 }
 
 // Great-circle distance in meters between two points.

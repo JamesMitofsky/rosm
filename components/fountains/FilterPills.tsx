@@ -1,17 +1,42 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Pill from "@/components/ui/Pill";
-import { toggled, type Counts, type Recency, type Svc, type Water } from "@/lib/fountainFilters";
+import { toggled, type Counts, type Svc, type Water } from "@/lib/fountainFilters";
 
-function PillRow({ label, children }: { label: string; children: ReactNode }) {
+function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-ink-dim mr-0.5 text-[11px] font-semibold tracking-wide uppercase">
+    <div className="flex flex-col gap-1.5">
+      <span className="text-ink-dim text-[11px] font-semibold tracking-wide uppercase">
         {label}
       </span>
-      {children}
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5">{children}</div>
     </div>
+  );
+}
+
+// One checkbox option: label + low-emphasis match count.
+function CheckOption({
+  checked,
+  count,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  count: number;
+  onChange: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="text-ink flex cursor-pointer items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="accent-sky-deep h-4 w-4"
+      />
+      {children}
+      <span className="text-ink-dim/55 font-normal">{count}</span>
+    </label>
   );
 }
 
@@ -20,71 +45,48 @@ export default function FilterPills({
   setSvc,
   water,
   setWater,
-  rec,
-  setRec,
   counts,
 }: {
   svc: Set<Svc>;
   setSvc: (s: Set<Svc>) => void;
   water: Set<Water>;
   setWater: (s: Set<Water>) => void;
-  rec: Set<Recency>;
-  setRec: (s: Set<Recency>) => void;
   counts: Counts;
 }) {
   return (
-    <div className="flex flex-col gap-2.5">
-      <PillRow label="Service">
-        <Pill active={svc.has("in")} count={counts.inN} onClick={() => setSvc(toggled(svc, "in"))}>
+    <div className="flex flex-col gap-3">
+      <FilterGroup label="Status">
+        <CheckOption
+          checked={svc.has("in")}
+          count={counts.inN}
+          onChange={() => setSvc(toggled(svc, "in"))}
+        >
           In service
-        </Pill>
-        <Pill
-          active={svc.has("out")}
+        </CheckOption>
+        <CheckOption
+          checked={svc.has("out")}
           count={counts.outN}
-          onClick={() => setSvc(toggled(svc, "out"))}
+          onChange={() => setSvc(toggled(svc, "out"))}
         >
           Out of service
-        </Pill>
-      </PillRow>
-      <PillRow label="Water">
-        <Pill
-          active={water.has("human")}
+        </CheckOption>
+      </FilterGroup>
+      <FilterGroup label="Intended for">
+        <CheckOption
+          checked={water.has("human")}
           count={counts.humanN}
-          onClick={() => setWater(toggled(water, "human"))}
+          onChange={() => setWater(toggled(water, "human"))}
         >
-          Human
-        </Pill>
-        <Pill
-          active={water.has("dog")}
+          People
+        </CheckOption>
+        <CheckOption
+          checked={water.has("dog")}
           count={counts.dogN}
-          onClick={() => setWater(toggled(water, "dog"))}
+          onChange={() => setWater(toggled(water, "dog"))}
         >
-          Dog
-        </Pill>
-      </PillRow>
-      <PillRow label="Verified">
-        <Pill
-          active={rec.has("fresh")}
-          count={counts.freshN}
-          onClick={() => setRec(toggled(rec, "fresh"))}
-        >
-          Past year
-        </Pill>
-        <Pill
-          active={rec.has("stale")}
-          count={counts.staleN}
-          onClick={() => setRec(toggled(rec, "stale"))}
-        >
-          Older
-        </Pill>
-        <Pill
-          active={rec.has("never")}
-          count={counts.neverN}
-          onClick={() => setRec(toggled(rec, "never"))}
-        >
-          Never
-        </Pill>
-      </PillRow>
+          Dogs
+        </CheckOption>
+      </FilterGroup>
     </div>
   );
 }

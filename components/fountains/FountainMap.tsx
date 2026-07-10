@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   CircleNotchIcon,
   MagnifyingGlassIcon,
+  MagnifyingGlassPlusIcon,
   MapPinIcon,
   SlidersHorizontalIcon,
 } from "@phosphor-icons/react";
@@ -24,20 +25,18 @@ import {
   fountainName,
   rankFountains,
   type Ranked,
-  type Recency,
   type Svc,
   type Water,
 } from "@/lib/fountainFilters";
+import { BUCKET_COLOR, bucketOf } from "@/components/FreshnessLegend";
 import { apiFetch } from "@/lib/api";
 import { getCurrentPosition } from "@/lib/geolocation";
-import { boxAround, milesToMeters, type Pt } from "@/lib/geo";
+import { boxAround, boxAspect, milesToMeters, MAX_SEARCH_RADIUS_M, type Pt } from "@/lib/geo";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 // We only care about human drinking water for this map.
 const TAG = { key: "amenity", value: "drinking_water" } as const;
-// Verified within this window counts as recently checked.
-const FRESH_MONTHS = 12;
 
 const DEFAULT_CENTER: [number, number] = [38.9072, -77.0369];
 // The searched-area box is drawn larger than the region actually queried so it
@@ -88,14 +87,20 @@ export default function FountainMap({
   const [searchedBox, setSearchedBox] = useState<[[number, number], [number, number]] | null>(null);
   const [recenterKey, setRecenterKey] = useState("init");
   const [fountains, setFountains] = useState<Fountain[]>([]);
+  // "Now" snapshot captured at fetch time, so freshness bucketing stays pure
+  // across re-renders (Date.now() may not run during render).
+  const [nowMs, setNowMs] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // Latest settled map view (center + corner-reaching radius), and whether the
   // user has moved the map away from the last search — which surfaces the
   // floating "Search this area" button.
-  const [mapView, setMapView] = useState<{ lat: number; lon: number; radiusM: number } | null>(
-    null,
-  );
+  const [mapView, setMapView] = useState<{
+    lat: number;
+    lon: number;
+    radiusM: number;
+    bounds: [[number, number], [number, number]];
+  } | null>(null);
   const [showSearchArea, setShowSearchArea] = useState(false);
   // A "Search this area" request is in flight — keeps that button mounted with a
   // spinner (rather than the generic full-screen busy path hiding it).
@@ -103,10 +108,10 @@ export default function FountainMap({
   // Radius for anchor-based searches (GPS fix / dropped pin). No longer user-
   // editable — panning the map and hitting "Search this area" is the way to widen.
   const defaultRadiusM = milesToMeters(defaultRadiusMi);
-  // Filters: default to in-service only; both water types and all recencies on.
+  // Filters: default to in-service, human water. Verification age is no longer a
+  // filter — it's shown on the map via marker color instead.
   const [svc, setSvc] = useState<Set<Svc>>(() => new Set<Svc>(["in"]));
   const [water, setWater] = useState<Set<Water>>(() => new Set<Water>(["human"]));
-  const [rec, setRec] = useState<Set<Recency>>(() => new Set<Recency>(["fresh"]));
   // The search/filter surface. Stays closed until the location-consent gate is
   // resolved, then collapses to a reopen button once a search succeeds.
   const [modalOpen, setModalOpen] = useState(false);
@@ -145,7 +150,11 @@ export default function FountainMap({
   // but "Search this area" passes the current viewport radius. We ask for
   // out-of-service variants too so the Service filter has something to reveal.
   const search = useCallback(
-    async (at?: Pt, radiusM: number = defaultRadiusM) => {
+    async (
+      at?: Pt,
+      radiusM: number = defaultRadiusM,
+      box?: [[number, number], [number, number]],
+    ) => {
       let from = at ?? center;
       if (!from) {
         from = await locate();
@@ -154,12 +163,17 @@ export default function FountainMap({
       setBusy(true);
       setErr(null);
       try {
+        // "Search this area" passes the viewport box → query that exact rectangle,
+        // so results can't spill past the drawn box the way a circle would. Anchor
+        // (GPS/pin) searches have no box and stay circular around `from`.
+        const region = box
+          ? { bounds: [box[0][0], box[0][1], box[1][0], box[1][1]] }
+          : { ...from, radiusM };
         const r = await apiFetch("/api/fountains", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...from,
-            radiusM,
+            ...region,
             tag: TAG,
             recencyMode: "any",
             includeDisused: true,
@@ -173,8 +187,14 @@ export default function FountainMap({
           );
         }
         setFountains(j.fountains as Fountain[]);
+        setNowMs(Date.now());
         setSearchedAt(from);
-        setSearchedBox(boxAround(from, radiusM * BOX_FACTOR));
+        // "Search this area" passes the exact viewport bounds so the drawn box
+        // matches what the user sees. Anchor searches (GPS/pin) fall back to an
+        // overshooting box shaped to the viewport aspect ratio — landscape screens
+        // get a wide box, not a square — centered on the queried point.
+        const aspect = mapView ? boxAspect(mapView.bounds) : 1;
+        setSearchedBox(box ?? boxAround(from, radiusM * BOX_FACTOR, aspect));
         // Fresh results match the current view — hide the "search this area" nudge.
         setShowSearchArea(false);
         // Points landed — drop the modal so the map is visible. It reopens on demand.
@@ -185,13 +205,21 @@ export default function FountainMap({
         setBusy(false);
       }
     },
-    [center, defaultRadiusM, locate],
+    [center, defaultRadiusM, locate, mapView],
   );
 
   // The map settled after a pan/zoom: remember the view, and if the user drove
   // the move, offer to re-search the now-visible area.
   const onViewChange = useCallback(
-    (view: { lat: number; lon: number; radiusM: number }, userInitiated: boolean) => {
+    (
+      view: {
+        lat: number;
+        lon: number;
+        radiusM: number;
+        bounds: [[number, number], [number, number]];
+      },
+      userInitiated: boolean,
+    ) => {
       setMapView(view);
       if (userInitiated) setShowSearchArea(true);
     },
@@ -202,10 +230,10 @@ export default function FountainMap({
   // spinner mounted over the map for its duration, distinct from the modal's
   // busy path, so the user sees the request they just triggered is in flight.
   const runAreaSearch = useCallback(
-    async (at: Pt, radiusM?: number) => {
+    async (at: Pt, radiusM?: number, box?: [[number, number], [number, number]]) => {
       setAreaBusy(true);
       try {
-        await search(at, radiusM);
+        await search(at, radiusM, box);
       } finally {
         setAreaBusy(false);
       }
@@ -216,9 +244,9 @@ export default function FountainMap({
   // Search the currently visible map area (center + corner-reaching radius). The
   // viewport is now the anchor, so drop any pin the user had placed earlier.
   const searchArea = useCallback(() => {
-    if (!mapView) return;
+    if (!mapView || mapView.radiusM > MAX_SEARCH_RADIUS_M) return;
     setAnchor(null);
-    runAreaSearch({ lat: mapView.lat, lon: mapView.lon }, mapView.radiusM);
+    runAreaSearch({ lat: mapView.lat, lon: mapView.lon }, mapView.radiusM, mapView.bounds);
   }, [mapView, runAreaSearch]);
 
   // Consent granted: dismiss the gate, fire the system permission prompt (no
@@ -249,23 +277,24 @@ export default function FountainMap({
     [runAreaSearch],
   );
 
-  const ranked = useMemo<Ranked[]>(() => {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - FRESH_MONTHS);
-    return rankFountains(fountains, searchedAt, cutoff.getTime());
-  }, [fountains, searchedAt]);
+  const ranked = useMemo<Ranked[]>(
+    () => rankFountains(fountains, searchedAt),
+    [fountains, searchedAt],
+  );
 
   const counts = useMemo(() => countBy(ranked), [ranked]);
 
   const visible = useMemo(
-    () => ranked.filter((r) => svc.has(r.svc) && water.has(r.water) && rec.has(r.rec)),
-    [ranked, svc, water, rec],
+    () => ranked.filter((r) => svc.has(r.svc) && water.has(r.water)),
+    [ranked, svc, water],
   );
 
   const markers: MapMarker[] = useMemo(() => {
     const edits = editable?.edits;
-    const ms: MapMarker[] = visible.map(({ f, distM, svc: s, water: w }) => {
-      const base = s === "out" ? "#9ca3af" : w === "dog" ? "#7c3aed" : "#0284c7";
+    const ms: MapMarker[] = visible.map(({ f, distM, svc: s }) => {
+      // Hue encodes verification freshness (green <1y → amber 1–3y → rose >3y).
+      // Out-of-service points stay gray + dimmed — freshness is moot when unusable.
+      const base = s === "out" ? "#9ca3af" : BUCKET_COLOR[bucketOf(f.tags, nowMs)];
       // A point edited this session (editable map only) takes the edit color +
       // status glyph, and is no longer dimmed.
       const edit = edits?.[f.id];
@@ -296,7 +325,7 @@ export default function FountainMap({
       ms.push({ id: "search-pin", lat: center.lat, lon: center.lon, color: PIN_COLOR });
     }
     return ms;
-  }, [visible, center, anchor, editable]);
+  }, [visible, center, anchor, editable, nowMs]);
 
   const viewCenter: [number, number] = center
     ? [center.lat, center.lon]
@@ -315,8 +344,6 @@ export default function FountainMap({
         setSvc={setSvc}
         water={water}
         setWater={setWater}
-        rec={rec}
-        setRec={setRec}
         showFilters={searchedAt !== null}
         onSearch={() => search()}
       />
@@ -348,70 +375,90 @@ export default function FountainMap({
           />
         </div>
 
-        {/* Floating controls over the map: back link + account (only without a
-          navbar) and the button that reopens the search/filter modal. */}
-        <header className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex items-center justify-between p-4 md:p-5">
-          {!nav ? (
-            <Link
-              href={backHref}
-              className="border-paper-line bg-paper/90 text-ink-dim hover:text-ink pointer-events-auto flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur transition"
-            >
-              <ArrowLeftIcon size={14} />
-              {backLabel}
-            </Link>
-          ) : (
-            <span />
+        {/* Floating controls over the map. Absolutely-placed container; the
+            affordances inside flow relatively (flex column) so the header row
+            and any status pill stack instead of overlapping. */}
+        <div className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex flex-col gap-3 p-4 md:p-5">
+          {/* Header: back link + account (only without a navbar) and the button
+              that reopens the search/filter modal. */}
+          <header className="flex items-center justify-between">
+            {!nav ? (
+              <Link
+                href={backHref}
+                className="border-paper-line bg-paper/90 text-ink-dim hover:text-ink pointer-events-auto flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur transition"
+              >
+                <ArrowLeftIcon size={14} />
+                {backLabel}
+              </Link>
+            ) : (
+              <span />
+            )}
+            <div className="pointer-events-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="border-paper-line bg-paper/90 text-ink hover:text-sky-deep flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur transition"
+              >
+                <SlidersHorizontalIcon size={14} />
+                Filters
+              </button>
+              {!nav && <AccountChip />}
+            </div>
+          </header>
+
+          {/* Map-driven search in flight (pin drop / "Search this area"): a spinner
+              pill sits where those affordances were, confirming the request landed. */}
+          {areaBusy && !modalOpen && !askConsent && (
+            <div className="flex justify-center">
+              <div className="flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white shadow-md">
+                <CircleNotchIcon size={16} className="animate-spin" />
+                Searching…
+              </div>
+            </div>
           )}
-          <div className="pointer-events-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="border-paper-line bg-paper/90 text-ink hover:text-sky-deep flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur transition"
-            >
-              <SlidersHorizontalIcon size={14} />
-              Search
-            </button>
-            {!nav && <AccountChip />}
-          </div>
-        </header>
 
-        {/* Map-driven search in flight (pin drop / "Search this area"): a spinner
-            pill sits where those affordances were, confirming the request landed. */}
-        {areaBusy && !modalOpen && !askConsent && (
-          <div className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex justify-center pt-4 md:pt-5">
-            <div className="flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white shadow-md">
-              <CircleNotchIcon size={16} className="animate-spin" />
-              Searching…
+          {/* Pin-drop hint: after declining location, the map is empty and idle —
+              prompt the user to tap it, since dropping a pin is now the way to
+              search. Clears once they have a pin or any results. */}
+          {!askConsent && !modalOpen && !busy && anchor === null && fountains.length === 0 && (
+            <div className="flex justify-center">
+              <div className="border-paper-line bg-paper/90 text-ink-dim flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md backdrop-blur">
+                <MapPinIcon size={16} />
+                Tap the map to drop a pin
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Pin-drop hint: after declining location, the map is empty and idle —
-            prompt the user to tap it, since dropping a pin is now the way to
-            search. Clears once they have a pin or any results. */}
-        {!askConsent && !modalOpen && !busy && anchor === null && fountains.length === 0 && (
-          <div className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex justify-center pt-4 md:pt-5">
-            <div className="border-paper-line bg-paper/90 text-ink-dim flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md backdrop-blur">
-              <MapPinIcon size={16} />
-              Tap the map to drop a pin
-            </div>
-          </div>
-        )}
-
-        {/* "Search this area": appears once the user pans/zooms away from the
-            last search, and re-runs the query over the now-visible viewport. */}
-        {showSearchArea && !modalOpen && !askConsent && !busy && (
-          <div className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex justify-center pt-4 md:pt-5">
-            <button
-              type="button"
-              onClick={searchArea}
-              className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:opacity-90"
-            >
-              <MagnifyingGlassIcon size={16} />
-              Search this area
-            </button>
-          </div>
-        )}
+          {/* "Search this area": appears once the user pans/zooms away from the
+              last search, and re-runs the query over the now-visible viewport.
+              When the viewport is zoomed out past the max search radius, the query
+              would sweep too much OSM data, so the button becomes a zoom-in prompt
+              instead. The radius is a real-world distance, so this threshold reads
+              the same on every screen size. */}
+          {showSearchArea &&
+            !modalOpen &&
+            !askConsent &&
+            !busy &&
+            (mapView && mapView.radiusM > MAX_SEARCH_RADIUS_M ? (
+              <div className="flex justify-center">
+                <span className="pointer-events-auto flex cursor-default items-center gap-1.5 rounded-full bg-black/70 px-4 py-2 text-sm font-semibold text-white shadow-md">
+                  <MagnifyingGlassPlusIcon size={16} />
+                  Zoom in to search
+                </span>
+              </div>
+            ) : (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={searchArea}
+                  className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:opacity-90"
+                >
+                  <MagnifyingGlassIcon size={16} />
+                  Search this area
+                </button>
+              </div>
+            ))}
+        </div>
 
         {/* Location-consent gate: shown before the system prompt. Agreeing here
             fires the device permission; declining drops into manual pin search. */}

@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/MapView";
-import { BUCKET_COLOR, type Bucket } from "@/components/FreshnessLegend";
+import { BUCKET_COLOR, bucketOf, type Bucket } from "@/components/FreshnessLegend";
 import FountainPopup from "@/components/fountains/FountainPopup";
 import SearchProgress, { type LoadingStep } from "@/components/fountains/SearchProgress";
 import ErrorNotice from "@/components/ui/ErrorNotice";
 import type { Fountain } from "@/lib/schemas";
 import { isOutOfService } from "@/lib/fountainFilters";
-import { lastCheckedMs } from "@/lib/checkDate";
 import { apiFetch } from "@/lib/api";
 import { haversine, milesToMeters } from "@/lib/geo";
 
@@ -26,10 +25,6 @@ const CENTER_PT = { lat: DC_CENTER[0], lon: DC_CENTER[1] };
 const RADIUS_MI = 3;
 const TAG = { key: "amenity", value: "drinking_water" } as const;
 
-const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-const FRESH_CUTOFF = 12 * MONTH_MS; // checked within a year
-const STALE_CUTOFF = 36 * MONTH_MS; // checked within three years
-
 // Location-specific play-by-play for the hero fetch; the loader's generic
 // default copy doesn't name DC or the 3-mi radius.
 const LOADING_STEPS: LoadingStep[] = [
@@ -37,15 +32,6 @@ const LOADING_STEPS: LoadingStep[] = [
   { text: "Scanning nodes within 3 mi of Washington, DC…", ms: 5000 },
   { text: "Reading check_date tags to grade recency…", ms: 5000 },
 ];
-
-function bucketOf(tags: Record<string, string>, nowMs: number): Bucket {
-  const checked = lastCheckedMs(tags);
-  if (checked == null) return "very_stale";
-  const age = nowMs - checked;
-  if (age <= FRESH_CUTOFF) return "fresh";
-  if (age <= STALE_CUTOFF) return "stale";
-  return "very_stale";
-}
 
 export default function LiveFountainMap({
   className,
