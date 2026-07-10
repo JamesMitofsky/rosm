@@ -12,7 +12,7 @@ import {
   CaretRightIcon,
   SnowflakeIcon,
 } from "@phosphor-icons/react";
-import { useMap } from "react-leaflet";
+import { useMapPopup } from "@/components/MapView";
 import type { Fountain, EditAction, EditExtras } from "@/lib/schemas";
 import type { StopStatus } from "@/store/run";
 import { checkedAgoLabel } from "@/lib/checkDate";
@@ -67,7 +67,7 @@ export default function PointPopup({
   inRoute,
   onToggleRoute,
 }: Props) {
-  const map = useMap();
+  const { close } = useMapPopup();
   const name = fountain.tags.name ?? "Unnamed fountain";
   // Advanced OSM params, prefilled from the node's current tags so the surveyor
   // sees and can edit what's already there.
@@ -128,7 +128,7 @@ export default function PointPopup({
             <button
               onClick={() => {
                 onToggleRoute();
-                map.closePopup();
+                close();
               }}
               className={`flex items-center justify-center gap-1.5 rounded border py-1.5 text-xs font-semibold transition ${
                 inRoute

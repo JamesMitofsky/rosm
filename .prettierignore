@@ -4,6 +4,7 @@ build/
 node_modules/
 ios/
 .api-stash/
+.context/
 data/
 pnpm-lock.yaml
 next-env.d.ts

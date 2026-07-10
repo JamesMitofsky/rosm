@@ -153,8 +153,8 @@ export default function LiveFountainMap({
       <MapView
         className="hero-map"
         center={DC_CENTER}
-        zoom={isMobile ? 13 : 15}
-        minZoom={12}
+        zoom={isMobile ? 12 : 14}
+        minZoom={8}
         maxZoom={18}
         interactive
         circle={{ center: DC_CENTER, radiusM: milesToMeters(RADIUS_MI) }}

@@ -1,21 +1,32 @@
 "use client";
 
-import {
-  Circle,
-  MapContainer,
-  Polygon,
-  Rectangle,
+import MapGL, {
+  Source,
+  Layer,
   Marker,
-  Polyline,
   Popup,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+  NavigationControl,
+  AttributionControl,
+  type MapRef,
+  type MapLayerMouseEvent,
+} from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import "@maplibre/maplibre-gl-leaflet";
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import type {
+  CircleLayerSpecification,
+  FillLayerSpecification,
+  LineLayerSpecification,
+  LngLatBoundsLike,
+} from "maplibre-gl";
 
 export type MapMarker = {
   id: number | string;
@@ -26,13 +37,12 @@ export type MapMarker = {
   // Render at reduced opacity — used for context-only points (e.g. nearby
   // fountains shown during a run that aren't part of the surveyed route).
   dimmed?: boolean;
+  // Fired when the marker is tapped and it has no popup (e.g. remove a via).
+  // Markers WITH a popup open the popup on tap instead; their in-popup buttons
+  // carry any actions (route toggle, OSM edits).
   onClick?: () => void;
-  // Rendered inside a Leaflet popup.
+  // Rendered inside the map popup when the marker is tapped.
   popup?: ReactNode;
-  // When the popup opens. "click" (default) opens it on a normal tap. "contextmenu"
-  // opens it on long-press / right-click, leaving a plain tap free for `onClick`
-  // (so a tap can toggle route membership without the popup hijacking it).
-  popupTrigger?: "click" | "contextmenu";
 };
 
 type Props = {
@@ -62,8 +72,8 @@ type Props = {
   // exact viewport bounds ([[south, west], [north, east]]) so callers can draw a
   // searched-area box matching the visible rectangle. The `userInitiated` flag is
   // true only when the move came from a drag/zoom gesture (not a programmatic
-  // recenter), so callers can surface a "search this area" affordance. Only
-  // mounted when a handler is supplied.
+  // recenter), so callers can surface a "search this area" affordance. Only wired
+  // when a handler is supplied.
   onViewChange?: (
     view: {
       lat: number;
@@ -82,243 +92,208 @@ type Props = {
   className?: string;
 };
 
-// Colored pin via divIcon — avoids Leaflet's broken default marker assets.
-function pin(color: string, label?: string, dimmed?: boolean) {
-  return L.divIcon({
-    className: "",
-    html: `<div style="opacity:${dimmed ? 0.4 : 1};background:${color};width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">
-      <span style="transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700;line-height:1;">${label ?? ""}</span></div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 22],
-  });
+// Lets popup content (e.g. PointPopup) dismiss the popup after an action without
+// reaching for a map instance — the popup is a single controlled element here.
+const MapPopupContext = createContext<{ close: () => void }>({ close: () => {} });
+export function useMapPopup() {
+  return useContext(MapPopupContext);
 }
 
-// Blue location dot, with an optional Apple/Google-style direction cone that
-// fans out toward the heading (null heading = dot only).
-function userDot(heading?: number | null) {
-  const cone =
-    heading == null
-      ? ""
-      : `<svg width="64" height="64" viewBox="0 0 64 64" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(${heading}deg);">
-          <defs><radialGradient id="userCone" cx="50%" cy="50%" r="55%">
-            <stop offset="0%" stop-color="#2563eb" stop-opacity="0.55"/>
-            <stop offset="100%" stop-color="#2563eb" stop-opacity="0"/>
-          </radialGradient></defs>
-          <path d="M32 32 L16 4 A30 30 0 0 1 48 4 Z" fill="url(#userCone)"/>
-        </svg>`;
-  return L.divIcon({
-    className: "",
-    html: `<div style="position:relative;width:64px;height:64px;">
-      ${cone}
-      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#2563eb;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #2563eb;"></div>
-    </div>`,
-    iconSize: [64, 64],
-    iconAnchor: [32, 32],
-  });
+const MARKERS_SOURCE = "markers";
+const MARKERS_LAYER = "markers-circle";
+
+// GPU circle for every marker: colored fill, white ring, dimmed → half opacity.
+// Replaces per-marker DOM pins so hundreds of points stay smooth. Labels (the
+// few numbered/starred planner points) ride on top as HTML markers so symbol
+// glyphs render from the system font rather than the tile server's font subset.
+const markerLayer: CircleLayerSpecification = {
+  id: MARKERS_LAYER,
+  type: "circle",
+  source: MARKERS_SOURCE,
+  paint: {
+    "circle-radius": 9,
+    "circle-color": ["get", "color"],
+    "circle-opacity": ["case", ["get", "dimmed"], 0.45, 1],
+    "circle-stroke-width": 2,
+    "circle-stroke-color": "#fff",
+    "circle-stroke-opacity": ["case", ["get", "dimmed"], 0.45, 1],
+  },
+};
+
+const lineLayer: LineLayerSpecification = {
+  id: "route-line",
+  type: "line",
+  source: "route",
+  layout: { "line-cap": "round", "line-join": "round" },
+  paint: { "line-color": "#2563eb", "line-width": 5, "line-opacity": 0.8 },
+};
+
+const circleFillLayer: FillLayerSpecification = {
+  id: "search-circle-fill",
+  type: "fill",
+  source: "search-circle",
+  paint: { "fill-color": "#0284c7", "fill-opacity": 0.06 },
+};
+const circleLineLayer: LineLayerSpecification = {
+  id: "search-circle-line",
+  type: "line",
+  source: "search-circle",
+  paint: { "line-color": "#0284c7", "line-width": 1.5, "line-opacity": 0.5 },
+};
+
+const maskFillLayer: FillLayerSpecification = {
+  id: "searched-mask-fill",
+  type: "fill",
+  source: "searched-mask",
+  paint: { "fill-color": "#0f172a", "fill-opacity": 0.22 },
+};
+const maskLineLayer: LineLayerSpecification = {
+  id: "searched-mask-line",
+  type: "line",
+  source: "searched-box",
+  paint: { "line-color": "#0f172a", "line-width": 1.5, "line-opacity": 0.4 },
+};
+
+const ATTRIBUTION =
+  '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a>';
+
+// Marker set → GeoJSON. `id`s may be strings (search-pin, via-0), so the lookup
+// key rides in properties as `mid`; feature.id stays numeric-only.
+function markersToFeatures(markers: MapMarker[]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: markers.map((m) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [m.lon, m.lat] },
+      properties: { mid: String(m.id), color: m.color, dimmed: !!m.dimmed },
+    })),
+  };
 }
 
-// One marker. For `popupTrigger: "contextmenu"` we suppress Leaflet's default
-// open-popup-on-click (bound by <Popup>) so a tap fires only `onClick`, and open
-// the popup on long-press / right-click instead.
-function MarkerView({ m }: { m: MapMarker }) {
-  const ref = useRef<L.Marker>(null);
-  const contextOnly = m.popupTrigger === "contextmenu";
-  useEffect(() => {
-    const mk = ref.current as (L.Marker & { _openPopup: L.LeafletEventHandlerFn }) | null;
-    if (!mk || !m.popup || !contextOnly) return;
-    // Leaflet's bindPopup wires `_openPopup` to the marker's click event. Drop it
-    // so a tap is free for `onClick`; we re-open on contextmenu (long-press) below.
-    mk.off("click", mk._openPopup, mk);
-    return () => {
-      mk.on("click", mk._openPopup, mk);
-    };
-  }, [m.popup, contextOnly]);
-  return (
-    <Marker
-      ref={ref}
-      position={[m.lat, m.lon]}
-      icon={pin(m.color, m.label, m.dimmed)}
-      eventHandlers={{
-        click: () => m.onClick?.(),
-        contextmenu: () => {
-          if (contextOnly) ref.current?.openPopup();
-        },
-      }}
-    >
-      {m.popup && <Popup>{m.popup}</Popup>}
-    </Marker>
-  );
+const EARTH_R = 6_371_000;
+function destPoint(lat: number, lon: number, distM: number, bearingDeg: number): [number, number] {
+  const br = (bearingDeg * Math.PI) / 180;
+  const la1 = (lat * Math.PI) / 180;
+  const lo1 = (lon * Math.PI) / 180;
+  const dr = distM / EARTH_R;
+  const la2 = Math.asin(Math.sin(la1) * Math.cos(dr) + Math.cos(la1) * Math.sin(dr) * Math.cos(br));
+  const lo2 =
+    lo1 +
+    Math.atan2(
+      Math.sin(br) * Math.sin(dr) * Math.cos(la1),
+      Math.cos(dr) - Math.sin(la1) * Math.sin(la2),
+    );
+  return [(lo2 * 180) / Math.PI, (la2 * 180) / Math.PI];
 }
 
-// Dims everything outside the searched box and outlines it. The dimming is a
-// world-spanning polygon with the box punched out as a hole; a Rectangle draws
-// the crisp edge. Both are non-interactive so map clicks (drop-a-pin) still
-// reach the tiles underneath.
-function SearchedMask({ box }: { box: [[number, number], [number, number]] }) {
-  // A dedicated SVG renderer with generous padding: Leaflet only paints vector
-  // overlays a little beyond the viewport by default, so a fast drag can reveal
-  // an un-dimmed edge before the pane re-renders. Padding 4 = the pane extends
-  // ~4 viewports past each edge, keeping the dim layer covering the screen
-  // throughout any drag. One static polygon, so the extra area is cheap.
-  const renderer = useMemo(() => L.svg({ padding: 4 }), []);
+// Geodesic circle ring (lon/lat) approximating a metric radius.
+function circleFeature(center: [number, number], radiusM: number): GeoJSON.Feature {
+  const [lat, lon] = center;
+  const ring: [number, number][] = [];
+  for (let i = 0; i <= 64; i++) ring.push(destPoint(lat, lon, radiusM, (i * 360) / 64));
+  return { type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: {} };
+}
+
+// World polygon with the searched box punched out as a hole — dims everything
+// outside the box. (Web-mercator lat limit ≈ 85°, so the "world" stops there.)
+function maskFeature(box: [[number, number], [number, number]]): GeoJSON.Feature {
   const [[s, w], [n, e]] = box;
-  // Web Mercator's pole limit. The true ±90 projects to ±infinity, so the fill
-  // path gets enormous pixel coords that browsers clip past their SVG coordinate
-  // ceiling — a pan then drags the clipped (undimmed) edge into view. Clamping to
-  // the projection's valid latitude keeps every coordinate finite.
-  const MAX_LAT = 85.05112878;
   const world: [number, number][] = [
-    [-MAX_LAT, -180],
-    [MAX_LAT, -180],
-    [MAX_LAT, 180],
-    [-MAX_LAT, 180],
+    [-180, -85],
+    [180, -85],
+    [180, 85],
+    [-180, 85],
+    [-180, -85],
   ];
   const hole: [number, number][] = [
-    [s, w],
-    [s, e],
-    [n, e],
-    [n, w],
+    [w, s],
+    [w, n],
+    [e, n],
+    [e, s],
+    [w, s],
   ];
+  return {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [world, hole] },
+    properties: {},
+  };
+}
+function boxLineFeature(box: [[number, number], [number, number]]): GeoJSON.Feature {
+  const [[s, w], [n, e]] = box;
+  return {
+    type: "Feature",
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [w, s],
+        [w, n],
+        [e, n],
+        [e, s],
+        [w, s],
+      ],
+    },
+    properties: {},
+  };
+}
+
+function boundsOf(pts: [number, number][]): LngLatBoundsLike {
+  let minLat = Infinity,
+    minLon = Infinity,
+    maxLat = -Infinity,
+    maxLon = -Infinity;
+  for (const [lat, lon] of pts) {
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lon < minLon) minLon = lon;
+    if (lon > maxLon) maxLon = lon;
+  }
+  return [
+    [minLon, minLat],
+    [maxLon, maxLat],
+  ];
+}
+
+// Blue location dot with an optional Apple/Google-style heading cone.
+function UserDot({ heading }: { heading?: number | null }) {
   return (
-    <>
-      <Polygon
-        positions={[world, hole]}
-        pathOptions={{ stroke: false, fillColor: "#0f172a", fillOpacity: 0.22, renderer }}
-        interactive={false}
+    <div style={{ position: "relative", width: 64, height: 64, pointerEvents: "none" }}>
+      {heading != null && (
+        <svg
+          width="64"
+          height="64"
+          viewBox="0 0 64 64"
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: `translate(-50%,-50%) rotate(${heading}deg)`,
+          }}
+        >
+          <defs>
+            <radialGradient id="userCone" cx="50%" cy="50%" r="55%">
+              <stop offset="0%" stopColor="#2563eb" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <path d="M32 32 L16 4 A30 30 0 0 1 48 4 Z" fill="url(#userCone)" />
+        </svg>
+      )}
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%,-50%)",
+          background: "#2563eb",
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          border: "3px solid #fff",
+          boxShadow: "0 0 0 2px #2563eb",
+        }}
       />
-      <Rectangle
-        bounds={box}
-        pathOptions={{ color: "#0f172a", weight: 1.5, opacity: 0.4, fill: false, renderer }}
-        interactive={false}
-      />
-    </>
+    </div>
   );
-}
-
-// Drop the "Leaflet" prefix (with flag) from the attribution control, keeping
-// only the required OSM credit.
-// Vector basemap from OpenFreeMap (fully free, no API key, self-hostable) via the
-// maplibre-gl-leaflet bridge, so every existing Leaflet overlay keeps working on
-// top. Colors, hidden POI layers, and label choices are all baked into our custom
-// style at public/map-style.json (edited in Maputnik); its sources/glyphs/sprite
-// still resolve to tiles.openfreemap.org, so nothing else needs hosting.
-function VectorBasemap() {
-  const map = useMap();
-  useEffect(() => {
-    const glLayer = (
-      L as unknown as {
-        maplibreGL: (opts: {
-          style: string;
-          interactive?: boolean;
-          attribution?: string;
-        }) => L.Layer;
-      }
-    ).maplibreGL({
-      style: "/map-style.json",
-      interactive: false,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &middot; <a href="https://openfreemap.org">OpenFreeMap</a>',
-    });
-    glLayer.addTo(map);
-    return () => {
-      map.removeLayer(glLayer);
-    };
-  }, [map]);
-  return null;
-}
-
-function StripAttributionPrefix() {
-  const map = useMap();
-  useEffect(() => {
-    map.attributionControl?.setPrefix(false);
-  }, [map]);
-  return null;
-}
-
-function Recenter({
-  center,
-  recenterKey,
-  fitPoints,
-  fitOptions,
-}: {
-  center: [number, number];
-  recenterKey?: string;
-  fitPoints?: [number, number][];
-  fitOptions?: { padding?: [number, number]; maxZoom?: number };
-}) {
-  const map = useMap();
-  useEffect(() => {
-    if (fitPoints && fitPoints.length >= 2) {
-      map.fitBounds(L.latLngBounds(fitPoints), {
-        padding: fitOptions?.padding ?? [60, 60],
-        maxZoom: fitOptions?.maxZoom ?? 16,
-      });
-    } else {
-      map.setView(center);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recenterKey]);
-  return null;
-}
-
-function ClickHandler({
-  onMapClick,
-  onUserPan,
-}: {
-  onMapClick?: (lat: number, lon: number) => void;
-  onUserPan?: () => void;
-}) {
-  useMapEvents({
-    click(e) {
-      onMapClick?.(e.latlng.lat, e.latlng.lng);
-    },
-    // Only user-initiated drags fire dragstart; programmatic setView does not.
-    dragstart() {
-      onUserPan?.();
-    },
-  });
-  return null;
-}
-
-// Reports the map view (center + a corner-reaching radius) after every settled
-// pan/zoom. Tracks whether the move began with a user gesture so a "search this
-// area" button only appears when the user themselves moved the map.
-function ViewHandler({
-  onViewChange,
-}: {
-  onViewChange: (
-    view: {
-      lat: number;
-      lon: number;
-      radiusM: number;
-      bounds: [[number, number], [number, number]];
-    },
-    userInitiated: boolean,
-  ) => void;
-}) {
-  const userMoved = useRef(false);
-  const map = useMapEvents({
-    dragstart() {
-      userMoved.current = true;
-    },
-    zoomstart() {
-      userMoved.current = true;
-    },
-    moveend() {
-      const c = map.getCenter();
-      const b = map.getBounds();
-      const sw = b.getSouthWest();
-      const ne = b.getNorthEast();
-      const radiusM = c.distanceTo(ne);
-      const bounds: [[number, number], [number, number]] = [
-        [sw.lat, sw.lng],
-        [ne.lat, ne.lng],
-      ];
-      onViewChange({ lat: c.lat, lon: c.lng, radiusM, bounds }, userMoved.current);
-      userMoved.current = false;
-    },
-  });
-  return null;
 }
 
 export default function MapView({
@@ -343,47 +318,207 @@ export default function MapView({
   fitOptions,
   className,
 }: Props) {
+  const mapRef = useRef<MapRef>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const markerById = useMemo(() => new Map(markers.map((m) => [String(m.id), m])), [markers]);
+  const markerData = useMemo(() => markersToFeatures(markers), [markers]);
+  const labeled = useMemo(() => markers.filter((m) => m.label), [markers]);
+  const lineData = useMemo<GeoJSON.Feature | null>(
+    () =>
+      line && line.length > 1
+        ? {
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: line.map(([la, lo]) => [lo, la]) },
+            properties: {},
+          }
+        : null,
+    [line],
+  );
+  const circleData = useMemo(
+    () => (circle ? circleFeature(circle.center, circle.radiusM) : null),
+    [circle],
+  );
+  const maskData = useMemo(() => (searchedBox ? maskFeature(searchedBox) : null), [searchedBox]);
+  const boxData = useMemo(() => (searchedBox ? boxLineFeature(searchedBox) : null), [searchedBox]);
+
+  // The open popup's marker: pulled fresh from the current set so its content
+  // (e.g. a planner point's in-route state) stays live. If the marker disappears
+  // (filters change), this is undefined and the popup simply stops rendering —
+  // no cleanup effect needed; a stale `selected` id is harmless.
+  const selectedMarker = selected != null ? markerById.get(selected) : undefined;
+
+  // Recenter / fit on explicit request (recenterKey change or first mount),
+  // matching the old imperative Leaflet behavior — never fighting a user pan.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (fitPoints && fitPoints.length >= 2) {
+      const [padX, padY] = fitOptions?.padding ?? [60, 60];
+      map.fitBounds(boundsOf(fitPoints), {
+        padding: { top: padY, bottom: padY, left: padX, right: padX },
+        maxZoom: fitOptions?.maxZoom ?? 16,
+        duration: 0,
+      });
+    } else {
+      map.jumpTo({ center: [center[1], center[0]] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recenterKey]);
+
+  const handleClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      const feature = e.features?.[0];
+      if (feature) {
+        const mid = feature.properties?.mid as string | undefined;
+        const m = mid != null ? markerById.get(mid) : undefined;
+        if (m?.popup) setSelected(mid ?? null);
+        else m?.onClick?.();
+        return;
+      }
+      // Empty-map tap: dismiss any popup, then report for drop-a-pin.
+      setSelected(null);
+      onMapClick?.(e.lngLat.lat, e.lngLat.lng);
+    },
+    [markerById, onMapClick],
+  );
+
+  const handleMoveEnd = useCallback(
+    (e: { originalEvent?: unknown }) => {
+      if (!onViewChange) return;
+      const map = mapRef.current;
+      if (!map) return;
+      const c = map.getCenter();
+      const b = map.getBounds();
+      const ne = b.getNorthEast();
+      const sw = b.getSouthWest();
+      onViewChange(
+        {
+          lat: c.lat,
+          lon: c.lng,
+          radiusM: c.distanceTo(ne),
+          bounds: [
+            [sw.lat, sw.lng],
+            [ne.lat, ne.lng],
+          ],
+        },
+        !!e.originalEvent,
+      );
+    },
+    [onViewChange],
+  );
+
+  const popupCtx = useMemo(() => ({ close: () => setSelected(null) }), []);
+
   return (
-    <MapContainer
-      center={center}
-      zoom={zoom}
-      minZoom={minZoom}
-      maxZoom={maxZoom}
-      className={className}
-      style={{ height: "100%", width: "100%" }}
-      scrollWheelZoom={scrollWheelZoom}
-      dragging={interactive}
-      doubleClickZoom={interactive}
-      zoomControl={interactive}
-      attributionControl={interactive}
-      keyboard={interactive}
-      touchZoom={interactive}
-    >
-      <VectorBasemap />
-      <StripAttributionPrefix />
-      <Recenter
-        center={center}
-        recenterKey={recenterKey}
-        fitPoints={fitPoints}
-        fitOptions={fitOptions}
-      />
-      <ClickHandler onMapClick={onMapClick} onUserPan={onUserPan} />
-      {onViewChange && <ViewHandler onViewChange={onViewChange} />}
-      {circle && (
-        <Circle
-          center={circle.center}
-          radius={circle.radiusM}
-          pathOptions={{ color: "#0284c7", weight: 1.5, opacity: 0.5, fillOpacity: 0.06 }}
-        />
-      )}
-      {searchedBox && <SearchedMask box={searchedBox} />}
-      {line && line.length > 1 && (
-        <Polyline positions={line} pathOptions={{ color: "#2563eb", weight: 5, opacity: 0.8 }} />
-      )}
-      {markers.map((m) => (
-        <MarkerView key={m.id} m={m} />
-      ))}
-      {userPos && <Marker position={userPos} icon={userDot(userHeading)} />}
-    </MapContainer>
+    <div className={className} style={{ position: "relative", height: "100%", width: "100%" }}>
+      <MapGL
+        ref={mapRef}
+        initialViewState={{ longitude: center[1], latitude: center[0], zoom }}
+        minZoom={minZoom}
+        maxZoom={maxZoom}
+        mapStyle="/map-style.json"
+        style={{ height: "100%", width: "100%" }}
+        attributionControl={false}
+        interactiveLayerIds={[MARKERS_LAYER]}
+        dragPan={interactive}
+        dragRotate={false}
+        pitchWithRotate={false}
+        touchPitch={false}
+        scrollZoom={scrollWheelZoom}
+        doubleClickZoom={interactive}
+        touchZoomRotate={interactive}
+        boxZoom={interactive}
+        keyboard={interactive}
+        onLoad={() => mapRef.current?.getMap().touchZoomRotate.disableRotation()}
+        onClick={handleClick}
+        onDragStart={() => onUserPan?.()}
+        onMoveEnd={handleMoveEnd}
+        onMouseEnter={() => {
+          const c = mapRef.current?.getMap().getCanvas();
+          if (c) c.style.cursor = "pointer";
+        }}
+        onMouseLeave={() => {
+          const c = mapRef.current?.getMap().getCanvas();
+          if (c) c.style.cursor = "";
+        }}
+      >
+        <AttributionControl customAttribution={ATTRIBUTION} compact />
+        {interactive && <NavigationControl position="top-left" showCompass={false} />}
+
+        {maskData && (
+          <Source id="searched-mask" type="geojson" data={maskData}>
+            <Layer {...maskFillLayer} />
+          </Source>
+        )}
+        {boxData && (
+          <Source id="searched-box" type="geojson" data={boxData}>
+            <Layer {...maskLineLayer} />
+          </Source>
+        )}
+        {circleData && (
+          <Source id="search-circle" type="geojson" data={circleData}>
+            <Layer {...circleFillLayer} />
+            <Layer {...circleLineLayer} />
+          </Source>
+        )}
+        {lineData && (
+          <Source id="route" type="geojson" data={lineData}>
+            <Layer {...lineLayer} />
+          </Source>
+        )}
+
+        <Source id={MARKERS_SOURCE} type="geojson" data={markerData}>
+          <Layer {...markerLayer} />
+        </Source>
+
+        {/* Labels for the few numbered/starred points, over the GPU circles. */}
+        {labeled.map((m) => (
+          <Marker
+            key={`label-${m.id}`}
+            longitude={m.lon}
+            latitude={m.lat}
+            anchor="center"
+            style={{ pointerEvents: "none" }}
+          >
+            <span
+              style={{
+                color: "#fff",
+                fontSize: 11,
+                fontWeight: 700,
+                lineHeight: 1,
+                opacity: m.dimmed ? 0.45 : 1,
+                textShadow: "0 1px 1px rgba(0,0,0,.35)",
+              }}
+            >
+              {m.label}
+            </span>
+          </Marker>
+        ))}
+
+        {userPos && (
+          <Marker longitude={userPos[1]} latitude={userPos[0]} anchor="center">
+            <UserDot heading={userHeading} />
+          </Marker>
+        )}
+
+        {selectedMarker?.popup && (
+          <Popup
+            longitude={selectedMarker.lon}
+            latitude={selectedMarker.lat}
+            anchor="bottom"
+            offset={14}
+            closeOnClick={false}
+            closeButton={false}
+            maxWidth="none"
+            onClose={() => setSelected(null)}
+          >
+            <MapPopupContext.Provider value={popupCtx}>
+              {selectedMarker.popup}
+            </MapPopupContext.Provider>
+          </Popup>
+        )}
+      </MapGL>
+    </div>
   );
 }
