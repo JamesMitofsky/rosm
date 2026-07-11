@@ -2,10 +2,11 @@
 
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowsLeftRightIcon, PathIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, ArrowsLeftRightIcon, PathIcon } from "@phosphor-icons/react";
 import Button from "@/components/ui/Button";
 import ErrorNotice from "@/components/ui/ErrorNotice";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import StepProgress, { BUILD_STEP_INDEX } from "@/components/planner/StepProgress";
 import EditSyncPanel from "@/components/EditSyncPanel";
 import type { OsmEdits } from "@/hooks/useOsmEdits";
 import { usePlanner, pinnedOf, removedOf } from "@/store/planner";
@@ -45,15 +46,22 @@ export default function RouteBuilderPanel({ osmEdits }: { osmEdits: OsmEdits }) 
 
   return (
     <section className="flex w-full max-w-sm flex-col gap-4 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold">Build the route</h2>
+      {/* Last step of the setup sequence. The progress bar and Back button keep
+          it continuous with the config wizard — no dead-end, standalone view. */}
+      <StepProgress current={BUILD_STEP_INDEX} />
+      <div className="flex items-center gap-3">
         <button
-          onClick={() => p.setPhase("config")}
-          className="border-paper-line text-ink-dim hover:border-sky-deep/60 hover:text-sky-deep flex shrink-0 items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold transition"
+          onClick={() => {
+            // Return to the config wizard on its final (radius) step.
+            p.setStep(BUILD_STEP_INDEX - 1);
+            p.setPhase("config");
+          }}
+          className="border-paper-line text-ink-dim hover:text-ink flex shrink-0 items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold transition"
         >
-          <SlidersHorizontalIcon size={14} />
-          Edit setup
+          <ArrowLeftIcon size={14} />
+          Back
         </button>
+        <h2 className="font-display text-lg font-bold">Build the route</h2>
       </div>
       {p.fountains.length > 0 && (
         <span className="bg-sky/15 text-sky-deep -mt-2 w-fit rounded-full px-2 py-0.5 text-xs font-semibold">

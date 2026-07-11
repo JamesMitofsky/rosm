@@ -13,6 +13,7 @@ import {
 import Button from "@/components/ui/Button";
 import ErrorNotice from "@/components/ui/ErrorNotice";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import StepProgress from "@/components/planner/StepProgress";
 import { usePlanner } from "@/store/planner";
 import type { RecencyMode } from "@/lib/schemas";
 
@@ -52,15 +53,8 @@ export default function ConfigWizard() {
 
   return (
     <section ref={scope} className="flex w-full max-w-md flex-col gap-5 md:h-full">
-      {/* Step progress */}
-      <div className="flex items-center gap-2">
-        {STEPS.map((s, i) => (
-          <div
-            key={s.key}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${i <= p.step ? "bg-sky-deep" : "bg-paper-deep"}`}
-          />
-        ))}
-      </div>
+      {/* Step progress — build-the-route is the last step in this same sequence. */}
+      <StepProgress current={p.step} />
 
       <div className="wizard-step flex flex-col gap-4">
         <div className="flex flex-col gap-1">
