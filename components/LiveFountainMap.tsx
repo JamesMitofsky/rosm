@@ -146,7 +146,7 @@ export default function LiveFountainMap({ className }: { className?: string }) {
       <MapView
         className="hero-map"
         center={DC_CENTER}
-        zoom={isMobile ? 9.3 : 12.3}
+        zoom={isMobile ? 8.8 : 12.3}
         minZoom={8}
         maxZoom={18}
         interactive
