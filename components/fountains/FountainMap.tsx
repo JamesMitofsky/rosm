@@ -102,12 +102,11 @@ export default function FountainMap({
     radiusM: number;
     bounds: [[number, number], [number, number]];
   } | null>(null);
-  // Mirror of the settled view. The mount auto-locate effect (deps []) runs the
-  // first-render `startWithLocation`, whose closure froze `mapView` at null — so
-  // reading state there always misses the viewport and falls back to a circular
-  // radius search. The ref always holds the current view, so that path searches
-  // the real viewport (and dims it) just like an explicit "Search this area".
-  const mapViewRef = useRef<typeof mapView>(null);
+  // Set when a just-acquired GPS fix is waiting for the map to recenter. The
+  // recenter settles into an `onViewChange` carrying the real post-jump viewport
+  // bounds, which then fires the first search — so the queried rectangle (and
+  // drawn box) is exactly the viewport, with no race against the map's load.
+  const pendingLocateSearch = useRef(false);
   const [showSearchArea, setShowSearchArea] = useState(false);
   // A "Search this area" request is in flight — keeps that button mounted with a
   // spinner (rather than the generic full-screen busy path hiding it).
@@ -222,25 +221,6 @@ export default function FountainMap({
     [center, defaultRadiusM, locate, mapView],
   );
 
-  // The map settled after a pan/zoom: remember the view, and if the user drove
-  // the move, offer to re-search the now-visible area.
-  const onViewChange = useCallback(
-    (
-      view: {
-        lat: number;
-        lon: number;
-        radiusM: number;
-        bounds: [[number, number], [number, number]];
-      },
-      userInitiated: boolean,
-    ) => {
-      setMapView(view);
-      mapViewRef.current = view;
-      if (userInitiated) setShowSearchArea(true);
-    },
-    [],
-  );
-
   // A map-driven search ("Search this area"). Keeps a dedicated spinner
   // mounted over the map for its duration, distinct from the modal's busy
   // path, so the user sees the request they just triggered is in flight.
@@ -262,6 +242,38 @@ export default function FountainMap({
     runAreaSearch({ lat: mapView.lat, lon: mapView.lon }, mapView.radiusM, mapView.bounds);
   }, [mapView, runAreaSearch]);
 
+  // The map settled after load, a recenter, or a pan/zoom: remember the view. A
+  // pending GPS locate fires its first search here, off the freshly-settled
+  // viewport (post-recenter), so the queried box matches the screen exactly. A
+  // user-driven move instead offers to re-search the now-visible area.
+  const onViewChange = useCallback(
+    (
+      view: {
+        lat: number;
+        lon: number;
+        radiusM: number;
+        bounds: [[number, number], [number, number]];
+      },
+      userInitiated: boolean,
+    ) => {
+      setMapView(view);
+      if (pendingLocateSearch.current) {
+        pendingLocateSearch.current = false;
+        const anchor = { lat: view.lat, lon: view.lon };
+        // Zoomed out past the max radius → fall back to the circular default
+        // search around the fix rather than sweeping too much OSM data.
+        if (view.radiusM <= MAX_SEARCH_RADIUS_M) {
+          runAreaSearch(anchor, view.radiusM, view.bounds);
+        } else {
+          runAreaSearch(anchor);
+        }
+        return;
+      }
+      if (userInitiated) setShowSearchArea(true);
+    },
+    [runAreaSearch],
+  );
+
   // Consent granted: dismiss the gate, fire the system permission prompt (no
   // loader yet), and once we hold a fix drop straight into the map with the
   // "Searching…" pill — no filters modal in the way. A denied/failed fix falls
@@ -273,28 +285,12 @@ export default function FountainMap({
       setModalOpen(true);
       return;
     }
-    // Recenter keeps the current zoom (jumpTo), so the viewport that lands on
-    // the fix has the same lat/lon span as the pre-jump view — just recentered.
-    // Search that exact rectangle so the queried area (and drawn box) matches
-    // what the user sees, instead of a fixed radius that overshoots when zoomed
-    // in. No settled view yet → fall back to the circular default-radius search.
-    // Read the view from the ref, not state: the mount effect runs a closure that
-    // froze `mapView` at null, which would force every auto-locate to that
-    // fallback instead of the viewport.
-    const view = mapViewRef.current;
-    if (view && view.radiusM <= MAX_SEARCH_RADIUS_M) {
-      const [[s, w], [n, e]] = view.bounds;
-      const dLat = (n - s) / 2;
-      const dLon = (e - w) / 2;
-      const box: [[number, number], [number, number]] = [
-        [here.lat - dLat, here.lon - dLon],
-        [here.lat + dLat, here.lon + dLon],
-      ];
-      runAreaSearch(here, view.radiusM, box);
-    } else {
-      runAreaSearch(here);
-    }
-  }, [locate, runAreaSearch]);
+    // `locate` recentered the map on the fix (jumpTo keeps the current zoom). Arm
+    // the search so the recenter's settled `onViewChange` runs it off the actual
+    // post-jump viewport — the queried rectangle (and drawn box) then matches the
+    // screen exactly, with no dependence on whether the map had settled yet.
+    pendingLocateSearch.current = true;
+  }, [locate]);
 
   // Consent declined: skip location entirely and leave the map interactive so
   // the user can pan to where they care about. Surface the "Search this area"
