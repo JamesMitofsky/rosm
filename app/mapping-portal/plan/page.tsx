@@ -73,8 +73,6 @@ export default function PlannerPage() {
 
   const markers = usePlannerMarkers({
     edits: osmEdits.edits,
-    updatePoint: osmEdits.updatePoint,
-    loggedIn: !!osm?.loggedIn,
   });
 
   const scope = useRef<HTMLElement>(null);

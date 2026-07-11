@@ -2,28 +2,15 @@
 
 import { useMemo } from "react";
 import type { MapMarker } from "@/components/MapView";
-import PointPopup, { type PointEdit } from "@/components/PointPopup";
-import { usePlanner, inRouteIdsOf } from "@/store/planner";
+import { type PointEdit } from "@/components/PointPopup";
+import { usePlanner } from "@/store/planner";
 import { EDIT_COLOR, EDIT_LABEL } from "@/lib/editStatus";
-import type { EditAction, EditExtras, Fountain } from "@/lib/schemas";
-
-function markLabel(f: Fountain) {
-  return f.tags.name ?? "Unnamed fountain";
-}
 
 // The planner-phase marker set: every found fountain (colored by its route /
 // pin / exclusion / edit state), plus via waypoints, the start flag, and the
 // unreachable-island highlight. The run phase feeds the map from useRunSession
 // instead.
-export function usePlannerMarkers({
-  edits,
-  updatePoint,
-  loggedIn,
-}: {
-  edits: Record<number, PointEdit>;
-  updatePoint: (nodeId: number, action: EditAction, name?: string, extras?: EditExtras) => void;
-  loggedIn: boolean;
-}): MapMarker[] {
+export function usePlannerMarkers({ edits }: { edits: Record<number, PointEdit> }): MapMarker[] {
   const fountains = usePlanner((s) => s.fountains);
   const stops = usePlanner((s) => s.stops);
   const pinnedIds = usePlanner((s) => s.pinnedIds);
@@ -31,11 +18,6 @@ export function usePlannerMarkers({
   const vias = usePlanner((s) => s.vias);
   const center = usePlanner((s) => s.center);
   const islandPt = usePlanner((s) => s.islandPt);
-
-  const inRouteIds = useMemo(
-    () => inRouteIdsOf({ stops, pinnedIds, excludedIds }),
-    [stops, pinnedIds, excludedIds],
-  );
 
   return useMemo(() => {
     // Zustand actions are referentially stable; read them off the store so the
@@ -50,7 +32,6 @@ export function usePlannerMarkers({
       const n = chosenIds.get(f.id);
       const isPinned = pinnedSet.has(f.id);
       const isExcluded = excludedSet.has(f.id);
-      const inRoute = inRouteIds.has(f.id);
       const edit = edits[f.id];
       // edited (this session) wins; then: dim "–" = explicitly removed; green
       // numbered = chosen; amber star = pinned (forced); gray = available.
@@ -78,19 +59,9 @@ export function usePlannerMarkers({
         lon: f.lon,
         color,
         label,
-        // Tapping the point opens its popup; the route toggle + OSM updates live
-        // inside it (no hidden long-press gesture on the GL layer).
-        popup: (
-          <PointPopup
-            fountain={f}
-            loggedIn={loggedIn}
-            inRoute={inRoute}
-            edit={edit}
-            busy={false}
-            onToggleRoute={() => toggleStop(f.id)}
-            onAction={(action, extras) => updatePoint(f.id, action, markLabel(f), extras)}
-          />
-        ),
+        // Tapping the point toggles its route membership directly — no popup
+        // gate. OSM survey edits live on the run page, not here.
+        onClick: () => toggleStop(f.id),
       };
     });
 
@@ -113,17 +84,5 @@ export function usePlannerMarkers({
       : [];
 
     return [...fountainMarkers, ...viaMarkers, ...startMarker, ...islandMarker];
-  }, [
-    fountains,
-    stops,
-    pinnedIds,
-    excludedIds,
-    vias,
-    center,
-    islandPt,
-    inRouteIds,
-    edits,
-    loggedIn,
-    updatePoint,
-  ]);
+  }, [fountains, stops, pinnedIds, excludedIds, vias, center, islandPt, edits]);
 }
