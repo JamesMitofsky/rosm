@@ -25,7 +25,9 @@ export default function MapSearchBar({
   const [hits, setHits] = useState<Hit[]>([]);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Debounced geocode: fires 300ms after the last keystroke. A per-run `stale`
   // flag drops out-of-order responses so a slow earlier query can't clobber a
@@ -58,14 +60,25 @@ export default function MapSearchBar({
     };
   }, [q]);
 
-  // Collapse the dropdown when focus leaves the whole widget.
+  // Collapse the dropdown when focus leaves the whole widget. Also collapse the
+  // input back to a button if the user hasn't typed anything.
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setExpanded((prev) => (q.trim() ? prev : false));
+      }
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
-  }, []);
+  }, [q]);
+
+  // Reveal the input, then focus it once the expand transition kicks in.
+  const expand = () => {
+    setExpanded(true);
+    setOpen(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
 
   const pick = (h: Hit) => {
     onResult({ lat: Number(h.lat), lon: Number(h.lon) });
@@ -78,13 +91,21 @@ export default function MapSearchBar({
 
   return (
     <div ref={boxRef} className={`relative ${className ?? ""}`}>
-      <div className="border-paper-line bg-paper/90 flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 shadow-sm backdrop-blur">
+      <div
+        role={expanded ? undefined : "button"}
+        aria-label={expanded ? undefined : placeholder}
+        onClick={expanded ? undefined : expand}
+        className={`border-paper-line bg-paper/90 flex items-center rounded-sm border py-1.5 shadow-sm backdrop-blur transition-[padding,column-gap] ${
+          expanded ? "gap-1.5 px-2.5" : "cursor-pointer gap-0 px-2"
+        }`}
+      >
         {busy ? (
-          <CircleNotchIcon size={14} className="text-ink-dim animate-spin" />
+          <CircleNotchIcon size={14} className="text-ink-dim shrink-0 animate-spin" />
         ) : (
-          <MagnifyingGlassIcon size={14} className="text-ink-dim" />
+          <MagnifyingGlassIcon size={14} className="text-ink-dim shrink-0" />
         )}
         <input
+          ref={inputRef}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -93,10 +114,17 @@ export default function MapSearchBar({
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && hits[0]) pick(hits[0]);
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") {
+              setOpen(false);
+              if (!q.trim()) setExpanded(false);
+              inputRef.current?.blur();
+            }
           }}
           placeholder={placeholder}
-          className="text-ink placeholder:text-ink-dim w-40 bg-transparent text-xs font-semibold outline-none md:w-52"
+          tabIndex={expanded ? 0 : -1}
+          className={`text-ink placeholder:text-ink-dim bg-transparent text-xs font-semibold transition-[width,opacity] duration-200 outline-none ${
+            expanded ? "w-40 opacity-100 md:w-52" : "w-0 opacity-0"
+          }`}
         />
       </div>
 

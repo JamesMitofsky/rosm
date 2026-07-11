@@ -1,10 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowLeftIcon,
   CircleNotchIcon,
   MagnifyingGlassIcon,
   MagnifyingGlassPlusIcon,
@@ -53,17 +51,11 @@ type Props = {
   // instantiates the outbox-backed edit machinery.
   editable?: OsmEdits;
   defaultRadiusMi?: number;
-  // Floating back link, top-left over the map.
-  backHref: string;
-  backLabel: string;
   // Page-specific panel content (CTA, sync panel).
   footer?: ReactNode;
   // Optional site navbar rendered above the map (public browser). When present,
-  // the floating back link is dropped — the navbar already routes home.
+  // the map skips its own floating Exit chip — the navbar already routes home.
   nav?: ReactNode;
-  // Drop the floating account/connection chip (e.g. Quick Update, where the
-  // surface is already account-gated).
-  hideAccount?: boolean;
 };
 
 // The shared fountain map: full-bleed Leaflet, GPS or map-area search, filters,
@@ -72,11 +64,8 @@ type Props = {
 export default function FountainMap({
   editable,
   defaultRadiusMi = DEFAULT_RADIUS_MI,
-  backHref,
-  backLabel,
   footer,
   nav,
-  hideAccount,
 }: Props) {
   // One-shot GPS fix used as the search anchor (and the map's initial recenter
   // target). The live blue dot rides on `useLiveLocation` below — this stays put
@@ -451,22 +440,12 @@ export default function FountainMap({
             affordances inside flow relatively (flex column) so the header row
             and any status pill stack instead of overlapping. */}
         <div className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex flex-col gap-3 p-4 md:p-5">
-          {/* Header: back link + account (only without a navbar) and the button
-              that reopens the search/filter modal. */}
+          {/* Header: query controls (place search + filters) grouped on the
+              left, the Exit chip on the right. When a site navbar is present it
+              owns the exit, so the map drops its own chip. */}
           <header className="flex items-start justify-between gap-2">
             <div className="pointer-events-auto flex items-start gap-2">
-              {!nav && (
-                <Link
-                  href={backHref}
-                  className="border-paper-line bg-paper/90 text-ink-dim hover:text-ink flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur transition"
-                >
-                  <ArrowLeftIcon size={14} />
-                  {backLabel}
-                </Link>
-              )}
               <MapSearchBar onResult={goTo} />
-            </div>
-            <div className="pointer-events-auto flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setModalOpen(true)}
@@ -475,8 +454,12 @@ export default function FountainMap({
                 <SlidersHorizontalIcon size={14} />
                 Filters
               </button>
-              {!nav && !hideAccount && <AccountChip />}
             </div>
+            {!nav && (
+              <div className="pointer-events-auto flex items-center gap-2">
+                <AccountChip chipTone="neutral" label="Exit" />
+              </div>
+            )}
           </header>
 
           {/* Map-driven search in flight ("Search this area"): a spinner pill

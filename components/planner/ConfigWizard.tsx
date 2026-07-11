@@ -21,7 +21,7 @@ const STEPS = [
     title: "Starting Point",
     hint: "Click on the map, search, or use your current location.",
   },
-  { key: "radius", title: "Search Parameters", hint: undefined },
+  { key: "radius", title: "Distance & Recency", hint: undefined },
 ] as const;
 
 // Config phase: one question at a time, then "Find points" hands over to the map.

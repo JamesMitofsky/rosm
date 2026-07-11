@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { ArrowLeftIcon, DeviceMobileIcon } from "@phosphor-icons/react";
+import { DeviceMobileIcon } from "@phosphor-icons/react";
 import { useRun } from "@/store/run";
 import { usePlanner } from "@/store/planner";
 import AccountChip from "@/components/AccountChip";
@@ -19,7 +19,6 @@ import WaypointPopup from "@/components/WaypointPopup";
 import { usePlannerMarkers } from "@/components/planner/usePlannerMarkers";
 import CompassEnableModal from "@/components/run/CompassEnableModal";
 import { useRunSession } from "@/hooks/useRunSession";
-import { useLiveLocation } from "@/lib/useLiveLocation";
 import { useOsmEdits } from "@/hooks/useOsmEdits";
 import { usePlannerDraftSync } from "@/hooks/usePlannerDraftSync";
 import { apiFetch, isNative } from "@/lib/api";
@@ -64,11 +63,6 @@ export default function PlannerPage() {
   // The live run, fed from the shared hook. Armed only once we reach the run
   // phase so the location prompt doesn't fire while building a route.
   const session = useRunSession({ enabled: phase === "run" });
-
-  // Live blue dot + heading while building the route (map phase). The run phase
-  // gets the same from `session`, so this watch is scoped to `map` to avoid a
-  // second GPS watch during the run.
-  const live = useLiveLocation({ enabled: phase === "map" });
 
   // Direct OSM edits made from the map, before any run. Backed by the offline
   // outbox: saved on-device first, sent to OSM in the background.
@@ -202,10 +196,8 @@ export default function PlannerPage() {
           fitPoints={phase === "run" ? session.fitPoints : phase === "map" ? searchBox : undefined}
           markers={phase === "run" ? session.markers : markers}
           line={phase === "run" ? session.line : line}
-          userPos={phase === "run" ? session.userPos : phase === "map" ? live.pos : undefined}
-          userHeading={
-            phase === "run" ? session.userHeading : phase === "map" ? live.heading : undefined
-          }
+          userPos={phase === "run" ? session.userPos : undefined}
+          userHeading={phase === "run" ? session.userHeading : undefined}
           onMapClick={phase === "run" ? undefined : mapClick}
           mapClickPopup={
             phase === "map"
@@ -227,9 +219,6 @@ export default function PlannerPage() {
             onEnable={session.requestCompass}
           />
         )}
-        {phase === "map" && (
-          <CompassEnableModal open={live.needsCompassPermission} onEnable={live.requestCompass} />
-        )}
       </div>
 
       {/* Top bar: OSM status + account, floating over the map. Hidden during a
@@ -237,13 +226,6 @@ export default function PlannerPage() {
       {phase !== "run" && (
         <header className="safe-top pointer-events-none absolute inset-x-0 z-[1000] flex flex-wrap items-center justify-between gap-3 p-4 md:p-5">
           <div className="pointer-events-auto flex items-center gap-2">
-            <Link
-              href="/mapping-portal"
-              className="border-paper-line bg-paper/90 text-ink-dim hover:text-ink flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur transition"
-            >
-              <ArrowLeftIcon size={14} />
-              Mapping Portal
-            </Link>
             <OsmStatusBar />
           </div>
           <div className="pointer-events-auto ml-auto">

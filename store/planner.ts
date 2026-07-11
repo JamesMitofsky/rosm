@@ -163,9 +163,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   radiusMi: 4,
   recencyMode: "stale",
   recencyMonths: 6,
-  targetMi: "",
-  // Default to points so the route is sized by what the user picks unless they
-  // opt into a target distance (matches "empty target distance by default").
+  // Prefilled target so switching to distance mode lands ready-to-plan.
+  targetMi: 3,
   sizeMode: "points",
   loop: true,
   tag: { key: "amenity", value: "drinking_water" },

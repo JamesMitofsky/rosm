@@ -14,21 +14,26 @@ export default function SegmentedControl<K extends string>({
 }) {
   return (
     <div
-      className={`border-paper-line flex overflow-hidden rounded-sm border ${textSize === "xs" ? "text-xs" : "text-sm"}`}
+      role="group"
+      className={`border-paper-line bg-paper-deep/60 flex gap-1 rounded-full border p-1 ${textSize === "xs" ? "text-xs" : "text-sm"}`}
     >
-      {options.map((o) => (
-        <button
-          key={o.key}
-          onClick={() => onChange(o.key)}
-          className={`flex-1 py-1.5 transition ${
-            value === o.key
-              ? "bg-sky-deep text-ink font-semibold"
-              : "bg-paper/40 text-ink-dim hover:text-ink"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
+      {options.map((o) => {
+        const active = value === o.key;
+        return (
+          <button
+            key={o.key}
+            onClick={() => onChange(o.key)}
+            aria-pressed={active}
+            className={`flex-1 rounded-full px-3 py-2 transition ${
+              active
+                ? "bg-sky-deep font-semibold text-white shadow-sm"
+                : "text-ink-dim hover:text-ink font-medium"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

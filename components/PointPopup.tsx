@@ -207,7 +207,7 @@ export default function PointPopup({
                       <textarea
                         value={osmNote}
                         onChange={(e) => setOsmNote(e.target.value)}
-                        placeholder="Public note — added to OSM"
+                        placeholder="Public note"
                         rows={2}
                         maxLength={255}
                         className="resize-none rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-blue-500 focus:outline-none"
