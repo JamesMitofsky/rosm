@@ -6,14 +6,26 @@ const T = "2026-01-02";
 describe("editSummary", () => {
   it("describes each action", () => {
     expect(editSummary("confirm", "amenity", T)).toBe(`confirmed · check_date=${T}`);
-    expect(editSummary("dog_only", "amenity", T)).toBe(
-      `dog water · not human-potable · dog=yes · check_date=${T}`,
-    );
     expect(editSummary("out_of_order", "amenity", T)).toBe(
       `amenity → disused:amenity · check_date=${T}`,
     );
     expect(editSummary("removed", "amenity", T)).toBe(
       `amenity → abandoned:amenity · check_date=${T}`,
+    );
+  });
+
+  it("appends audience tags only on confirm", () => {
+    expect(editSummary("confirm", "amenity", T, { audience: "dogs" })).toBe(
+      `confirmed · check_date=${T} · drinking_water=no · dog=yes`,
+    );
+    expect(editSummary("confirm", "amenity", T, { audience: "humans" })).toBe(
+      `confirmed · check_date=${T} · drinking_water=yes · dog=no`,
+    );
+    expect(editSummary("confirm", "amenity", T, { audience: "both" })).toBe(
+      `confirmed · check_date=${T} · drinking_water=yes · dog=yes`,
+    );
+    expect(editSummary("removed", "amenity", T, { audience: "dogs" })).not.toContain(
+      "drinking_water",
     );
   });
 
@@ -23,9 +35,8 @@ describe("editSummary", () => {
     );
   });
 
-  it("appends seasonal only for confirm and dog_only (mirrors applyAction gating)", () => {
+  it("appends seasonal only for confirm (mirrors applyAction gating)", () => {
     expect(editSummary("confirm", "amenity", T, { seasonal: true })).toContain("· seasonal=yes");
-    expect(editSummary("dog_only", "amenity", T, { seasonal: true })).toContain("· seasonal=yes");
     expect(editSummary("out_of_order", "amenity", T, { seasonal: true })).not.toContain("seasonal");
     expect(editSummary("removed", "amenity", T, { seasonal: true })).not.toContain("seasonal");
   });

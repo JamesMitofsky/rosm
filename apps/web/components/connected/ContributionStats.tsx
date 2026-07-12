@@ -7,7 +7,6 @@ import type { StopStatus } from "@rosm/core/stores/run";
 
 const ACTION_LABEL: Partial<Record<StopStatus, string>> = {
   confirm: "Working",
-  dog_only: "Dog water",
   out_of_order: "Out of order",
   removed: "Removed",
 };

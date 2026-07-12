@@ -3,11 +3,13 @@
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { CircleNotchIcon } from "@phosphor-icons/react";
 import { useRunSession } from "@/hooks/useRunSession";
 import { useRun } from "@rosm/core/stores/run";
 import RunGuide from "@/components/run/RunGuide";
 import RunComplete from "@/components/run/RunComplete";
 import CompassEnableModal from "@/components/run/CompassEnableModal";
+import AddPointPopup from "@/components/AddPointPopup";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -31,7 +33,9 @@ export default function RunPage() {
 
   if (session.hydrating) {
     return (
-      <main className="bg-paper text-ink-dim grid min-h-screen place-items-center">Loading…</main>
+      <main className="bg-paper grid min-h-screen place-items-center">
+        <CircleNotchIcon size={28} weight="bold" className="text-ink-dim animate-spin" />
+      </main>
     );
   }
 
@@ -55,6 +59,17 @@ export default function RunPage() {
           line={session.line}
           userPos={session.userPos}
           userHeading={session.userHeading}
+          mapClickPopup={(pt, close) => (
+            // A bare map tap mid-run offers to create a new node of the surveyed
+            // type right there — for points spotted off the route.
+            <AddPointPopup
+              label={session.addLabel}
+              onAdd={async (extras) => {
+                await session.addAt(pt, extras);
+                close();
+              }}
+            />
+          )}
           className="h-full w-full"
         />
         <CompassEnableModal

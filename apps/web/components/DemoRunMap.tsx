@@ -349,7 +349,6 @@ const DC_ROUTE: [number, number][] = [
 const STATUS_COLOR: Record<StopStatus, string> = {
   pending: "#9ca3af",
   confirm: "#16a34a",
-  dog_only: "#7c3aed",
   out_of_order: "#d97706",
   removed: "#dc2626",
   skipped: "#6b7280",
@@ -363,7 +362,7 @@ const SEED_STATUSES: Record<number, StopStatus> = {
   2: "confirm",
   3: "out_of_order",
   4: "confirm",
-  5: "dog_only",
+  5: "confirm",
   6: "confirm",
   7: "removed",
   8: "confirm",

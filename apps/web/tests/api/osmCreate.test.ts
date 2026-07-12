@@ -91,6 +91,43 @@ describe("POST /api/osm/create", () => {
     );
   });
 
+  it("applies survey extras (audience, seasonal, note) to the new node's tags", async () => {
+    const fetchMock = fetchSeq(text("88"), text("123456"));
+
+    const res = await POST(
+      post({
+        ...validBody,
+        extras: { audience: "both", seasonal: true, note: "behind the kiosk" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).tags).toEqual({
+      amenity: "drinking_water",
+      check_date: today,
+      drinking_water: "yes",
+      dog: "yes",
+      seasonal: "yes",
+      note: "behind the kiosk",
+    });
+
+    const xml = fetchMock.mock.calls[1][1]?.body as string;
+    expect(xml).toContain('<tag k="dog" v="yes"/>');
+    expect(xml).toContain('<tag k="seasonal" v="yes"/>');
+  });
+
+  it("demotes a dogs-only drinking_water create to man_made=water_tap", async () => {
+    fetchSeq(text("88"), text("123456"));
+
+    const res = await POST(post({ ...validBody, extras: { audience: "dogs" } }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).tags).toEqual({
+      man_made: "water_tap",
+      check_date: today,
+      drinking_water: "no",
+      dog: "yes",
+    });
+  });
+
   it("reuses the run's shared changeset when provided", async () => {
     const fetchMock = fetchSeq(text("123456"));
 

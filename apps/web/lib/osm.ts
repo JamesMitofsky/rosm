@@ -131,7 +131,7 @@ export function changesetUrl(id: number): string {
 }
 
 // ---- node ----
-type NodeData = {
+export type NodeData = {
   version: number;
   lat: number;
   lon: number;
@@ -150,6 +150,26 @@ export async function getNode(token: string, id: number): Promise<NodeData> {
   // Deleted/redacted nodes return an empty elements array. Surface a clear error
   // instead of crashing on `el.version`.
   if (!el) throw new OsmApiError(410, "get node", `node ${id} not found (deleted or redacted)`);
+  return { version: el.version, lat: el.lat, lon: el.lon, tags: el.tags ?? {} };
+}
+
+// A specific historical version of a node — the "before" state an undo restores.
+export async function getNodeVersion(
+  token: string,
+  id: number,
+  version: number,
+): Promise<NodeData> {
+  const res = await fetch(`${API_BASE}/api/0.6/node/${id}/${version}.json`, {
+    headers: auth(token),
+  });
+  if (!res.ok) throw new OsmApiError(res.status, "get node version", await res.text());
+  const json = (await res.json()) as {
+    elements: { lat: number; lon: number; version: number; tags?: Record<string, string> }[];
+  };
+  const el = json.elements[0];
+  if (!el) {
+    throw new OsmApiError(410, "get node version", `node ${id} v${version} not found (redacted?)`);
+  }
   return { version: el.version, lat: el.lat, lon: el.lon, tags: el.tags ?? {} };
 }
 
@@ -172,6 +192,24 @@ export async function putNode(
     body: xml,
   });
   if (!res.ok) throw new OsmApiError(res.status, "put node", await res.text());
+  return Number((await res.text()).trim()); // new version
+}
+
+// Delete a node (undo of a create). OSM requires the current version + position
+// in the payload, hence the full NodeData. Returns the new (deleted) version.
+export async function deleteNode(
+  token: string,
+  id: number,
+  node: NodeData,
+  changesetId: number,
+): Promise<number> {
+  const xml = `<osm><node id="${id}" version="${node.version}" lat="${node.lat}" lon="${node.lon}" changeset="${changesetId}"/></osm>`;
+  const res = await fetch(`${API_BASE}/api/0.6/node/${id}`, {
+    method: "DELETE",
+    headers: { ...auth(token), "Content-Type": "text/xml" },
+    body: xml,
+  });
+  if (!res.ok) throw new OsmApiError(res.status, "delete node", await res.text());
   return Number((await res.text()).trim()); // new version
 }
 
@@ -213,22 +251,6 @@ export function applyAction(
     case "confirm":
       next.check_date = today;
       break;
-    case "dog_only":
-      // Source exists and works, but is for dogs — not intended for humans.
-      // amenity=drinking_water / =water_point self-assert human potability, so
-      // leaving them while adding drinking_water=no contradicts the primary tag.
-      // Correct per OSM wiki: demote the primary to a neutral physical feature
-      // (man_made=water_tap), then state potability + the dog facility
-      // explicitly. Other primaries (amenity=fountain, natural=spring) don't
-      // imply potability, so keep them and only add the explicit flags.
-      if (next.amenity === "drinking_water" || next.amenity === "water_point") {
-        next.man_made = "water_tap";
-        delete next.amenity;
-      }
-      next.drinking_water = "no";
-      next.dog = "yes";
-      next.check_date = today;
-      break;
     case "out_of_order":
       lifecycle("disused");
       next.check_date = today;
@@ -239,11 +261,26 @@ export function applyAction(
       break;
   }
   // Advanced OSM facts, merged on top of the action. A public note applies to any
-  // action; seasonal only makes sense where the source still exists (confirm /
-  // dog_only) — setting it on a disused/abandoned node would contradict itself.
+  // action; seasonal only makes sense where the source still exists (confirm) —
+  // setting it on a disused/abandoned node would contradict itself.
   if (extras?.note) next.note = extras.note;
-  if (extras?.seasonal && (action === "confirm" || action === "dog_only")) {
+  if (extras?.seasonal && action === "confirm") {
     next.seasonal = "yes";
+  }
+  // Audience (humans / dogs / both) → drinking_water=* + dog=*, only meaningful
+  // while the source still exists (confirm). amenity=drinking_water / =water_point
+  // self-assert human potability, so when the water is dogs-only demote that
+  // primary to a neutral physical feature (man_made=water_tap) before flagging
+  // drinking_water=no, per the OSM wiki. Other primaries (amenity=fountain,
+  // natural=spring) don't imply potability, so keep them and only set the flags.
+  if (extras?.audience && action === "confirm") {
+    const humanOk = extras.audience !== "dogs";
+    if (!humanOk && (next.amenity === "drinking_water" || next.amenity === "water_point")) {
+      next.man_made = "water_tap";
+      delete next.amenity;
+    }
+    next.drinking_water = humanOk ? "yes" : "no";
+    next.dog = extras.audience === "humans" ? "no" : "yes";
   }
   return next;
 }

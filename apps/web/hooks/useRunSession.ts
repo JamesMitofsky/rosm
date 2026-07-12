@@ -1,26 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRun, type RunStop, type StopStatus } from "@rosm/core/stores/run";
-import { useOutbox } from "@rosm/core/stores/outbox";
-import { compass, type Pt } from "@rosm/core/geo";
-import { runGuidance, ARRIVAL_RADIUS_M, PROXIMITY_RADIUS_M } from "@rosm/core/guidance";
-import { ptLabel } from "@rosm/core/pointTypes";
+import { useRun, type RunStop, type StopStatus } from "@/store/run";
+import { useOutbox } from "@/store/outbox";
+import { useUndo } from "@/store/undo";
+import { bearing, compass, haversine, nearestCumDistOnPath, type Pt } from "@/lib/geo";
+import { ptLabel } from "@/lib/pointTypes";
 import type { MapMarker } from "@/components/MapView";
-import type { EditAction, EditExtras } from "@rosm/core/schemas";
-import { editSummary, todayLocal } from "@rosm/core/editSummary";
+import type { EditAction, EditExtras } from "@/lib/schemas";
+import { editSummary, todayLocal } from "@/lib/editSummary";
 import { useOsmStatus } from "@/components/OsmStatus";
 import PointPopup from "@/components/PointPopup";
 import { celebratePoint } from "@/lib/confetti";
 import { useHeading } from "@/lib/useHeading";
-import { archiveRoute } from "@rosm/core/routeArchive";
-import { apiFetch } from "@/lib/api";
+import { archiveRoute, getArchivedRoutes } from "@/lib/routeArchive";
+import { apiFetch, isNative } from "@/lib/api";
 import { watchRunPosition, type GeoWatch } from "@/lib/geolocation";
 import { hapticSuccess } from "@/lib/haptics";
 import { keepAwake, allowSleep } from "@/lib/keepAwake";
 import { ensureNotifyPermission, notifyProximity, notifyRunComplete } from "@/lib/notify";
 import { startRunActivity, updateRunActivity, endRunActivity } from "@/lib/liveActivity";
-import { STATUS_COLOR } from "@rosm/core/editStatus";
+import { STATUS_COLOR } from "@/lib/editStatus";
 import { createElement } from "react";
 
 // Everything the active-run UI needs, in one place: live GPS, the guidance
@@ -59,8 +59,17 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   // above covers that first render; `finally` clears it).
   useEffect(() => {
     if (!enabled || useRun.getState().hasPlan) return;
-    // Recover the server-persisted run (the /api/run JSON file) on a cold standalone
-    // mount (direct nav to /run, or the PWA "Start a run" shortcut).
+    // Native has no server run state (the /api/run JSON file is web-only) — recover
+    // the most recent run from the on-device route archive instead. Works offline.
+    // Deferred off the effect body so the state update doesn't cascade-render.
+    if (isNative()) {
+      Promise.resolve().then(() => {
+        const latest = getArchivedRoutes()[0];
+        if (latest?.plan?.stops?.length) useRun.getState().hydrate(latest.plan);
+        setHydrating(false);
+      });
+      return;
+    }
     apiFetch("/api/run")
       .then((r) => r.json())
       .then((plan) => {
@@ -112,19 +121,20 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const target = stops[index];
   const done = run.hasPlan && index >= stops.length;
 
-  // All live-run geometry (distance/bearing to target, route progress, next
-  // maneuver, auto-arrival) is derived by the shared core helper so the web and
-  // Expo run hooks stay in lockstep.
-  const { distToTarget, bearingTo, nextTurn, distToTurn, autoArrived } = runGuidance(
-    pos,
-    target ?? null,
-    run.routeCoords,
-    run.turns,
-  );
+  const distToTarget = pos && target ? haversine(pos, target) : null;
+  const bearingTo = pos && target ? bearing(pos, target) : 0;
   const heading = target ? compass(bearingTo) : "";
 
-  // Derived: armed manually ("I'm here") or auto within the arrival radius.
-  const arrived = manualArrived || autoArrived;
+  // Next turn-by-turn maneuver: where we are along the route (meters traveled),
+  // then the first precomputed turn still ahead of us. Travel-relative — the HUD
+  // rotates an arrow by `angle` (0 = straight on), no compass needed.
+  const traveledM =
+    pos && run.routeCoords.length > 1 ? nearestCumDistOnPath(run.routeCoords, pos) : 0;
+  const nextTurn = pos ? (run.turns.find((tn) => tn.distM > traveledM + 5) ?? null) : null;
+  const distToTurn = nextTurn ? nextTurn.distM - traveledM : null;
+
+  // Derived: armed manually ("I'm here") or auto within 30 m.
+  const arrived = manualArrived || (distToTarget != null && distToTarget < 30);
 
   // Proximity alert for the current target — useful when the phone is pocketed or
   // the app is backgrounded. Fires once per target as you close within ~80 m
@@ -133,11 +143,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const notifiedProxRef = useRef<number>(-1);
   useEffect(() => {
     if (!enabled || !target || distToTarget == null) return;
-    if (
-      distToTarget < PROXIMITY_RADIUS_M &&
-      distToTarget >= ARRIVAL_RADIUS_M &&
-      notifiedProxRef.current !== index
-    ) {
+    if (distToTarget < 80 && distToTarget >= 30 && notifiedProxRef.current !== index) {
       notifiedProxRef.current = index;
       notifyProximity(target.tags?.name || `node ${target.id}`, distToTarget);
     }
@@ -237,17 +243,38 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   // Record an OSM update for any node. Offline-first: written to the on-device
   // outbox and celebrated immediately, then sent to OSM in the background. Editing
   // the current target advances the run; editing another point on the fly (tapped
-  // on the map) leaves the position.
+  // on the map) leaves the position. Every recording arms the 5s undo toast; undo
+  // rolls back the stop status, the saved pill, and the auto-advance.
   function recordFor(node: RunStop, action: EditAction, extras?: EditExtras) {
     const isCurrent = !!target && node.id === target.id;
+    const prevStatus = node.status;
+    const prevIndex = index;
     setErr(null);
-    useOutbox
+    const item = useOutbox
       .getState()
       .enqueue({ nodeId: node.id, action, tagKey, name: node.tags?.name, extras });
     run.setStatus(node.id, action as StopStatus);
     celebratePoint();
     hapticSuccess();
     setLastSaved({ nodeId: node.id, summary: editSummary(action, tagKey, todayLocal(), extras) });
+    useUndo.getState().arm({
+      kind: "edit",
+      itemId: item.id,
+      nodeId: node.id,
+      summary: item.summary,
+      onUndone: () => {
+        useRun.getState().setStatus(node.id, prevStatus);
+        setLastSaved(null);
+        // Step back to the undone stop only if the run is still where this
+        // recording left it — an undo shouldn't yank the runner off a stop
+        // they've since moved to.
+        if (isCurrent && useRun.getState().index === prevIndex + 1) {
+          useRun.getState().setIndex(prevIndex);
+          setManualArrived(false);
+        }
+        persist(useRun.getState().index);
+      },
+    });
     if (isCurrent) {
       persist(index + 1);
       advance();
@@ -257,8 +284,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     useOutbox.getState().flush();
   }
 
-  function record(action: EditAction) {
-    if (target) recordFor(target, action);
+  function record(action: EditAction, extras?: EditExtras) {
+    if (target) recordFor(target, action, extras);
   }
 
   function skip() {
@@ -270,7 +297,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   // Step back to the previous stop and re-open it for action. Resets that stop's
   // status to pending so the arrival actions show again (lets a mis-tap be redone;
   // a re-record just enqueues a fresh OSM edit — last write wins). Does not undo
-  // edits already sent. No-op at the first stop.
+  // edits already sent — the post-save undo toast (store/undo.ts) covers that,
+  // within its window. No-op at the first stop.
   function goBack() {
     if (index <= 0) return;
     const pi = index - 1;
@@ -281,16 +309,14 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     persist(pi);
   }
 
-  // Create a brand-new node of the surveyed type at the current GPS position.
+  // Create a brand-new node of the surveyed type at a given spot — the current
+  // GPS position ("Add here") or a tapped map location. Extras carry the survey
+  // facts (audience/seasonal/note) so the node is born fully described.
   // Online-only (needs a fresh node id back from OSM), but shares the outbox's
   // changeset so the create lands with the run's edits.
-  async function addHere() {
+  async function addAt(at: Pt, extras?: EditExtras) {
     if (!osm?.loggedIn) {
       setErr("Sign in to OSM first.");
-      return;
-    }
-    if (!pos) {
-      setErr("Waiting for GPS fix.");
       return;
     }
     setAdding(true);
@@ -301,10 +327,11 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lat: pos.lat,
-          lon: pos.lon,
+          lat: at.lat,
+          lon: at.lon,
           tag: { key: tagKey, value: tagValue },
           changesetId: useOutbox.getState().changesetId,
+          extras,
         }),
       });
       const j = await r.json();
@@ -314,12 +341,40 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       celebratePoint();
       hapticSuccess();
       setLastSaved({ nodeId: j.nodeId, summary: j.summary });
+      // The node already exists on OSM (creates are synchronous), so undo here
+      // is a revert: delete the just-created node and drop it locally.
+      useUndo.getState().arm({
+        kind: "create",
+        nodeId: j.nodeId,
+        sentVersion: 1,
+        summary: j.summary,
+        onUndone: () => {
+          useRun.getState().removeNode(j.nodeId);
+          setLastSaved(null);
+          persist(useRun.getState().index);
+        },
+      });
       await persist(index);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setAdding(false);
     }
+  }
+
+  // "Add here" convenience: create the node at the runner's own position.
+  // Sign-in is checked before the fix so the actionable error wins while GPS
+  // is still warming up.
+  async function addHere() {
+    if (!osm?.loggedIn) {
+      setErr("Sign in to OSM first.");
+      return;
+    }
+    if (!pos) {
+      setErr("Waiting for GPS fix.");
+      return;
+    }
+    await addAt(pos);
   }
 
   async function finish() {
@@ -479,6 +534,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     skip,
     goBack,
     addHere,
+    addAt,
     finish,
     reset,
   };

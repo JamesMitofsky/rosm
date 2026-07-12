@@ -8,7 +8,7 @@
  *   - other cross-origin GETs (fonts, etc) -> stale-while-revalidate
  */
 
-const VERSION = "rosm-v1";
+const VERSION = "rosm-24ec452";
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const TILE_CACHE = `${VERSION}-tiles`;
@@ -34,7 +34,7 @@ self.addEventListener("install", (event) => {
       // Best-effort: a single 404 must not abort the whole install.
       await Promise.allSettled(SHELL_URLS.map((url) => cache.add(url)));
       await self.skipWaiting();
-    })()
+    })(),
   );
 });
 
@@ -45,7 +45,7 @@ self.addEventListener("activate", (event) => {
       const keys = await caches.keys();
       await Promise.all(keys.filter((k) => !keep.has(k)).map((k) => caches.delete(k)));
       await self.clients.claim();
-    })()
+    })(),
   );
 });
 

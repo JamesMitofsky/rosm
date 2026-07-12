@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/MapView";
-import { BUCKET_COLOR, bucketOf, type Bucket } from "@/components/FreshnessLegend";
+import { BUCKET_COLOR, bucketOf } from "@/components/FreshnessLegend";
 import FountainPopup from "@/components/fountains/FountainPopup";
 import SearchProgress, { type LoadingStep } from "@/components/fountains/SearchProgress";
 import ErrorNotice from "@/components/ui/ErrorNotice";
-import type { Fountain } from "@rosm/core/schemas";
-import { isOutOfService } from "@rosm/core/fountainFilters";
+import type { Fountain } from "@/lib/schemas";
+import { isOutOfService } from "@/lib/fountainFilters";
 import { apiFetch } from "@/lib/api";
-import { haversine, milesToMeters } from "@rosm/core/geo";
+import { haversine } from "@/lib/geo";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -20,7 +20,7 @@ const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 /* colors each by how recently it was verified on the ground — the     */
 /* app's whole reason to exist. Read-only; no editing here.            */
 /* ------------------------------------------------------------------ */
-const DC_CENTER: [number, number] = [38.9072, -77.0369];
+const DC_CENTER: [number, number] = [38.8972, -77.0369];
 const CENTER_PT = { lat: DC_CENTER[0], lon: DC_CENTER[1] };
 const RADIUS_MI = 3;
 const TAG = { key: "amenity", value: "drinking_water" } as const;
@@ -33,15 +33,7 @@ const LOADING_STEPS: LoadingStep[] = [
   { text: "Reading check_date tags to grade recency…", ms: 5000 },
 ];
 
-export default function LiveFountainMap({
-  className,
-  onCountsChange,
-}: {
-  className?: string;
-  // Emits freshness counts once the map has loaded (null while loading/failed),
-  // so a parent can render the legend outside the map plate.
-  onCountsChange?: (counts: Record<Bucket, number> | null) => void;
-}) {
+export default function LiveFountainMap({ className }: { className?: string }) {
   const [fountains, setFountains] = useState<Fountain[]>([]);
   const [busy, setBusy] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -61,7 +53,13 @@ export default function LiveFountainMap({
     return () => mq.removeEventListener("change", sync);
   }, []);
 
+  // The visible viewport rectangle, kept fresh by MapView's onViewChange so the
+  // query (and any retry) uses the exact bounding box on screen — no radius.
+  const boundsRef = useRef<[[number, number], [number, number]] | null>(null);
+
   const load = useCallback(async () => {
+    const box = boundsRef.current;
+    if (!box) return;
     setBusy(true);
     setErr(null);
     try {
@@ -69,9 +67,8 @@ export default function LiveFountainMap({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lat: CENTER_PT.lat,
-          lon: CENTER_PT.lon,
-          radiusM: milesToMeters(RADIUS_MI),
+          // [south, west, north, east] — the on-screen bounding box.
+          bounds: [box[0][0], box[0][1], box[1][0], box[1][1]],
           tag: TAG,
           recencyMode: "any",
           includeDisused: true,
@@ -96,14 +93,21 @@ export default function LiveFountainMap({
     }
   }, []);
 
-  useEffect(() => {
-    // Fetch fountains once on mount. `load` flips busy/error state up front as
-    // its loading UI — that's the intended effect, not an accidental cascade.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
+  // Query once, the first time the map reports a settled viewport (MapView emits
+  // this on load, before any movement). We wait for it because the query needs
+  // the real on-screen bounding box, which only exists after the map mounts.
+  const didQuery = useRef(false);
+  const onViewChange = useCallback(
+    (view: { bounds: [[number, number], [number, number]] }) => {
+      boundsRef.current = view.bounds;
+      if (didQuery.current) return;
+      didQuery.current = true;
+      load();
+    },
+    [load],
+  );
 
-  // Bucket every point once, then derive markers + legend counts from it.
+  // Bucket every point once, then derive markers from it.
   const buckets = useMemo(
     () => fountains.map((f) => ({ f, bucket: bucketOf(f.tags, nowMs) })),
     [fountains, nowMs],
@@ -134,31 +138,21 @@ export default function LiveFountainMap({
     return byDist.slice(0, keep).map(({ m }) => [m.lat, m.lon]);
   }, [markers]);
 
-  const counts = useMemo(() => {
-    const c: Record<Bucket, number> = { fresh: 0, stale: 0, very_stale: 0 };
-    for (const { bucket } of buckets) c[bucket]++;
-    return c;
-  }, [buckets]);
-
   const loading = busy && fountains.length === 0;
   const succeeded = !busy && !err && fountains.length > 0;
-
-  // Surface counts to the parent so the legend can live above the map plate.
-  useEffect(() => {
-    onCountsChange?.(succeeded ? counts : null);
-  }, [succeeded, counts, onCountsChange]);
 
   return (
     <div className={`relative h-full w-full ${className ?? ""}`}>
       <MapView
         className="hero-map"
         center={DC_CENTER}
-        zoom={isMobile ? 12 : 14}
+        zoom={isMobile ? 8.8 : 12.3}
         minZoom={8}
         maxZoom={18}
         interactive
-        circle={{ center: DC_CENTER, radiusM: milesToMeters(RADIUS_MI) }}
+        onViewChange={onViewChange}
         markers={markers}
+        markerRadius={6}
         fitPoints={fitPoints}
         fitOptions={{ padding: [4, 4], maxZoom: isMobile ? 14 : 18 }}
         recenterKey={`${recenterKey}-${isMobile}`}

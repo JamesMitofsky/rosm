@@ -117,7 +117,7 @@ describe("EditRequest", () => {
   });
 
   it("accepts every survey action and rejects unknown ones", () => {
-    for (const action of ["confirm", "dog_only", "out_of_order", "removed"]) {
+    for (const action of ["confirm", "out_of_order", "removed"]) {
       expect(EditRequest.safeParse({ nodeId: 1, action }).success).toBe(true);
     }
     expect(EditRequest.safeParse({ nodeId: 1, action: "explode" }).success).toBe(false);

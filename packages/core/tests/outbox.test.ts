@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { outboxCounts, useOutbox, type OutboxItem } from "../src/stores/outbox";
+import { outboxCounts, useOutbox, UNDO_WINDOW_MS, type OutboxItem } from "../src/stores/outbox";
 import { editSummary, todayLocal } from "../src/editSummary";
 import { configureTestPorts } from "./helpers/ports";
 
@@ -30,6 +30,13 @@ function storedItem(over: Partial<OutboxItem>): OutboxItem {
   };
 }
 
+// Fresh enqueues carry a 5s undo hold that flush respects; most tests care about
+// the send itself, so expire the holds up front.
+const releaseHolds = () =>
+  useOutbox.setState((s) => ({
+    items: s.items.map((i) => ({ ...i, holdUntil: "2000-01-01T00:00:00.000Z" })),
+  }));
+
 beforeEach(() => {
   const ports = configureTestPorts();
   apiFetchMock = ports.apiFetch;
@@ -49,6 +56,11 @@ describe("enqueue", () => {
 
     expect(item.syncState).toBe("pending");
     expect(item.attempts).toBe(0);
+    // Undo window: held back from flushing for UNDO_WINDOW_MS.
+    expect(new Date(item.holdUntil as string).getTime()).toBeGreaterThan(Date.now());
+    expect(new Date(item.holdUntil as string).getTime()).toBeLessThanOrEqual(
+      Date.now() + UNDO_WINDOW_MS,
+    );
     expect(item.summary).toBe(
       editSummary("out_of_order", "amenity", todayLocal(), { note: "leaking" }),
     );
@@ -71,6 +83,7 @@ describe("flush", () => {
     );
     useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
     useOutbox.getState().enqueue({ nodeId: 2, action: "removed", tagKey: "amenity" });
+    releaseHolds();
 
     await useOutbox.getState().flush();
 
@@ -93,6 +106,7 @@ describe("flush", () => {
   it("marks an item failed with the server error and counts the attempt", async () => {
     apiFetchMock.mockImplementation(async () => fail({ error: "boom" }));
     useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    releaseHolds();
 
     await useOutbox.getState().flush();
 
@@ -107,6 +121,7 @@ describe("flush", () => {
       fail({ error: { formErrors: ["bad node", "bad action"] } }, 400),
     );
     useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    releaseHolds();
 
     await useOutbox.getState().flush();
     expect(useOutbox.getState().items[0].error).toBe("bad node, bad action");
@@ -115,6 +130,7 @@ describe("flush", () => {
   it("leaves failed items alone on subsequent flushes", async () => {
     apiFetchMock.mockImplementation(async () => fail({ error: "boom" }));
     useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    releaseHolds();
     await useOutbox.getState().flush();
     apiFetchMock.mockClear();
 
@@ -135,6 +151,7 @@ describe("flush", () => {
     let release!: (r: Response) => void;
     apiFetchMock.mockImplementation(() => new Promise<Response>((resolve) => (release = resolve)));
     useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    releaseHolds();
 
     const first = useOutbox.getState().flush();
     const second = useOutbox.getState().flush(); // lock: returns immediately
@@ -145,10 +162,90 @@ describe("flush", () => {
   });
 });
 
+describe("undo hold window", () => {
+  it("flush skips items whose hold hasn't lapsed", async () => {
+    apiFetchMock.mockImplementation(async () =>
+      ok({ changesetId: 1, newVersion: 2, changesetUrl: "u" }),
+    );
+    useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+
+    await useOutbox.getState().flush();
+
+    expect(apiFetchMock).not.toHaveBeenCalled();
+    expect(useOutbox.getState().items[0].syncState).toBe("pending");
+  });
+
+  it("flush schedules a follow-up send for when the earliest hold expires", async () => {
+    vi.useFakeTimers();
+    try {
+      apiFetchMock.mockImplementation(async () =>
+        ok({ changesetId: 1, newVersion: 2, changesetUrl: "u" }),
+      );
+      useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+
+      await useOutbox.getState().flush();
+      expect(apiFetchMock).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(UNDO_WINDOW_MS + 100);
+      expect(apiFetchMock).toHaveBeenCalledTimes(1);
+      expect(useOutbox.getState().items[0].syncState).toBe("sent");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("flush sends items whose hold has already lapsed (e.g. after a reload)", async () => {
+    apiFetchMock.mockImplementation(async () =>
+      ok({ changesetId: 1, newVersion: 2, changesetUrl: "u" }),
+    );
+    useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    releaseHolds();
+
+    await useOutbox.getState().flush();
+    expect(useOutbox.getState().items[0].syncState).toBe("sent");
+  });
+});
+
+describe("cancel / remove", () => {
+  it("cancel drops a pending item from memory and IndexedDB", () => {
+    const item = useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+
+    expect(useOutbox.getState().cancel(item.id)).toBe(true);
+    expect(useOutbox.getState().items).toEqual([]);
+    expect(storage.delete).toHaveBeenCalledWith(item.id);
+  });
+
+  it("cancel refuses anything past pending", () => {
+    const item = useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    useOutbox.setState((s) => ({
+      items: s.items.map((i) => ({ ...i, syncState: "sent" as const })),
+    }));
+
+    expect(useOutbox.getState().cancel(item.id)).toBe(false);
+    expect(useOutbox.getState().items).toHaveLength(1);
+  });
+
+  it("cancel returns false for an unknown id", () => {
+    expect(useOutbox.getState().cancel("nope")).toBe(false);
+  });
+
+  it("remove drops an item regardless of sync state", () => {
+    const item = useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    useOutbox.setState((s) => ({
+      items: s.items.map((i) => ({ ...i, syncState: "sent" as const })),
+    }));
+
+    useOutbox.getState().remove(item.id);
+    expect(useOutbox.getState().items).toEqual([]);
+    expect(storage.delete).toHaveBeenCalledWith(item.id);
+  });
+});
+
 describe("retryAll", () => {
   it("re-arms failed items and flushes them again", async () => {
     apiFetchMock.mockResolvedValueOnce(fail({ error: "first try failed" }));
     useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    releaseHolds();
     await useOutbox.getState().flush();
     expect(useOutbox.getState().items[0].syncState).toBe("failed");
 
@@ -159,6 +256,7 @@ describe("retryAll", () => {
     expect(item.syncState).toBe("sent");
     expect(item.attempts).toBe(2);
     expect(item.error).toBeUndefined();
+    expect(item.holdUntil).toBeUndefined(); // explicit resend: undo hold dropped
   });
 });
 

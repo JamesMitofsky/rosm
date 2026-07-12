@@ -21,6 +21,9 @@ function memoryOutboxStorage() {
     put: async (item: OutboxItem) => {
       holder.items = [...holder.items.filter((i) => i.id !== item.id), item];
     },
+    delete: async (id: string) => {
+      holder.items = holder.items.filter((i) => i.id !== id);
+    },
     clear: async () => {
       holder.items = [];
     },

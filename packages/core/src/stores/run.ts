@@ -3,8 +3,7 @@ import type { Fountain } from "../schemas";
 import type { Pt } from "../geo";
 import type { Turn } from "../brouter";
 
-export type StopStatus =
-  "pending" | "confirm" | "dog_only" | "out_of_order" | "removed" | "skipped";
+export type StopStatus = "pending" | "confirm" | "out_of_order" | "removed" | "skipped";
 
 export type RunStop = Fountain & { status: StopStatus };
 
@@ -40,6 +39,7 @@ type RunState = RunPlan & {
   setIndex: (i: number) => void;
   setChangeset: (id: number) => void;
   addNode: (f: Fountain) => void;
+  removeNode: (id: number) => void;
   reset: () => void;
 };
 
@@ -89,5 +89,7 @@ export const useRun = create<RunState>((set) => ({
   setIndex: (i) => set({ index: i }),
   setChangeset: (id) => set({ changesetId: id }),
   addNode: (f) => set((s) => ({ added: [...s.added, f] })),
+  // Undo of an on-the-fly create: the node is gone from OSM, drop it locally too.
+  removeNode: (id) => set((s) => ({ added: s.added.filter((f) => f.id !== id) })),
   reset: () => set({ ...empty, index: 0, changesetId: undefined, routeId: "", hasPlan: false }),
 }));

@@ -7,5 +7,5 @@ import SiteNav from "@/components/SiteNav";
 // editing here regardless of sign-in — updating points lives in the connected
 // Quick Update surface (/mapping-portal/quick-update).
 export default function FountainsPage() {
-  return <FountainMap backHref="/" backLabel="Home" nav={<SiteNav />} />;
+  return <FountainMap nav={<SiteNav />} />;
 }

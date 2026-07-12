@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState } from "react";
 import { motion } from "framer-motion";
-import FreshnessLegend, { type Bucket } from "@/components/FreshnessLegend";
+import FreshnessLegend from "@/components/FreshnessLegend";
 import FountainLeaderboard from "@/components/FountainLeaderboard";
-import HomeRunCard from "@/components/HomeRunCard";
+import NativeEntryRedirect from "@/components/NativeEntryRedirect";
 import SiteNav from "@/components/SiteNav";
 import { DropIcon } from "@phosphor-icons/react";
 
@@ -110,11 +108,9 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 export default function LandingPage() {
-  // Freshness counts surfaced by the live hero map, shown in the label row.
-  const [legend, setLegend] = useState<Record<Bucket, number> | null>(null);
-
   return (
     <main className="paper-grain bg-paper font-body text-ink relative">
+      <NativeEntryRedirect />
       <SiteNav />
 
       {/* HERO */}
@@ -153,8 +149,6 @@ export default function LandingPage() {
                   With data sourced by (and <em>for</em>) runners, this is the definitive map of
                   public fountains in DC.
                 </motion.p>
-                {/* Returning users: resume an in-flight run or revisit history. */}
-                <HomeRunCard />
               </div>
             </div>
           </div>
@@ -165,7 +159,7 @@ export default function LandingPage() {
             transition={{ ...fadeUp.transition, delay: 0.24 }}
             className="mt-14 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
           >
-            <Label>Sample route · Washington DC</Label>
+            <Label>Demo route</Label>
           </motion.div>
 
           {/* Interactive demo of the run + edit flow, framed like a print plate. */}
@@ -257,8 +251,8 @@ export default function LandingPage() {
             transition={{ ...fadeUp.transition, delay: 0.18 }}
             className="mt-12 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
           >
-            <Label>Live · Washington DC</Label>
-            {legend && <FreshnessLegend counts={legend} />}
+            <Label>Live</Label>
+            <FreshnessLegend />
           </motion.div>
           <motion.div
             {...fadeUp}
@@ -266,7 +260,7 @@ export default function LandingPage() {
             className="border-ink/10 bg-sky relative overflow-hidden rounded-xl border"
           >
             <div className="relative isolate z-0 h-[clamp(340px,48vw,560px)] w-full">
-              <LiveFountainMap onCountsChange={setLegend} />
+              <LiveFountainMap />
             </div>
           </motion.div>
         </div>

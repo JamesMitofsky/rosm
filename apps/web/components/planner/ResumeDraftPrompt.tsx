@@ -14,7 +14,7 @@ export default function ResumeDraftPrompt() {
   if (!resumable) return null;
 
   return (
-    <div className="border-sky-deep/40 bg-paper-deep/95 pointer-events-auto absolute top-20 left-1/2 z-[1001] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col gap-3 rounded-2xl border p-4 shadow-2xl backdrop-blur-md md:top-6">
+    <div className="border-sky-deep/40 bg-paper-deep/95 pointer-events-auto absolute top-20 left-1/2 z-[1001] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col gap-3 rounded-2xl border p-4 shadow-2xl backdrop-blur-md">
       <div className="flex flex-col gap-0.5">
         <span className="font-display text-ink text-sm font-bold">Resume your route?</span>
         <span className="text-ink-dim text-xs">

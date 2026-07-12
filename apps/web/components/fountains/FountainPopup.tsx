@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { DogIcon, WrenchIcon } from "@phosphor-icons/react";
-import type { Fountain } from "@rosm/core/schemas";
-import { fountainName, isDogWater, isOutOfService } from "@rosm/core/fountainFilters";
-import { checkedAgoLabel } from "@rosm/core/checkDate";
-import { fmtDist } from "@rosm/core/geo";
+import type { Fountain } from "@/lib/schemas";
+import { isDogWater, isOutOfService } from "@/lib/fountainFilters";
+import { checkedAgoLabel } from "@/lib/checkDate";
+import { fmtDist } from "@/lib/geo";
 
-// Read-only popup: name, last-checked date, status flags, OSM link. No edit
+// Read-only popup: name, last-checked date, status flags. No edit
 // controls — this view is purely for finding water nearby.
 export default function FountainPopup({ f, distM }: { f: Fountain; distM: number | null }) {
   // Snapshot the clock once when the popup mounts — reading Date.now() during
@@ -16,7 +16,6 @@ export default function FountainPopup({ f, distM }: { f: Fountain; distM: number
   return (
     <div className="flex w-52 flex-col gap-1 text-neutral-800">
       <div className="leading-tight font-semibold">{checkedAgoLabel(f.tags, now)}</div>
-      {f.tags.name && <div className="text-xs text-neutral-500">{fountainName(f)}</div>}
       {distM != null && <div className="text-xs text-neutral-500">{fmtDist(distM)} away</div>}
       {isDogWater(f.tags) && (
         <div className="mt-1 flex items-center gap-1 text-xs font-medium text-violet-700">
@@ -28,14 +27,6 @@ export default function FountainPopup({ f, distM }: { f: Fountain; distM: number
           <WrenchIcon size={14} /> Marked out of service
         </div>
       )}
-      <a
-        href={`https://www.openstreetmap.org/node/${f.id}`}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-1 text-xs font-medium text-blue-600 underline underline-offset-2"
-      >
-        View on OpenStreetMap
-      </a>
     </div>
   );
 }

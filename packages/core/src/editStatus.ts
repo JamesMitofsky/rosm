@@ -8,14 +8,12 @@ import type { StopStatus } from "./stores/run";
 // planner and the public fountain browser so an edit reads the same everywhere.
 export const EDIT_COLOR: Partial<Record<StopStatus, string>> = {
   confirm: "#16a34a",
-  dog_only: "#7c3aed",
   out_of_order: "#d97706",
   removed: "#dc2626",
 };
 
 export const EDIT_LABEL: Partial<Record<StopStatus, string>> = {
   confirm: "✓",
-  dog_only: "🐕",
   out_of_order: "!",
   removed: "✕",
 };
@@ -24,7 +22,6 @@ export const EDIT_LABEL: Partial<Record<StopStatus, string>> = {
 export const STATUS_COLOR: Record<StopStatus, string> = {
   pending: "#9ca3af",
   confirm: "#16a34a",
-  dog_only: "#7c3aed",
   out_of_order: "#d97706",
   removed: "#dc2626",
   skipped: "#6b7280",

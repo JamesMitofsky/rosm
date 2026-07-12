@@ -64,7 +64,6 @@ export function fountainDotStyle(tags: Record<string, string>, now: number): Dot
   if (ageMs < 3 * YEAR_MS) return { color: RECENCY_DOT.aging, opacity: 1 };
   return { color: RECENCY_DOT.old, opacity: 1 };
 }
-
 // Fountains sorted nearest-first (from the searched anchor), each tagged with
 // distance + filter classes.
 export function rankFountains(fountains: Fountain[], anchor: Pt | null): Ranked[] {

@@ -68,7 +68,11 @@ export default function Modal({
             transition={{ type: "spring", stiffness: 420, damping: 34 }}
             className="border-paper-line bg-paper/95 safe-top safe-pb relative flex max-h-[92dvh] w-full max-w-lg flex-col rounded-2xl border shadow-xl backdrop-blur"
           >
-            <div className="border-paper-line flex items-center justify-between gap-3 border-b px-5 py-4">
+            <div
+              className={`flex items-center justify-between gap-3 px-5 py-4 ${
+                title ? "border-paper-line border-b" : ""
+              }`}
+            >
               <div className="text-ink font-display text-lg font-semibold">{title}</div>
               {dismissible && (
                 <button

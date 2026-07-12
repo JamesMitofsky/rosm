@@ -7,6 +7,8 @@ import {
   WarningIcon,
   TrashIcon,
   ArrowUpIcon,
+  ArrowElbowUpLeftIcon,
+  ArrowElbowUpRightIcon,
   SkipBackIcon,
   SkipForwardIcon,
   PlusCircleIcon,
@@ -14,11 +16,34 @@ import {
   DogIcon,
 } from "@phosphor-icons/react";
 import type { RunSession } from "@/hooks/useRunSession";
-import { fmtDist, maneuver } from "@rosm/core/geo";
+import type { Audience } from "@/lib/schemas";
+import { fmtFeet, maneuver } from "@/lib/geo";
+import { audienceFromTags } from "@/lib/audience";
+import AudienceToggle from "@/components/AudienceToggle";
 import SyncStatus from "@/components/SyncStatus";
 import OsmSignInLink from "@/components/OsmSignInLink";
 
 type Tone = "light" | "dark";
+
+// Travel-relative turn arrow. 0° = straight on, + = right, − = left.
+// Slight turns rotate a plain arrow (a gentle diagonal reads fine), but a real
+// turn (≥45°) swaps to an elbow icon — a vertical "forward" shaft bending off to
+// the side — because a flat-rotated arrow at 90° looked like "go left" rather
+// than "turn left ahead".
+function TurnArrow({ angle, className }: { angle: number; className: string }) {
+  if (Math.abs(angle) >= 45) {
+    const Elbow = angle > 0 ? ArrowElbowUpRightIcon : ArrowElbowUpLeftIcon;
+    return <Elbow size={40} weight="bold" className={className} />;
+  }
+  return (
+    <ArrowUpIcon
+      size={40}
+      weight="bold"
+      style={{ transform: `rotate(${angle}deg)` }}
+      className={`${className} transition-transform`}
+    />
+  );
+}
 
 // Theme tokens so the run guidance can live both on the standalone /run page
 // (light) and inline in the dark planner shell without forking the markup.
@@ -94,6 +119,16 @@ export default function RunGuide({
   const [confirm, setConfirm] = useState<{ i: number; action: "skip" | "back" } | null>(null);
   const pending = confirm?.i === index ? confirm.action : null;
 
+  // Who the current source serves, prefilled from its tags. Keyed by node id so
+  // the toggle auto-resets to the next stop's tags when the target changes.
+  const [aud, setAud] = useState<{ id: number; value: Audience } | null>(null);
+  const audience: Audience =
+    aud && target && aud.id === target.id
+      ? aud.value
+      : target
+        ? audienceFromTags(target.tags ?? {})
+        : "humans";
+
   return (
     <div className="flex flex-col gap-4">
       <AnimatePresence mode="wait">
@@ -115,19 +150,13 @@ export default function RunGuide({
               </div>
             ) : (
               <>
-                {/* Travel-relative turn arrow: 0° = straight on, + = right.
-                    Falls back to "up" when no turn is ahead (final approach). */}
-                <ArrowUpIcon
-                  size={40}
-                  weight="bold"
-                  style={{ transform: `rotate(${nextTurn?.angle ?? 0}deg)` }}
-                  className={`${t.arrow} transition-transform`}
-                />
+                {/* Falls back to "up" when no turn is ahead (final approach). */}
+                <TurnArrow angle={nextTurn?.angle ?? 0} className={t.arrow} />
                 <div className="flex flex-1 flex-col items-center justify-center">
                   <div className="text-2xl font-bold">
                     {(() => {
                       const d = distToTurn ?? distToTarget;
-                      return d != null ? fmtDist(d) : "—";
+                      return d != null ? fmtFeet(d) : "—";
                     })()}
                   </div>
                   <div className={`text-sm ${t.sub}`}>
@@ -161,17 +190,17 @@ export default function RunGuide({
 
           {arrived && (
             <div className="grid gap-2">
+              {target && (
+                <AudienceToggle
+                  value={audience}
+                  onChange={(value) => setAud({ id: target.id, value })}
+                />
+              )}
               <button
-                onClick={() => record("confirm")}
+                onClick={() => record("confirm", { audience })}
                 className="flex items-center justify-center gap-2 rounded bg-green-600 py-3 font-semibold text-white disabled:opacity-50"
               >
                 <CheckCircleIcon size={20} /> Working — confirm (set check_date)
-              </button>
-              <button
-                onClick={() => record("dog_only")}
-                className="flex items-center justify-center gap-2 rounded bg-violet-600 py-3 font-semibold text-white disabled:opacity-50"
-              >
-                <DogIcon size={20} /> Dog water — not for humans
               </button>
               <button
                 onClick={() => record("out_of_order")}

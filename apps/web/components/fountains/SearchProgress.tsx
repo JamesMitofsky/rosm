@@ -21,8 +21,9 @@ const CRAWL_GAIN = 20;
 
 // Self-narrating loader for a fountain fetch: a progress bar that jumps as each
 // play-by-play line appears then creeps, rushing to 100% and fading out on a
-// real resolve. `overlay` covers a map plate (landing hero); `inline` slots in
-// where a control lived (the search panel), so an in-flight search is obvious.
+// real resolve. `overlay` frosts a map plate behind glass — the map must stay
+// faintly visible through it, never fully hidden; `inline` slots in where a
+// control lived (the search panel), so an in-flight search is obvious.
 export default function SearchProgress({
   active,
   done = false,
@@ -193,7 +194,7 @@ export default function SearchProgress({
             initial={false}
             exit={{ opacity: 0, scale: 1.015 }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="bg-paper/85 absolute inset-0 z-[650] flex flex-col items-center justify-center gap-8 px-8 text-center backdrop-blur-sm"
+            className="bg-paper/30 absolute inset-0 z-[650] flex flex-col items-center justify-center gap-8 px-8 text-center backdrop-blur-md"
           >
             {body}
           </motion.div>

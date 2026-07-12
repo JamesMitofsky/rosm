@@ -25,7 +25,6 @@ export type PointEdit = {
 
 const STATUS_LABEL: Record<EditAction, string> = {
   confirm: "Confirmed working",
-  dog_only: "Marked dog water (not for humans)",
   out_of_order: "Marked out of order",
   removed: "Marked removed",
 };
@@ -51,10 +50,11 @@ type ActionButton = {
   box: string; // background class
 };
 
-// Same four status updates the web popup offers, in the same order.
+// The status updates the web popup offers, in the same order. (Dog-vs-human is
+// now an `audience` extra on confirm, per @rosm/core schemas — the standalone
+// "dog only" action was retired; porting that toggle to mobile is follow-up.)
 const ACTIONS: ActionButton[] = [
   { action: "confirm", title: "Working — confirm", Icon: CheckCircleIcon, box: "bg-green-600" },
-  { action: "dog_only", title: "Dog water — not for humans", Icon: DogIcon, box: "bg-violet-600" },
   { action: "out_of_order", title: "Out of order", Icon: WarningIcon, box: "bg-amber-500" },
   { action: "removed", title: "Removed", Icon: TrashIcon, box: "bg-red-600" },
 ];

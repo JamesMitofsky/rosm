@@ -58,7 +58,7 @@ export default function SyncStatus({
 
   return (
     <div
-      className={`flex w-full flex-col gap-3 rounded-2xl border p-4 text-left text-sm ${t.card} ${className}`}
+      className={`flex w-full flex-col gap-3 rounded-2xl border px-4 pt-3 pb-4 text-left text-sm ${t.card} ${className}`}
     >
       <div className="flex items-center gap-2 font-semibold">
         {allSent ? (

@@ -256,7 +256,17 @@ describe("recording edits", () => {
     expect(vi.mocked(hapticSuccess)).toHaveBeenCalled();
     expect(result.current.lastSaved?.summary).toContain("confirmed");
 
-    // Outbox sends in the background and adopts the server's changeset.
+    // The fresh edit is held back for the 5s undo window — queued, not sent.
+    expect(useOutbox.getState().items[0]?.syncState).toBe("pending");
+
+    // Expire the hold (as the undo window lapsing would) and re-flush: the
+    // outbox sends in the background and adopts the server's changeset.
+    act(() => {
+      useOutbox.setState((s) => ({
+        items: s.items.map((i) => ({ ...i, holdUntil: undefined })),
+      }));
+    });
+    await act(() => useOutbox.getState().flush());
     await waitFor(() => expect(useOutbox.getState().items[0]?.syncState).toBe("sent"));
     expect(useOutbox.getState().changesetId).toBe(42);
 
@@ -363,6 +373,25 @@ describe("addHere", () => {
       lat: 10,
       lon: 20,
       tag: { key: "amenity", value: "drinking_water" },
+    });
+  });
+
+  it("creates a node at a tapped map location via addAt", async () => {
+    arm();
+    const { result } = renderHook(() => useRunSession());
+
+    await act(async () =>
+      result.current.addAt({ lat: 33.3, lon: 44.4 }, { audience: "both", seasonal: true }),
+    );
+
+    expect(useRun.getState().added.map((a) => a.id)).toEqual([999]);
+    const createCall = apiFetchMock.mock.calls.find((c) => c[0] === "/api/osm/create");
+    expect(createCall).toBeTruthy();
+    expect(JSON.parse(createCall![1]?.body as string)).toMatchObject({
+      lat: 33.3,
+      lon: 44.4,
+      tag: { key: "amenity", value: "drinking_water" },
+      extras: { audience: "both", seasonal: true },
     });
   });
 

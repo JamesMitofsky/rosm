@@ -8,25 +8,20 @@ import {
   ArrowRightIcon,
   CrosshairIcon,
   MagnifyingGlassIcon,
-  MapPinIcon,
 } from "@phosphor-icons/react";
 import Button from "@/components/ui/Button";
 import ErrorNotice from "@/components/ui/ErrorNotice";
-import SegmentedControl from "@/components/ui/SegmentedControl";
-import { usePlanner } from "@rosm/core/stores/planner";
-import type { RecencyMode } from "@rosm/core/schemas";
-
-// Recency filter modes, shown as a segmented control in the radius step.
-const RECENCY_MODES: { key: RecencyMode; label: string }[] = [
-  { key: "stale", label: "Not checked in" },
-  { key: "fresh", label: "Checked within" },
-  { key: "any", label: "Any time" },
-];
+import StepProgress from "@/components/planner/StepProgress";
+import { usePlanner } from "@/store/planner";
 
 // The guided config steps, answered one at a time before the map takes over.
 const STEPS = [
-  { key: "where", title: "Where do you start?", hint: "Click on the map or search" },
-  { key: "radius", title: "How wide should we search?", hint: undefined },
+  {
+    key: "where",
+    title: "Starting Point",
+    hint: "Click on the map, search, or use your current location.",
+  },
+  { key: "radius", title: "Distance & Recency", hint: undefined },
 ] as const;
 
 // Config phase: one question at a time, then "Find points" hands over to the map.
@@ -51,16 +46,9 @@ export default function ConfigWizard() {
   const canAdvance = p.step === 0 ? !!p.center : true;
 
   return (
-    <section ref={scope} className="flex w-full max-w-md flex-col gap-5 md:h-full">
-      {/* Step progress */}
-      <div className="flex items-center gap-2">
-        {STEPS.map((s, i) => (
-          <div
-            key={s.key}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${i <= p.step ? "bg-sky-deep" : "bg-paper-deep"}`}
-          />
-        ))}
-      </div>
+    <section ref={scope} className="flex w-full max-w-md flex-col gap-5">
+      {/* Step progress — build-the-route is the last step in this same sequence. */}
+      <StepProgress current={p.step} />
 
       <div className="wizard-step flex flex-col gap-4">
         <div className="flex flex-col gap-1">
@@ -90,11 +78,6 @@ export default function ConfigWizard() {
                 <CrosshairIcon size={18} />
               </button>
             </div>
-            {!p.center && (
-              <p className="border-paper-line bg-paper/40 text-ink-dim rounded-lg border px-3 py-2 text-xs">
-                No start point yet — search, locate, or tap the map.
-              </p>
-            )}
           </div>
         )}
 
@@ -102,6 +85,7 @@ export default function ConfigWizard() {
         {active.key === "radius" && (
           <div className="flex flex-col gap-4">
             <label className="flex items-center gap-2 text-sm">
+              Within
               <input
                 type="number"
                 min={0.5}
@@ -110,41 +94,25 @@ export default function ConfigWizard() {
                 onChange={(e) => p.setRadiusMi(e.target.value === "" ? "" : Number(e.target.value))}
                 className="border-paper-line bg-paper/40 text-ink focus:border-sky-deep/60 w-20 rounded-lg border px-2 py-2 outline-none"
               />
-              mile search radius
+              <span className="text-ink-dim">miles</span>
             </label>
 
-            {/* Recency filter — narrow the pool by when each point was last
-                surveyed (OSM check_date). Defaults to points not checked in
-                the last 6 months: the ones worth verifying on the ground. */}
-            <div className="flex flex-col gap-2">
-              <SegmentedControl
-                options={RECENCY_MODES}
-                value={p.recencyMode}
-                onChange={p.setRecencyMode}
+            {/* Recency filter is fixed to stale: only points not surveyed in the
+                chosen window (or never) — the ones worth verifying on the ground. */}
+            <label className="flex items-center gap-2 text-sm">
+              Not checked in the last
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={p.recencyMonths}
+                onChange={(e) =>
+                  p.setRecencyMonths(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                className="border-paper-line bg-paper/40 text-ink focus:border-sky-deep/60 w-20 rounded-lg border px-2 py-2 outline-none"
               />
-              {p.recencyMode !== "any" && (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={p.recencyMonths}
-                    onChange={(e) =>
-                      p.setRecencyMonths(e.target.value === "" ? "" : Number(e.target.value))
-                    }
-                    className="border-paper-line bg-paper/40 text-ink focus:border-sky-deep/60 w-20 rounded-lg border px-2 py-2 outline-none"
-                  />
-                  <span className="text-ink-dim">months</span>
-                </label>
-              )}
-              <p className="text-ink-dim text-xs">
-                {p.recencyMode === "stale"
-                  ? `Show points not surveyed in the last ${p.recencyMonths || 6} months (or never) — the ones worth checking.`
-                  : p.recencyMode === "fresh"
-                    ? `Show only points surveyed within the last ${p.recencyMonths || 6} months.`
-                    : "Show all matching points regardless of when last surveyed."}
-              </p>
-            </div>
+              <span className="text-ink-dim">months</span>
+            </label>
           </div>
         )}
       </div>
@@ -158,7 +126,7 @@ export default function ConfigWizard() {
       )}
 
       {/* Wizard nav */}
-      <div className="mt-auto flex items-center gap-3 pt-4 pb-4 md:pb-0">
+      <div className="mt-auto flex items-center gap-3 pt-4 pb-4">
         <button
           onClick={() => p.setStep(Math.max(0, p.step - 1))}
           disabled={p.step === 0}
@@ -167,25 +135,16 @@ export default function ConfigWizard() {
           <ArrowLeftIcon size={16} />
           Back
         </button>
-        {p.step < STEPS.length - 1 ? (
-          <Button
-            onClick={() => p.setStep(Math.min(STEPS.length - 1, p.step + 1))}
-            disabled={!canAdvance}
-            className="ml-auto flex items-center gap-1.5"
-          >
-            Next
-            <ArrowRightIcon size={16} />
-          </Button>
-        ) : (
-          <Button
-            onClick={p.finishConfig}
-            disabled={!p.center || p.busy !== null}
-            className="ml-auto flex w-40 items-center justify-center gap-1.5"
-          >
-            <MapPinIcon size={16} />
-            {p.busy === "find" ? "Finding…" : "Find points"}
-          </Button>
-        )}
+        {/* Last config step advances into the build step; the point search runs
+            under the hood via finishConfig — same Next button either way. */}
+        <Button
+          onClick={() => (p.step < STEPS.length - 1 ? p.setStep(p.step + 1) : p.finishConfig())}
+          disabled={!canAdvance || p.busy !== null}
+          className="ml-auto flex items-center gap-1.5"
+        >
+          {p.busy === "find" ? "Finding…" : "Next"}
+          <ArrowRightIcon size={16} />
+        </Button>
       </div>
     </section>
   );

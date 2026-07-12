@@ -28,6 +28,9 @@ export const outboxStorage: OutboxStoragePort = {
   put: async (item) => {
     await Storage.setItem(ITEM_PREFIX + item.id, JSON.stringify(item));
   },
+  delete: async (id) => {
+    await Storage.removeItem(ITEM_PREFIX + id);
+  },
   clear: async () => {
     const keys = (await Storage.getAllKeys()).filter((k) => k.startsWith(ITEM_PREFIX));
     if (keys.length) await Storage.multiRemove(keys);

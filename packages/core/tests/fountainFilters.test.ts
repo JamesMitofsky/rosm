@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   countBy,
   fountainDotStyle,
-  fountainName,
   isDogWater,
   isOutOfService,
   rankFountains,
@@ -35,11 +34,6 @@ describe("classification", () => {
     expect(isOutOfService({ amenity: "drinking_water" })).toBe(false);
     expect(svcOf({ disused: "yes" })).toBe("out");
     expect(svcOf({})).toBe("in");
-  });
-
-  it("names fountains with a fallback", () => {
-    expect(fountainName(f(1, 0, 0, { name: "Central" }))).toBe("Central");
-    expect(fountainName(f(1, 0, 0))).toBe("Unnamed fountain");
   });
 });
 

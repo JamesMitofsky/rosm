@@ -6,6 +6,11 @@ import type { Fountain, RecencyMode } from "../schemas";
 import { useRun, type RunStop } from "./run";
 import { corePorts } from "../configure";
 
+// Wizard step indices, mirroring the web StepProgress (where → radius → build →
+// review). Kept here so core owns the phase→step mapping without importing web UI.
+const BUILD_STEP_INDEX = 2;
+const REVIEW_STEP_INDEX = 3;
+
 // The planner's state and route-building I/O, moved out of the /plan page so
 // the config wizard, route builder, and map feed can live in separate
 // components without prop-drilling ~30 values. The planner is a single-instance
@@ -51,6 +56,8 @@ type PlannerState = {
   vias: Pt[];
   pinnedIds: number[];
   recenterKey: string;
+  // Whether the pending recenter should animate (flyTo) instead of jump.
+  animateRecenter: boolean;
   addr: string;
   radiusMi: number | "";
   // Recency filter: by default surface points NOT surveyed in the last 6 months
@@ -99,7 +106,7 @@ type PlannerState = {
   setLoop: (loop: boolean) => void;
   setErr: (err: string | null) => void;
 
-  recenter: (p: Pt) => void;
+  recenter: (p: Pt, animate?: boolean) => void;
   geolocate: () => void;
   searchAddr: () => Promise<void>;
   findPoints: () => Promise<void>;
@@ -113,6 +120,7 @@ type PlannerState = {
   toggleStop: (id: number) => void;
   restoreStop: (id: number) => void;
   mapClick: (lat: number, lon: number) => void;
+  addVia: (lat: number, lon: number) => void;
   removeVia: (i: number) => void;
   loadDraft: () => Promise<void>;
   resumeDraft: () => void;
@@ -153,14 +161,14 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   vias: [],
   pinnedIds: [],
   recenterKey: "init",
+  animateRecenter: false,
   addr: "",
-  radiusMi: 3,
+  radiusMi: 4,
   recencyMode: "stale",
   recencyMonths: 6,
-  targetMi: "",
-  // Default to points so the route is sized by what the user picks unless they
-  // opt into a target distance (matches "empty target distance by default").
-  sizeMode: "points",
+  // Prefilled target so switching to distance mode lands ready-to-plan.
+  targetMi: 3,
+  sizeMode: "distance",
   loop: true,
   tag: { key: "amenity", value: "drinking_water" },
 
@@ -180,8 +188,9 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   resumable: null,
   draftReady: false,
 
-  setPhase: (phase) => set({ phase }),
-  setStep: (step) => set({ step }),
+  // Navigating between steps/phases wipes any stale error from the step you left.
+  setPhase: (phase) => set({ phase, err: null, islandPt: null }),
+  setStep: (step) => set({ step, err: null, islandPt: null }),
   setAddr: (addr) => set({ addr }),
   setRadiusMi: (radiusMi) => set({ radiusMi }),
   setRecencyMode: (recencyMode) => set({ recencyMode }),
@@ -194,8 +203,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
   setErr: (err) => set({ err }),
 
-  recenter: (p) => {
-    set({ center: p, recenterKey: `${p.lat},${p.lon},${++recenterSeq}` });
+  recenter: (p, animate = false) => {
+    set({ center: p, recenterKey: `${p.lat},${p.lon},${++recenterSeq}`, animateRecenter: animate });
   },
 
   geolocate: () => {
@@ -225,7 +234,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
 
   findPoints: async () => {
-    const { center, radiusMi, tag, recencyMode, recencyMonths } = get();
+    const { center, radiusMi, tag, recencyMonths } = get();
     if (!center) return;
     // Building fresh — drop any pending resume offer so the new route persists.
     set({
@@ -250,7 +259,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
           ...center,
           radiusM: milesToMeters(radiusMi || 0),
           tag,
-          recencyMode,
+          // Recency is fixed to stale: only points not checked within the window.
+          recencyMode: "stale",
           recencyMonths: recencyMonths || 6,
         }),
       });
@@ -276,10 +286,13 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     }
   },
 
-  // Last config step: run the search, then hand the screen over to the map.
+  // Last config step: hand the screen to the map's build step right away and
+  // fit the viewport to the search area (recenterKey bump → the plan page's
+  // fitPoints re-fit), so the points load INTO an already-framed map instead of
+  // popping in off-screen. The search runs after, streaming into that frame.
   finishConfig: async () => {
+    set({ phase: "map", step: BUILD_STEP_INDEX, recenterKey: `fit-${++recenterSeq}` });
     await get().findPoints();
-    set({ phase: "map" });
   },
 
   // Plan + fetch street geometry. Unlike the old page-local version there is no
@@ -460,6 +473,16 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     }
   },
 
+  // Drop a pass-through waypoint at the tapped spot and re-plan around it.
+  // Called from the map's "Add a waypoint" popup on web; mobile drops vias on a
+  // bare map tap via mapClick above.
+  addVia: (lat, lon) => {
+    const { center, vias } = get();
+    if (!center) return;
+    set({ vias: [...vias, { lat, lon }] });
+    get().replan();
+  },
+
   // Remove a pass-through waypoint and re-plan around the rest.
   removeVia: (i) => {
     set({ vias: get().vias.filter((_, j) => j !== i) });
@@ -505,6 +528,9 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       hasRoute: d.stops.length > 0,
       resumable: null,
       phase: "map",
+      // A saved draft with a built route resumes on the review step; otherwise
+      // land on the build step to (re)plan.
+      step: d.stops.length > 0 ? REVIEW_STEP_INDEX : BUILD_STEP_INDEX,
     });
   },
 

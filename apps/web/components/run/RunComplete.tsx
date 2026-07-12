@@ -54,7 +54,6 @@ export default function RunComplete({
   }, {});
   const editCount =
     (counts.confirm || 0) +
-    (counts.dog_only || 0) +
     (counts.out_of_order || 0) +
     (counts.removed || 0) +
     (counts.delete || 0);
@@ -67,7 +66,6 @@ export default function RunComplete({
       <h1 className="text-2xl font-bold">{sealed ? "Changeset closed" : "Run complete"}</h1>
       <ul className={`text-sm ${t.list}`}>
         <li>Confirmed: {counts.confirm || 0}</li>
-        <li>Dog water: {counts.dog_only || 0}</li>
         <li>Out of order: {counts.out_of_order || 0}</li>
         <li>Removed: {(counts.removed || 0) + (counts.delete || 0)}</li>
         <li>Skipped: {counts.skipped || 0}</li>

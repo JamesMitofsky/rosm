@@ -33,12 +33,6 @@ import { PointSheet, type PointEdit } from "../components/PointSheet";
 const ACTIONS: { action: EditAction; title: string; Icon: typeof CheckCircleIcon; box: string }[] =
   [
     { action: "confirm", title: "Working — confirm", Icon: CheckCircleIcon, box: "bg-green-600" },
-    {
-      action: "dog_only",
-      title: "Dog water — not for humans",
-      Icon: DogIcon,
-      box: "bg-violet-600",
-    },
     { action: "out_of_order", title: "Out of order", Icon: WarningIcon, box: "bg-amber-500" },
     { action: "removed", title: "Removed", Icon: TrashIcon, box: "bg-red-600" },
   ];

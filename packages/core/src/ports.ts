@@ -36,6 +36,7 @@ export type KvPort = {
 export type OutboxStoragePort = {
   getAll: () => Promise<OutboxItem[]>;
   put: (item: OutboxItem) => Promise<void>;
+  delete: (id: string) => Promise<void>;
   clear: () => Promise<void>;
   getMeta: <T>(key: string) => Promise<T | undefined>;
   setMeta: <T>(key: string, value: T | undefined) => Promise<void>;

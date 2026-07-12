@@ -17,6 +17,7 @@ export function makeFakeOutboxStorage() {
   return {
     getAll: vi.fn(async (): Promise<OutboxItem[]> => []),
     put: vi.fn(async (_item: OutboxItem): Promise<void> => {}),
+    delete: vi.fn(async (_id: string): Promise<void> => {}),
     clear: vi.fn(async (): Promise<void> => {}),
     getMeta: vi.fn(async (_key: string): Promise<unknown> => undefined),
     setMeta: vi.fn(async (_key: string, _value: unknown): Promise<void> => {}),

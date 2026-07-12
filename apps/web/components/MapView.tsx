@@ -5,7 +5,6 @@ import MapGL, {
   Layer,
   Marker,
   Popup,
-  NavigationControl,
   AttributionControl,
   type MapRef,
   type MapLayerMouseEvent,
@@ -16,6 +15,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -54,6 +54,8 @@ type Props = {
   interactive?: boolean;
   scrollWheelZoom?: boolean;
   markers?: MapMarker[];
+  // Marker dot radius in px (default 9). Smaller for dense overview maps.
+  markerRadius?: number;
   // polyline as [lat, lon][]
   line?: [number, number][];
   // Radius indicator (e.g. search-area preview) drawn under the markers.
@@ -65,15 +67,21 @@ type Props = {
   // Compass heading in degrees (0 = north, clockwise). Draws a direction cone.
   userHeading?: number | null;
   onMapClick?: (lat: number, lon: number) => void;
+  // When set, a tap on empty map opens a popup anchored at the tapped spot
+  // rendering this content, instead of firing onMapClick — so an action (e.g.
+  // "Add a waypoint") is confirmed in place rather than committed on the bare
+  // tap. `close` dismisses the popup. Takes precedence over onMapClick.
+  mapClickPopup?: (pt: { lat: number; lon: number }, close: () => void) => ReactNode;
   // Fired when the user drags the map, so callers can drop "follow me" mode.
   onUserPan?: () => void;
-  // Fired after any pan/zoom settles, with the current center, a radius (m)
-  // reaching the viewport corner — enough to cover everything visible — and the
-  // exact viewport bounds ([[south, west], [north, east]]) so callers can draw a
-  // searched-area box matching the visible rectangle. The `userInitiated` flag is
-  // true only when the move came from a drag/zoom gesture (not a programmatic
-  // recenter), so callers can surface a "search this area" affordance. Only wired
-  // when a handler is supplied.
+  // Fired once on map load and after any pan/zoom settles, with the current
+  // center, a radius (m) reaching the viewport corner — enough to cover
+  // everything visible — and the exact viewport bounds
+  // ([[south, west], [north, east]]) so callers can draw a searched-area box
+  // matching the visible rectangle. The `userInitiated` flag is true only when
+  // the move came from a drag/zoom gesture (not load or a programmatic
+  // recenter), so callers can surface a "search this area" affordance. Only
+  // wired when a handler is supplied.
   onViewChange?: (
     view: {
       lat: number;
@@ -84,6 +92,9 @@ type Props = {
     userInitiated: boolean,
   ) => void;
   recenterKey?: string; // change to force recenter on `center`
+  // Animate the next recenter (flyTo) instead of the default instant jump.
+  // Used when the user picks a place from search so the move reads as travel.
+  animateRecenter?: boolean;
   // When set (>=2 points), the map zooms to fit all points instead of just
   // centering on `center`. Used to keep user + next target both in view.
   fitPoints?: [number, number][];
@@ -106,19 +117,37 @@ const MARKERS_LAYER = "markers-circle";
 // Replaces per-marker DOM pins so hundreds of points stay smooth. Labels (the
 // few numbered/starred planner points) ride on top as HTML markers so symbol
 // glyphs render from the system font rather than the tile server's font subset.
-const markerLayer: CircleLayerSpecification = {
-  id: MARKERS_LAYER,
-  type: "circle",
-  source: MARKERS_SOURCE,
-  paint: {
-    "circle-radius": 9,
-    "circle-color": ["get", "color"],
-    "circle-opacity": ["case", ["get", "dimmed"], 0.45, 1],
-    "circle-stroke-width": 2,
-    "circle-stroke-color": "#fff",
-    "circle-stroke-opacity": ["case", ["get", "dimmed"], 0.45, 1],
-  },
-};
+// `radius` is the dot size in px (default 9); callers with dense overviews pass
+// a smaller value.
+function markerLayer(radius: number, strokeWidth: number): CircleLayerSpecification {
+  return {
+    id: MARKERS_LAYER,
+    type: "circle",
+    source: MARKERS_SOURCE,
+    paint: {
+      "circle-radius": radius,
+      "circle-color": ["get", "color"],
+      "circle-opacity": ["case", ["get", "dimmed"], 0.45, 1],
+      "circle-stroke-width": strokeWidth,
+      "circle-stroke-color": "#fff",
+      "circle-stroke-opacity": ["case", ["get", "dimmed"], 0.45, 1],
+    },
+  };
+}
+
+// Overshoot easing so dots pop past full size then settle — matches the label
+// keyframe in globals.css.
+function easeOutBack(t: number): number {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
+}
+
+// useLayoutEffect on the client (so the 0-radius start applies before paint —
+// no full-size flash), useEffect on the server to dodge the SSR warning.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const POP_MS = 340;
 
 const lineLayer: LineLayerSpecification = {
   id: "route-line",
@@ -305,24 +334,38 @@ export default function MapView({
   // Defaults to `interactive` so a non-interactive map can't scroll-zoom.
   scrollWheelZoom = interactive,
   markers = [],
+  markerRadius = 9,
   line,
   circle,
   searchedBox,
   userPos,
   userHeading,
   onMapClick,
+  mapClickPopup,
   onUserPan,
   onViewChange,
   recenterKey,
+  animateRecenter = false,
   fitPoints,
   fitOptions,
   className,
 }: Props) {
   const mapRef = useRef<MapRef>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // The empty-map tap awaiting confirmation via `mapClickPopup`, if any.
+  const [pendingTap, setPendingTap] = useState<{ lat: number; lon: number } | null>(null);
 
+  // 0 → 1 grow factor for the pop-in (see the layout effect below).
+  const [popScale, setPopScale] = useState(1);
+  const markerCircleLayer = useMemo(
+    () => markerLayer(Math.max(0, markerRadius * popScale), Math.max(0, 2 * popScale)),
+    [markerRadius, popScale],
+  );
   const markerById = useMemo(() => new Map(markers.map((m) => [String(m.id), m])), [markers]);
   const markerData = useMemo(() => markersToFeatures(markers), [markers]);
+  // Signature of the marker *set* (ids only). Recolors (toggling a stop) keep the
+  // same ids, so the pop-in below fires only when points actually appear.
+  const markerIdSig = useMemo(() => markers.map((m) => m.id).join("|"), [markers]);
   const labeled = useMemo(() => markers.filter((m) => m.label), [markers]);
   const lineData = useMemo<GeoJSON.Feature | null>(
     () =>
@@ -360,11 +403,35 @@ export default function MapView({
         maxZoom: fitOptions?.maxZoom ?? 16,
         duration: 0,
       });
+    } else if (animateRecenter) {
+      // flyTo also settles into onMoveEnd (userInitiated=false), so the parent
+      // still gets a fresh viewport once the animation lands.
+      map.flyTo({ center: [center[1], center[0]], zoom: 14, duration: 1500, essential: true });
     } else {
       map.jumpTo({ center: [center[1], center[0]] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recenterKey]);
+
+  // Pop new dots in: grow circle-radius 0 → target whenever the marker set
+  // changes. Driven by React state fed declaratively into the layer paint (no
+  // imperative setPaintProperty racing react-map-gl). Radius is a shader
+  // uniform, so this stays smooth for hundreds of points. Layout effect sets the
+  // 0-start before paint → no full-size flash. Honors prefers-reduced-motion.
+  useIsoLayoutEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setPopScale(1);
+      return;
+    }
+    setPopScale(0);
+    const start = performance.now();
+    let raf = requestAnimationFrame(function tick(now) {
+      const t = Math.min(1, (now - start) / POP_MS);
+      setPopScale(easeOutBack(t));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [markerIdSig]);
 
   const handleClick = useCallback(
     (e: MapLayerMouseEvent) => {
@@ -372,19 +439,29 @@ export default function MapView({
       if (feature) {
         const mid = feature.properties?.mid as string | undefined;
         const m = mid != null ? markerById.get(mid) : undefined;
+        // Tapping a marker supersedes any pending empty-tap popup.
+        setPendingTap(null);
         if (m?.popup) setSelected(mid ?? null);
         else m?.onClick?.();
         return;
       }
-      // Empty-map tap: dismiss any popup, then report for drop-a-pin.
+      // Empty-map tap: dismiss any marker popup. When a mapClickPopup renderer is
+      // supplied, open it at the tapped spot to confirm the action; otherwise
+      // report the tap straight to the caller (drop-a-pin).
       setSelected(null);
+      if (mapClickPopup) {
+        setPendingTap({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+        return;
+      }
       onMapClick?.(e.lngLat.lat, e.lngLat.lng);
     },
-    [markerById, onMapClick],
+    [markerById, onMapClick, mapClickPopup],
   );
 
-  const handleMoveEnd = useCallback(
-    (e: { originalEvent?: unknown }) => {
+  // Report the settled view to the caller. Fired on load (so the initial
+  // viewport is known before any movement) and after every pan/zoom.
+  const emitView = useCallback(
+    (userInitiated: boolean) => {
       if (!onViewChange) return;
       const map = mapRef.current;
       if (!map) return;
@@ -402,10 +479,15 @@ export default function MapView({
             [ne.lat, ne.lng],
           ],
         },
-        !!e.originalEvent,
+        userInitiated,
       );
     },
     [onViewChange],
+  );
+
+  const handleMoveEnd = useCallback(
+    (e: { originalEvent?: unknown }) => emitView(!!e.originalEvent),
+    [emitView],
   );
 
   const popupCtx = useMemo(() => ({ close: () => setSelected(null) }), []);
@@ -430,7 +512,10 @@ export default function MapView({
         touchZoomRotate={interactive}
         boxZoom={interactive}
         keyboard={interactive}
-        onLoad={() => mapRef.current?.getMap().touchZoomRotate.disableRotation()}
+        onLoad={() => {
+          mapRef.current?.getMap().touchZoomRotate.disableRotation();
+          emitView(false);
+        }}
         onClick={handleClick}
         onDragStart={() => onUserPan?.()}
         onMoveEnd={handleMoveEnd}
@@ -444,7 +529,6 @@ export default function MapView({
         }}
       >
         <AttributionControl customAttribution={ATTRIBUTION} compact />
-        {interactive && <NavigationControl position="top-left" showCompass={false} />}
 
         {maskData && (
           <Source id="searched-mask" type="geojson" data={maskData}>
@@ -469,7 +553,7 @@ export default function MapView({
         )}
 
         <Source id={MARKERS_SOURCE} type="geojson" data={markerData}>
-          <Layer {...markerLayer} />
+          <Layer {...markerCircleLayer} />
         </Source>
 
         {/* Labels for the few numbered/starred points, over the GPU circles. */}
@@ -482,6 +566,7 @@ export default function MapView({
             style={{ pointerEvents: "none" }}
           >
             <span
+              className="marker-pop-label"
               style={{
                 color: "#fff",
                 fontSize: 11,
@@ -516,6 +601,21 @@ export default function MapView({
             <MapPopupContext.Provider value={popupCtx}>
               {selectedMarker.popup}
             </MapPopupContext.Provider>
+          </Popup>
+        )}
+
+        {pendingTap && mapClickPopup && (
+          <Popup
+            longitude={pendingTap.lon}
+            latitude={pendingTap.lat}
+            anchor="bottom"
+            offset={14}
+            closeOnClick={false}
+            closeButton={false}
+            maxWidth="none"
+            onClose={() => setPendingTap(null)}
+          >
+            {mapClickPopup(pendingTap, () => setPendingTap(null))}
           </Popup>
         )}
       </MapGL>

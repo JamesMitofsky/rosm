@@ -1,21 +1,23 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { toggled, type Counts, type Svc, type Water } from "@rosm/core/fountainFilters";
+import { CheckIcon } from "@phosphor-icons/react";
+import { toggled, type Counts, type Svc, type Water } from "@/lib/fountainFilters";
 
 function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       <span className="text-ink-dim text-[11px] font-semibold tracking-wide uppercase">
         {label}
       </span>
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5">{children}</div>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
 }
 
-// One checkbox option: label + low-emphasis match count.
-function CheckOption({
+// One toggle pill: label + low-emphasis match count. Selected pills carry the
+// sky accent + a check glyph; unselected read as quiet outlines.
+function Pill({
   checked,
   count,
   onChange,
@@ -27,16 +29,20 @@ function CheckOption({
   children: ReactNode;
 }) {
   return (
-    <label className="text-ink flex cursor-pointer items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="accent-sky-deep h-4 w-4"
-      />
+    <button
+      type="button"
+      aria-pressed={checked}
+      onClick={onChange}
+      className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+        checked
+          ? "border-sky-deep bg-sky-deep/15 text-ink"
+          : "border-paper-line text-ink-dim hover:border-ink-dim/40 hover:text-ink"
+      }`}
+    >
+      {checked && <CheckIcon size={14} weight="bold" className="text-sky-deep" />}
       {children}
-      <span className="text-ink-dim/55 font-normal">{count}</span>
-    </label>
+      <span className={checked ? "text-ink-dim" : "text-ink-dim/50"}>{count}</span>
+    </button>
   );
 }
 
@@ -54,38 +60,38 @@ export default function FilterPills({
   counts: Counts;
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       <FilterGroup label="Status">
-        <CheckOption
+        <Pill
           checked={svc.has("in")}
           count={counts.inN}
           onChange={() => setSvc(toggled(svc, "in"))}
         >
           In service
-        </CheckOption>
-        <CheckOption
+        </Pill>
+        <Pill
           checked={svc.has("out")}
           count={counts.outN}
           onChange={() => setSvc(toggled(svc, "out"))}
         >
           Out of service
-        </CheckOption>
+        </Pill>
       </FilterGroup>
       <FilterGroup label="Intended for">
-        <CheckOption
+        <Pill
           checked={water.has("human")}
           count={counts.humanN}
           onChange={() => setWater(toggled(water, "human"))}
         >
           People
-        </CheckOption>
-        <CheckOption
+        </Pill>
+        <Pill
           checked={water.has("dog")}
           count={counts.dogN}
           onChange={() => setWater(toggled(water, "dog"))}
         >
           Dogs
-        </CheckOption>
+        </Pill>
       </FilterGroup>
     </div>
   );

@@ -46,6 +46,18 @@ export function boundsRadiusM(bounds: Bounds): number {
   return haversine(c, { lat: n, lon: e });
 }
 
+export function metersToFeet(m: number): number {
+  return m * 3.28084;
+}
+
+// Short-range distance in feet, switching to miles once far enough that a foot
+// count is unwieldy. Used for turn-by-turn cues where feet read more naturally.
+export function fmtFeet(m: number): string {
+  const ft = metersToFeet(m);
+  if (ft < 1000) return `${Math.round(ft / 5) * 5} ft`;
+  return `${metersToMiles(m).toFixed(2)} mi`;
+}
+
 // Axis-aligned lat/lon box centered on `c`. `radiusM` is the vertical half-
 // extent; the horizontal half-extent is `radiusM * aspect`, so passing the
 // viewport's width/height ratio yields a box shaped like the screen (landscape →

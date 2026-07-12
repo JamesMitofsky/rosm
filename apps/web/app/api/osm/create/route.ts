@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { getOsmToken } from "@/lib/osmToken";
-import { CreateNodeRequest } from "@rosm/core/schemas";
-import { openChangeset, createNode, todayIso, changesetUrl, isChangesetClosed } from "@/lib/osm";
+import { CreateNodeRequest } from "@/lib/schemas";
+import {
+  openChangeset,
+  createNode,
+  applyAction,
+  todayIso,
+  changesetUrl,
+  isChangesetClosed,
+} from "@/lib/osm";
 import { appendJson } from "@/lib/db";
 
 const CHANGESET_COMMENT = "Survey: add drinking water / amenity point";
@@ -28,7 +35,9 @@ async function createWithRetry(
 
 // Create a new OSM node for a point the surveyor found on the ground but that
 // isn't yet in OSM. Tags it with the point type being surveyed plus a
-// check_date (it was just observed).
+// check_date (it was just observed), and any survey extras (audience, seasonal,
+// note) — routed through the same confirm transform as an edit so a new node
+// carries identical tags to a freshly re-surveyed one.
 export async function POST(req: Request) {
   const token = await getOsmToken(req);
   if (!token) return NextResponse.json({ error: "not signed in to OSM" }, { status: 401 });
@@ -37,14 +46,14 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { lat, lon, tag } = parsed.data;
+  const { lat, lon, tag, extras } = parsed.data;
 
   try {
     const initialChangeset =
       parsed.data.changesetId ?? (await openChangeset(token, CHANGESET_COMMENT));
 
     const today = todayIso();
-    const tags = { [tag.key]: tag.value, check_date: today };
+    const tags = applyAction({ [tag.key]: tag.value }, "confirm", tag.key, today, extras);
     const { nodeId, changesetId } = await createWithRetry(token, lat, lon, tags, initialChangeset);
 
     await appendJson("edit-log.json", {

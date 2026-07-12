@@ -105,6 +105,7 @@ export async function idbSetMeta<T>(key: string, value: T): Promise<void> {
 export const outboxStorage: OutboxStoragePort = {
   getAll: () => idbGetAll<OutboxItem>(),
   put: (item) => idbPut(item),
+  delete: (id) => idbDelete(id),
   clear: idbClearOutbox,
   getMeta: idbGetMeta,
   setMeta: (key, value) => idbSetMeta(key, value),

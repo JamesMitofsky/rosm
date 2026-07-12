@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useOsmStatus } from "@/components/OsmStatus";
 import { useOsmEdits } from "@/hooks/useOsmEdits";
 import FountainMap from "@/components/fountains/FountainMap";
-import EditSyncPanel from "@/components/EditSyncPanel";
 import ErrorNotice from "@/components/ui/ErrorNotice";
 
 const RETURN_TO = "/mapping-portal/quick-update";
@@ -35,14 +34,7 @@ export default function QuickUpdatePage() {
     <FountainMap
       editable={osmEdits}
       defaultRadiusMi={0.2}
-      backHref="/mapping-portal"
-      backLabel="Mapping Portal"
-      footer={
-        <div className="flex flex-col gap-2">
-          {editErr && <ErrorNotice message={editErr} tone="light" />}
-          <EditSyncPanel osmEdits={osmEdits} />
-        </div>
-      }
+      footer={editErr ? <ErrorNotice message={editErr} tone="light" /> : null}
     />
   );
 }

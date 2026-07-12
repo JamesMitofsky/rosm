@@ -1,16 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowsLeftRightIcon, PathIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
+import { useMemo, useState } from "react";
+import { ArrowLeftIcon, ArrowRightIcon, ArrowsLeftRightIcon } from "@phosphor-icons/react";
 import Button from "@/components/ui/Button";
 import ErrorNotice from "@/components/ui/ErrorNotice";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import StepProgress, {
+  BUILD_STEP_INDEX,
+  REVIEW_STEP_INDEX,
+} from "@/components/planner/StepProgress";
 import EditSyncPanel from "@/components/EditSyncPanel";
 import type { OsmEdits } from "@/hooks/useOsmEdits";
-import { usePlanner, pinnedOf, removedOf } from "@rosm/core/stores/planner";
-import type { Fountain } from "@rosm/core/schemas";
-import { fmtDist } from "@rosm/core/geo";
+import { usePlanner, pinnedOf, removedOf } from "@/store/planner";
+import { fmtDist } from "@/lib/geo";
 
 // Route sizing modes, shown as a segmented control on the map phase.
 const SIZE_MODES = [
@@ -18,12 +20,15 @@ const SIZE_MODES = [
   { key: "points", label: "By waypoints" },
 ] as const;
 
-function markLabel(f: Fountain) {
-  return f.tags.name ?? "Unnamed fountain";
-}
+// One-way vs round-trip (loop back to the start point).
+const TRIP_MODES = [
+  { key: "round", label: "Round-trip" },
+  { key: "oneway", label: "One-way" },
+] as const;
 
-// Map phase: sizing controls, point picking help, plan/reverse/start-run, and
-// the edit-sync review for direct OSM updates made from the map.
+// Map phase, second half of the setup sequence. Two steps share this panel:
+// BUILD (sizing controls → "Plan route" advances) and REVIEW (the route summary
+// → "Start run" launches). Both keep the wizard's bottom Back/Next nav.
 export default function RouteBuilderPanel({ osmEdits }: { osmEdits: OsmEdits }) {
   const p = usePlanner();
 
@@ -41,38 +46,67 @@ export default function RouteBuilderPanel({ osmEdits }: { osmEdits: OsmEdits }) 
   // Whether the current sizing mode has enough input to plan a route.
   const sizingReady =
     p.sizeMode === "distance" ? (p.targetMi || 0) > 0 : pinned.length > 0 || p.vias.length > 0;
-  const planHint = p.sizeMode === "distance" ? "Enter a target distance above." : null;
+
+  const isReview = p.step === REVIEW_STEP_INDEX;
+
+  // The BUILD step is two slides: the sizing "options" (distance vs waypoints),
+  // then — only in waypoints mode — a "waypoints" slide to pick the points that
+  // define the route. Distance mode plans straight from options.
+  const [buildSlide, setBuildSlide] = useState<"options" | "waypoints">("options");
+  const isWaypoints = !isReview && buildSlide === "waypoints";
+  const waypointCount = pinned.length + p.vias.length;
+
+  // "Plan route": build, then (only on success) page over to the review step.
+  async function handlePlan() {
+    await p.makeRoute();
+    if (usePlanner.getState().stops.length > 0) p.setStep(REVIEW_STEP_INDEX);
+  }
+
+  // Options slide advances freely in waypoints mode (picking comes next); only
+  // distance mode needs a target first. The waypoints slide needs ≥1 point.
+  const buildNextDisabled =
+    buildSlide === "options" ? p.sizeMode === "distance" && !sizingReady : !sizingReady;
+
+  // Primary action for the BUILD step. Distance mode plans immediately; waypoints
+  // mode first pages to the point-picking slide, then plans from there.
+  function handleBuildNext() {
+    if (p.sizeMode === "points" && buildSlide === "options") {
+      setBuildSlide("waypoints");
+      return;
+    }
+    handlePlan();
+  }
 
   return (
-    <section className="flex w-full max-w-sm flex-col gap-4 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold">Build the route</h2>
-        <button
-          onClick={() => p.setPhase("config")}
-          className="border-paper-line text-ink-dim hover:border-sky-deep/60 hover:text-sky-deep flex shrink-0 items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs font-semibold transition"
-        >
-          <SlidersHorizontalIcon size={14} />
-          Edit setup
-        </button>
-      </div>
-      {p.fountains.length > 0 && (
-        <span className="bg-sky/15 text-sky-deep -mt-2 w-fit rounded-full px-2 py-0.5 text-xs font-semibold">
-          {p.fountains.length} found
-        </span>
+    <section className="flex w-full max-w-sm flex-col gap-4">
+      {/* Setup-sequence steps continue here — same progress bar as the wizard. */}
+      <StepProgress current={p.step} />
+      <h2 className="font-display text-2xl leading-tight font-bold">
+        {isReview ? "Your Route" : isWaypoints ? "Select Waypoints" : "Routing System"}
+      </h2>
+
+      {/* BUILD step, waypoints slide — pick the points that define the route. */}
+      {isWaypoints && (
+        <div className="flex flex-col gap-3">
+          <p className="text-ink-dim text-sm">
+            Tap points on the map to add them to your route. Pick at least one.
+          </p>
+          <div className="border-paper-line bg-paper-deep/40 flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+            <span className="text-ink-dim">Selected</span>
+            <span className="text-ink font-semibold">
+              {waypointCount} {waypointCount === 1 ? "point" : "points"}
+            </span>
+          </div>
+        </div>
       )}
 
-      {/* Route sizing: by a target distance, or by the points picked.
-          Collapses away once a route exists to free vertical space. */}
-      <AnimatePresence initial={false}>
-        {p.stops.length === 0 && (
-          <motion.div
-            key="sizing"
-            initial={false}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25 }}
-            className="flex flex-col gap-2 overflow-hidden"
-          >
+      {/* BUILD step, options slide — route sizing: by a target distance, or by the points picked. */}
+      {!isReview && !isWaypoints && (
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <span className="text-ink-dim text-xs font-semibold tracking-wide uppercase">
+              Route length
+            </span>
             <SegmentedControl
               options={SIZE_MODES}
               value={p.sizeMode}
@@ -80,7 +114,7 @@ export default function RouteBuilderPanel({ osmEdits }: { osmEdits: OsmEdits }) 
               textSize="sm"
             />
             {p.sizeMode === "distance" && (
-              <label className="flex flex-col gap-1 text-sm">
+              <label className="mt-1 flex flex-col gap-1 text-sm">
                 Target run (mi)
                 <input
                   type="number"
@@ -90,118 +124,84 @@ export default function RouteBuilderPanel({ osmEdits }: { osmEdits: OsmEdits }) 
                   onChange={(e) =>
                     p.setTargetMi(e.target.value === "" ? "" : Number(e.target.value))
                   }
-                  className="border-paper-line bg-paper/40 text-ink focus:border-sky-deep/60 rounded-lg border px-2 py-2 outline-none"
+                  className="border-paper-line bg-paper/40 text-ink focus:border-sky-deep/60 rounded-lg border px-3 py-2.5 outline-none"
                 />
               </label>
             )}
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={p.loop}
-                onChange={(e) => p.setLoop(e.target.checked)}
-                className="accent-sky-deep h-4 w-4"
-              />
-              Loop (finish back at start)
-            </label>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Map interaction help */}
-      <div className="flex flex-col gap-2">
-        <p className="text-ink-dim text-xs">
-          Tap to add / remove. Long-press to update in OSM. Click any space to add a waypoint
-          {p.vias.length > 0 && <span className="text-ink-dim"> ({p.vias.length} added)</span>}.
-        </p>
-        {removed.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <span className="text-ink-dim text-xs font-semibold">
-              Removed from route ({removed.length})
-            </span>
-            <ul className="flex flex-col gap-1">
-              {removed.map((f) => (
-                <li
-                  key={f.id}
-                  className="bg-paper-deep flex items-center justify-between rounded-lg px-2 py-1 text-xs"
-                >
-                  <span className="text-ink-dim flex items-center gap-1 truncate line-through">
-                    {markLabel(f)}
-                  </span>
-                  <button
-                    onClick={() => p.restoreStop(f.id)}
-                    className="text-sky-deep/70 hover:text-sky-deep shrink-0 font-semibold"
-                    aria-label="add point back to route"
-                  >
-                    Add back
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
-        )}
-      </div>
 
-      <AnimatePresence initial={false}>
-        {p.stops.length === 0 && (
-          <motion.div
-            key="plan-btn"
-            initial={false}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25 }}
-            className="border-paper-line flex flex-col gap-2 overflow-hidden border-t pt-4"
-          >
-            <Button
-              onClick={p.makeRoute}
-              disabled={p.fountains.length === 0 || p.busy !== null || !sizingReady}
-              className="flex items-center justify-center gap-2"
-            >
-              <PathIcon size={16} />
-              {p.busy === "route" ? "Planning…" : "Plan route"}
-            </Button>
-            {p.fountains.length > 0 && !sizingReady && planHint && (
-              <p className="text-ink-dim text-center text-xs">{planHint}</p>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {p.stops.length > 0 && (
-        <div className="border-sky-deep/30 bg-sky/10 rounded-2xl border p-4 text-sm">
-          <div className="flex justify-between">
-            <span className="text-ink font-semibold">
-              {p.stops.length} stops
-              <span className="text-ink-dim ml-1 font-normal">of {p.fountains.length}</span>
+          <div className="flex flex-col gap-2">
+            <span className="text-ink-dim text-xs font-semibold tracking-wide uppercase">
+              Trip type
             </span>
-            <span className="text-sky-deep font-semibold">{fmtDist(p.distanceM)}</span>
+            <SegmentedControl
+              options={TRIP_MODES}
+              value={p.loop ? "round" : "oneway"}
+              onChange={(v) => p.setLoop(v === "round")}
+              textSize="sm"
+            />
           </div>
-          {p.autoCount > 0 && (
-            <p className="text-ink-dim mt-1 text-xs">
-              +{p.autoCount} grabbed for a small detour off your route. Remove any you don&apos;t
-              want.
-            </p>
+
+          {p.fountains.length > 0 && p.sizeMode === "distance" && !sizingReady && (
+            <p className="text-ink-dim text-xs">Enter a target distance above.</p>
           )}
-          <div className="mt-3 flex gap-2">
+        </div>
+      )}
+
+      {/* REVIEW step — the built route's summary, plus removed-point recovery. */}
+      {isReview && p.stops.length > 0 && (
+        <>
+          <div className="border-sky-deep/30 bg-sky/10 rounded-2xl border p-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-ink font-semibold">{p.stops.length} stops</span>
+              <span className="text-sky-deep font-semibold">{fmtDist(p.distanceM)}</span>
+            </div>
+            {p.autoCount > 0 && (
+              <p className="text-ink-dim mt-1 text-xs">
+                +{p.autoCount} grabbed for a small detour off your route. Remove any you don&apos;t
+                want.
+              </p>
+            )}
             {p.stops.length > 1 && (
               <Button
                 onClick={p.reverseRoute}
                 disabled={p.busy !== null}
                 variant="accent"
-                className="flex flex-1 items-center justify-center gap-2"
+                className="mt-3 flex w-full items-center justify-center gap-2"
               >
                 <ArrowsLeftRightIcon size={16} />
-                {p.busy === "reverse" ? "Reversing…" : "Direction"}
+                {p.busy === "reverse" ? "Reversing…" : "Reverse direction"}
               </Button>
             )}
-            <button
-              onClick={p.startRun}
-              disabled={p.busy !== null}
-              className="bg-ink text-paper hover:bg-ink-soft flex-1 rounded-sm py-2.5 font-bold transition disabled:opacity-40"
-            >
-              Start run →
-            </button>
           </div>
-        </div>
+
+          {removed.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-ink-dim text-xs font-semibold">
+                Removed from route ({removed.length})
+              </span>
+              <ul className="flex flex-col gap-1">
+                {removed.map((f) => (
+                  <li
+                    key={f.id}
+                    className="bg-paper-deep flex items-center justify-between rounded-lg px-2 py-1 text-xs"
+                  >
+                    <span className="text-ink-dim flex items-center gap-1 truncate line-through">
+                      Fountain
+                    </span>
+                    <button
+                      onClick={() => p.restoreStop(f.id)}
+                      className="text-sky-deep/70 hover:text-sky-deep shrink-0 font-semibold"
+                      aria-label="add point back to route"
+                    >
+                      Add back
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
 
       <EditSyncPanel osmEdits={osmEdits} />
@@ -220,6 +220,46 @@ export default function RouteBuilderPanel({ osmEdits }: { osmEdits: OsmEdits }) 
           )}
         </ErrorNotice>
       )}
+
+      {/* Bottom nav mirrors the wizard: Back on the left, primary action on the
+          right. BUILD advances by planning; REVIEW launches the run. */}
+      <div className="mt-auto flex items-center gap-3 pt-4 pb-4">
+        <button
+          onClick={() => {
+            if (isReview) {
+              p.setStep(BUILD_STEP_INDEX);
+            } else if (isWaypoints) {
+              setBuildSlide("options");
+            } else {
+              p.setStep(BUILD_STEP_INDEX - 1);
+              p.setPhase("config");
+            }
+          }}
+          className="border-paper-line text-ink-dim hover:text-ink flex items-center gap-1.5 rounded-sm border px-4 py-2.5 text-sm font-semibold transition"
+        >
+          <ArrowLeftIcon size={16} />
+          Back
+        </button>
+        {isReview ? (
+          <Button
+            onClick={p.startRun}
+            disabled={p.busy !== null || p.stops.length === 0}
+            className="ml-auto flex items-center gap-1.5"
+          >
+            Start run
+            <ArrowRightIcon size={16} />
+          </Button>
+        ) : (
+          <Button
+            onClick={handleBuildNext}
+            disabled={p.fountains.length === 0 || p.busy !== null || buildNextDisabled}
+            className="ml-auto flex items-center gap-1.5"
+          >
+            {p.busy === "route" ? "Planning…" : "Next"}
+            <ArrowRightIcon size={16} />
+          </Button>
+        )}
+      </div>
     </section>
   );
 }

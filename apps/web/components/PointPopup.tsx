@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircleIcon,
   WarningIcon,
@@ -8,16 +9,15 @@ import {
   PlusCircleIcon,
   MinusCircleIcon,
   DogIcon,
-  CaretDownIcon,
-  CaretRightIcon,
   SnowflakeIcon,
 } from "@phosphor-icons/react";
 import { useMapPopup } from "@/components/MapView";
-import type { Fountain, EditAction, EditExtras } from "@rosm/core/schemas";
-import type { StopStatus } from "@rosm/core/stores/run";
-import { checkedAgoLabel } from "@rosm/core/checkDate";
+import type { Fountain, EditAction, EditExtras } from "@/lib/schemas";
+import type { StopStatus } from "@/store/run";
+import { checkedAgoLabel } from "@/lib/checkDate";
+import PointDetailsForm from "@/components/PointDetailsForm";
 import OsmSignInLink from "@/components/OsmSignInLink";
-import type { SyncState } from "@rosm/core/stores/outbox";
+import type { SyncState } from "@/store/outbox";
 import { SyncBadge } from "@/components/SyncStatus";
 
 // Local feedback for a point already updated in this session. The edit is saved
@@ -32,7 +32,6 @@ export type PointEdit = {
 
 const STATUS_LABEL: Partial<Record<StopStatus, string>> = {
   confirm: "Confirmed working",
-  dog_only: "Marked dog water (not for humans)",
   out_of_order: "Marked out of order",
   removed: "Marked removed",
 };
@@ -68,35 +67,37 @@ export default function PointPopup({
   onToggleRoute,
 }: Props) {
   const { close } = useMapPopup();
-  const name = fountain.tags.name ?? "Unnamed fountain";
-  // Advanced OSM params, prefilled from the node's current tags so the surveyor
-  // sees and can edit what's already there.
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [seasonal, setSeasonal] = useState(fountain.tags.seasonal === "yes");
-  const [osmNote, setOsmNote] = useState(fountain.tags.note ?? "");
+  // "Working" opens the details step (audience/seasonal/note — see
+  // PointDetailsForm) before submitting; out-of-order / removed submit straight
+  // away with no extra survey.
+  const [confirming, setConfirming] = useState(false);
   // Snapshot the clock once on mount — reading Date.now() during render is
   // impure; the "checked ago" label doesn't need to tick live.
   const [now] = useState(() => Date.now());
 
-  function buildExtras(): EditExtras | undefined {
-    const note = osmNote.trim();
-    const extras: EditExtras = {};
-    if (seasonal) extras.seasonal = true;
-    if (note) extras.note = note;
-    return Object.keys(extras).length ? extras : undefined;
-  }
-
   return (
-    <div className="flex w-56 flex-col gap-2 text-neutral-800">
-      <div>
-        <div className="leading-tight font-semibold">{checkedAgoLabel(fountain.tags, now)}</div>
-        <div className="text-xs text-neutral-500">{name}</div>
-        {isDogWater(fountain.tags) && (
-          <div className="mt-1 flex items-center gap-1 text-xs font-medium text-violet-700">
-            <DogIcon size={14} /> Dog water — not for humans
-          </div>
+    <div className="flex w-60 flex-col gap-2.5 text-neutral-800">
+      <AnimatePresence initial={false}>
+        {!confirming && (
+          <motion.div
+            key="header"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="text-xs font-medium tracking-wide text-neutral-500 uppercase">
+              {checkedAgoLabel(fountain.tags, now)}
+            </div>
+            {isDogWater(fountain.tags) && (
+              <div className="mt-1 flex items-center gap-1 text-xs font-medium text-violet-700">
+                <DogIcon size={14} /> Dog water — not for humans
+              </div>
+            )}
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
       {edit ? (
         <div className="flex flex-col gap-1 rounded bg-neutral-50 p-2 text-xs text-neutral-700">
@@ -154,68 +155,58 @@ export default function PointPopup({
                 Sign in to OSM to update
               </OsmSignInLink>
             ) : (
-              <div className="flex flex-col gap-1.5">
-                <button
-                  disabled={busy}
-                  onClick={() => onAction("confirm", buildExtras())}
-                  className="flex items-center justify-center gap-1.5 rounded bg-green-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  <CheckCircleIcon size={16} /> Working — confirm
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() => onAction("dog_only", buildExtras())}
-                  className="flex items-center justify-center gap-1.5 rounded bg-violet-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  <DogIcon size={16} /> Dog water — not for humans
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() => onAction("out_of_order", buildExtras())}
-                  className="flex items-center justify-center gap-1.5 rounded bg-amber-500 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  <WarningIcon size={16} /> Out of order
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() => onAction("removed", buildExtras())}
-                  className="flex items-center justify-center gap-1.5 rounded bg-red-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  <TrashIcon size={16} /> Removed
-                </button>
-
-                <div className="border-t border-neutral-200 pt-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setAdvancedOpen((o) => !o)}
-                    className="flex w-full items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-700"
+              <AnimatePresence mode="wait" initial={false}>
+                {!confirming ? (
+                  <motion.div
+                    key="actions"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex flex-col gap-2"
                   >
-                    {advancedOpen ? <CaretDownIcon size={12} /> : <CaretRightIcon size={12} />}
-                    Advanced
-                  </button>
-                  {advancedOpen && (
-                    <div className="mt-1.5 flex flex-col gap-1.5">
-                      <label className="flex items-start gap-1.5 text-xs text-neutral-700">
-                        <input
-                          type="checkbox"
-                          checked={seasonal}
-                          onChange={(e) => setSeasonal(e.target.checked)}
-                          className="mt-0.5"
-                        />
-                        <span>Seasonal — runs only part of the year</span>
-                      </label>
-                      <textarea
-                        value={osmNote}
-                        onChange={(e) => setOsmNote(e.target.value)}
-                        placeholder="Public note — added to OSM"
-                        rows={2}
-                        maxLength={255}
-                        className="resize-none rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-blue-500 focus:outline-none"
-                      />
+                    <button
+                      disabled={busy}
+                      onClick={() => setConfirming(true)}
+                      className="flex items-center justify-center gap-1.5 rounded-md bg-green-600 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50"
+                    >
+                      <CheckCircleIcon size={16} weight="fill" /> Working
+                    </button>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        disabled={busy}
+                        onClick={() => onAction("out_of_order")}
+                        className="flex items-center justify-center gap-1 rounded-md border border-amber-300 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+                      >
+                        <WarningIcon size={14} /> Out of order
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => onAction("removed")}
+                        className="flex items-center justify-center gap-1 rounded-md border border-red-300 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <TrashIcon size={14} /> Removed
+                      </button>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="details"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <PointDetailsForm
+                      tags={fountain.tags}
+                      busy={busy}
+                      submitLabel="Confirm working"
+                      submitIcon={<CheckCircleIcon size={16} weight="fill" />}
+                      onSubmit={(extras) => onAction("confirm", extras)}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             )}
           </div>
         </>

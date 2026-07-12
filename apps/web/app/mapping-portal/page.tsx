@@ -83,7 +83,6 @@ export default function MappingPortalPage() {
             <h1 className="font-display text-4xl leading-none font-bold tracking-tight sm:text-5xl">
               Mapping Portal
             </h1>
-            <p className="text-ink-dim text-sm">Your base for surveying and fixing the map.</p>
           </header>
 
           {/* Primary actions — the page's own navigation. */}
@@ -120,10 +119,16 @@ export default function MappingPortalPage() {
             </Link>
           </div>
 
+          <hr className="border-paper-line/60" />
+
+          <ContributionStats routes={routes} />
+
+          {/* Outbox review: a self-contained card, so it stays out of the text
+              divide-y list — the container's gap-8 gives it space above/below
+              instead of the divider hugging its top edge. Renders nothing when empty. */}
+          <SyncStatus tone="light" />
+
           <div className="divide-paper-line/60 flex flex-col divide-y [&>*]:py-8 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
-            <ContributionStats routes={routes} />
-            {/* Outbox review: edits still on their way to OSM (renders nothing when empty). */}
-            <SyncStatus tone="light" />
             <RunHistoryList routes={routes} />
             <AccountCard />
           </div>

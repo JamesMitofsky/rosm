@@ -19,9 +19,6 @@ export function editSummary(
     case "confirm":
       base = `confirmed · check_date=${today}`;
       break;
-    case "dog_only":
-      base = `dog water · not human-potable · dog=yes · check_date=${today}`;
-      break;
     case "out_of_order":
       base = `${tagKey} → disused:${tagKey} · check_date=${today}`;
       break;
@@ -30,8 +27,14 @@ export function editSummary(
       break;
   }
   // Mirror applyAction's gating so the optimistic summary matches the OSM write.
-  if (extras?.seasonal && (action === "confirm" || action === "dog_only")) {
+  if (extras?.seasonal && action === "confirm") {
     base += " · seasonal=yes";
+  }
+  if (extras?.audience && action === "confirm") {
+    const humanOk = extras.audience !== "dogs";
+    base += ` · drinking_water=${humanOk ? "yes" : "no"} · dog=${
+      extras.audience === "humans" ? "no" : "yes"
+    }`;
   }
   if (extras?.note) base += " · note added";
   return base;

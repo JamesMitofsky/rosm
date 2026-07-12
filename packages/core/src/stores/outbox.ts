@@ -10,6 +10,11 @@ import { corePorts } from "../configure";
 //   failed   — POST failed (offline mid-send, server/network error); retryable
 export type SyncState = "pending" | "sending" | "sent" | "failed";
 
+// Every enqueued edit is held back from flushing for this long, giving the undo
+// toast (store/undo.ts) a window in which "undo" is a cheap local cancel — the
+// edit never reaches OSM, so no revert changeset is needed.
+export const UNDO_WINDOW_MS = 5000;
+
 // One recorded modification. Saved to IndexedDB the instant the user acts, so the
 // confetti fires immediately and the edit survives a reload / offline period.
 export type OutboxItem = {
@@ -23,6 +28,7 @@ export type OutboxItem = {
   syncState: SyncState;
   attempts: number;
   createdAt: string;
+  holdUntil?: string; // ISO: flush skips the item until then (undo window)
   error?: string;
   // Filled once OSM accepts the edit:
   changesetId?: number;
@@ -35,6 +41,10 @@ const CHANGESET_META = "changesetId";
 // Module-level lock so only one flush loop runs at a time — edits send one by one
 // and share a single changeset (the first send opens it, the rest reuse the id).
 let flushing = false;
+
+// Re-flush scheduled for when the earliest undo hold expires, so a held edit
+// still sends even if no other flush trigger (visibility, network) fires first.
+let holdTimer: ReturnType<typeof setTimeout> | undefined;
 
 type EnqueueInput = {
   nodeId: number;
@@ -52,6 +62,8 @@ type OutboxState = {
   enqueue: (input: EnqueueInput) => OutboxItem;
   flush: () => Promise<void>;
   retryAll: () => Promise<void>;
+  cancel: (id: string) => boolean;
+  remove: (id: string) => void;
   setChangeset: (id: number | undefined) => void;
   clear: () => Promise<void>;
 };
@@ -104,6 +116,7 @@ export const useOutbox = create<OutboxState>((set, get) => {
         syncState: "pending",
         attempts: 0,
         createdAt: new Date().toISOString(),
+        holdUntil: new Date(Date.now() + UNDO_WINDOW_MS).toISOString(),
       };
       set((s) => ({ items: [...s.items, item] }));
       corePorts().outboxStorage.put(item);
@@ -112,14 +125,25 @@ export const useOutbox = create<OutboxState>((set, get) => {
 
     // Send every pending edit to OSM, one at a time, sharing one changeset. Failed
     // items are left alone (retry happens via retryAll); only fresh pending items
-    // are picked up here.
+    // whose undo hold has lapsed are picked up here — held items get a follow-up
+    // flush scheduled for when the earliest hold expires.
     flush: async () => {
+      const now = new Date().toISOString();
+      const held = get()
+        .items.filter((i) => i.syncState === "pending" && i.holdUntil && i.holdUntil > now)
+        .map((i) => i.holdUntil as string)
+        .sort();
+      clearTimeout(holdTimer);
+      if (held.length > 0) {
+        const waitMs = new Date(held[0]).getTime() - Date.now() + 50;
+        holdTimer = setTimeout(() => get().flush(), Math.max(waitMs, 0));
+      }
       if (flushing) return;
       if (typeof navigator !== "undefined" && navigator.onLine === false) return;
       flushing = true;
       try {
         const ids = get()
-          .items.filter((i) => i.syncState === "pending")
+          .items.filter((i) => i.syncState === "pending" && (!i.holdUntil || i.holdUntil <= now))
           .map((i) => i.id);
         for (const id of ids) {
           const item = get().items.find((i) => i.id === id);
@@ -166,11 +190,31 @@ export const useOutbox = create<OutboxState>((set, get) => {
       }
     },
 
-    // "Retry all missed sends": re-arm every failed edit and flush again.
+    // "Retry all missed sends": re-arm every failed edit and flush again. A retry
+    // is an explicit resend, so any leftover undo hold is dropped.
     retryAll: async () => {
       const failed = get().items.filter((i) => i.syncState === "failed");
-      failed.forEach((i) => persist({ ...i, syncState: "pending", error: undefined }));
+      failed.forEach((i) =>
+        persist({ ...i, syncState: "pending", error: undefined, holdUntil: undefined }),
+      );
       await get().flush();
+    },
+
+    // Undo an edit that hasn't left the device: only a pending item can be
+    // cancelled (its send never happened). Anything further along must be
+    // reverted through OSM instead — see store/undo.ts.
+    cancel: (id) => {
+      const item = get().items.find((i) => i.id === id);
+      if (!item || item.syncState !== "pending") return false;
+      get().remove(id);
+      return true;
+    },
+
+    // Drop an item from the queue + IndexedDB unconditionally (used after a
+    // successful OSM revert, so the record reads as if the tap never happened).
+    remove: (id) => {
+      set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+      corePorts().outboxStorage.delete(id);
     },
 
     setChangeset: (id) => {
