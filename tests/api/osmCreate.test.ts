@@ -104,7 +104,6 @@ describe("POST /api/osm/create", () => {
     expect((await res.json()).tags).toEqual({
       amenity: "drinking_water",
       check_date: today,
-      drinking_water: "yes",
       dog: "yes",
       seasonal: "yes",
       note: "behind the kiosk",

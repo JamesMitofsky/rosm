@@ -19,10 +19,10 @@ describe("editSummary", () => {
       `confirmed · check_date=${T} · drinking_water=no · dog=yes`,
     );
     expect(editSummary("confirm", "amenity", T, { audience: "humans" })).toBe(
-      `confirmed · check_date=${T} · drinking_water=yes · dog=no`,
+      `confirmed · check_date=${T} · dog=no`,
     );
     expect(editSummary("confirm", "amenity", T, { audience: "both" })).toBe(
-      `confirmed · check_date=${T} · drinking_water=yes · dog=yes`,
+      `confirmed · check_date=${T} · dog=yes`,
     );
     expect(editSummary("removed", "amenity", T, { audience: "dogs" })).not.toContain(
       "drinking_water",
@@ -34,7 +34,7 @@ describe("editSummary", () => {
       `confirmed · check_date=${T} · fountain=bubbler · bottle=no`,
     );
     expect(editSummary("confirm", "amenity", T, { dispenser: "bottle" })).toBe(
-      `confirmed · check_date=${T} · fountain=bottle_refill · bottle=yes`,
+      `confirmed · check_date=${T} · fountain=bottle_refill`,
     );
     expect(editSummary("confirm", "amenity", T, { dispenser: "both" })).toBe(
       `confirmed · check_date=${T} · fountain=bubbler · bottle=yes`,

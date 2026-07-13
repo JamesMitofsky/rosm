@@ -26,6 +26,11 @@ audience toggle round-trips instead of one-way demoting.
 | `drinking_water=yes` / `no` | Whether the water is potable for humans.       | [wiki](https://wiki.openstreetmap.org/wiki/Key:drinking_water) |
 | `dog=yes` / `no`            | Whether there's a dog water bowl / dog access. | [wiki](https://wiki.openstreetmap.org/wiki/Key:dog)            |
 
+`drinking_water=yes` is **redundant** on a primary that already asserts human
+potability (`amenity=drinking_water` / `water_point`) — we omit it there and only
+state potability explicitly on primaries that don't imply it (`amenity=fountain`,
+`natural=spring`, …). `drinking_water=no` is always informative, so it's kept.
+
 ## Dispenser — how you get the water
 
 `fountain=*` is the physical archetype (single value); `bottle=*` is an

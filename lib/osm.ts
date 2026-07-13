@@ -275,6 +275,11 @@ export function applyAction(
   // re-surveyed as human-potable, so the toggle round-trips instead of one-way
   // demoting. Other primaries (amenity=fountain, natural=spring) don't imply
   // potability, so keep them and only set the flags.
+  //
+  // drinking_water=yes is redundant on a primary that already asserts human
+  // potability (amenity=drinking_water / water_point), so we drop it there and
+  // only state potability explicitly when the primary doesn't imply it.
+  // drinking_water=no is always informative (dogs-only / non-potable), so keep it.
   if (extras?.audience && action === "confirm") {
     const humanOk = extras.audience !== "dogs";
     if (!humanOk && (next.amenity === "drinking_water" || next.amenity === "water_point")) {
@@ -282,7 +287,15 @@ export function applyAction(
     } else if (humanOk && next.amenity === "watering_place") {
       next.amenity = "drinking_water";
     }
-    next.drinking_water = humanOk ? "yes" : "no";
+    const primaryAssertsPotable =
+      next.amenity === "drinking_water" || next.amenity === "water_point";
+    if (!humanOk) {
+      next.drinking_water = "no";
+    } else if (primaryAssertsPotable) {
+      delete next.drinking_water;
+    } else {
+      next.drinking_water = "yes";
+    }
     next.dog = extras.audience === "humans" ? "no" : "yes";
   }
   // Dispenser (bubbler / bottle-filler / both), only meaningful while the source
@@ -292,11 +305,24 @@ export function applyAction(
   // "both" = a bubbler you can also fill bottles at. Only overwrite fountain=*
   // when it's unset or already a generic drinking type, so a regional value
   // (nasone, wallace, …) survives a re-survey.
+  //
+  // bottle=* is redundant on fountain=bottle_refill (which already implies bottle
+  // refilling), so only state it on a bubbler: =yes when it also fills bottles
+  // ("both"), =no when it doesn't. If a regional archetype was preserved instead
+  // of bottle_refill, bottle=yes is still informative and is kept.
   if (extras?.dispenser && action === "confirm") {
     const desired = extras.dispenser === "bottle" ? "bottle_refill" : "bubbler";
     const cur = next.fountain;
     if (cur == null || cur === "bubbler" || cur === "bottle_refill") next.fountain = desired;
-    next.bottle = extras.dispenser === "bubbler" ? "no" : "yes";
+    if (extras.dispenser === "bubbler") {
+      next.bottle = "no";
+    } else if (extras.dispenser === "both") {
+      next.bottle = "yes";
+    } else if (next.fountain === "bottle_refill") {
+      delete next.bottle;
+    } else {
+      next.bottle = "yes";
+    }
   }
   return next;
 }
