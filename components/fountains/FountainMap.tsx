@@ -461,6 +461,7 @@ export default function FountainMap({
             searchedBox={searchedBox ?? undefined}
             userPos={livePos ?? (pos ? [pos.lat, pos.lon] : undefined)}
             userHeading={heading}
+            followHeading={locationEnabled}
             onViewChange={onViewChange}
             mapClickPopup={
               editable

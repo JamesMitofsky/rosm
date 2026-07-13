@@ -36,6 +36,12 @@ export function editSummary(
       extras.audience === "humans" ? "no" : "yes"
     }`;
   }
+  if (extras?.dispenser && action === "confirm") {
+    const hasBubbler = extras.dispenser !== "bottle";
+    const hasBottle = extras.dispenser !== "bubbler";
+    if (hasBubbler) base += " · fountain=bubbler";
+    base += ` · bottle=${hasBottle ? "yes" : "no"}`;
+  }
   if (extras?.note) base += " · note added";
   return base;
 }

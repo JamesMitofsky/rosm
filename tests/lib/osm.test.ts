@@ -134,6 +134,44 @@ describe("applyAction", () => {
     });
   });
 
+  describe("dispenser (confirm only)", () => {
+    it("bubbler sets fountain=bubbler and bottle=no", () => {
+      const next = applyAction({ amenity: "drinking_water" }, "confirm", "amenity", T, {
+        dispenser: "bubbler",
+      });
+      expect(next.fountain).toBe("bubbler");
+      expect(next.bottle).toBe("no");
+    });
+
+    it("both sets fountain=bubbler and bottle=yes", () => {
+      const next = applyAction({ amenity: "drinking_water" }, "confirm", "amenity", T, {
+        dispenser: "both",
+      });
+      expect(next.fountain).toBe("bubbler");
+      expect(next.bottle).toBe("yes");
+    });
+
+    it("bottle sets bottle=yes and clears a stale fountain=bubbler", () => {
+      const next = applyAction(
+        { amenity: "drinking_water", fountain: "bubbler" },
+        "confirm",
+        "amenity",
+        T,
+        {
+          dispenser: "bottle",
+        },
+      );
+      expect(next.fountain).toBeUndefined();
+      expect(next.bottle).toBe("yes");
+    });
+
+    it("is ignored for lifecycle actions", () => {
+      const next = applyAction(base, "removed", "amenity", T, { dispenser: "both" });
+      expect(next.fountain).toBeUndefined();
+      expect(next.bottle).toBeUndefined();
+    });
+  });
+
   describe("extras", () => {
     it("writes note for any action", () => {
       expect(applyAction(base, "removed", "amenity", T, { note: "gone" }).note).toBe("gone");

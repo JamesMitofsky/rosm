@@ -66,6 +66,10 @@ type Props = {
   userPos?: [number, number] | null;
   // Compass heading in degrees (0 = north, clockwise). Draws a direction cone.
   userHeading?: number | null;
+  // Rotate the whole map so `userHeading` is "up" (heading-up navigation). The
+  // direction cone then points straight up. Default false keeps the map north-up
+  // and the cone rotated to `userHeading` as before.
+  followHeading?: boolean;
   onMapClick?: (lat: number, lon: number) => void;
   // When set, a tap on empty map opens a popup anchored at the tapped spot
   // rendering this content, instead of firing onMapClick — so an action (e.g.
@@ -282,6 +286,12 @@ function boundsOf(pts: [number, number][]): LngLatBoundsLike {
   ];
 }
 
+// Signed smallest rotation (deg, -180..180) from angle `a` to `b`. Lets the
+// heading-up bearing effect skip sub-degree jitter and rotate the short way.
+function shortestAngleDelta(a: number, b: number): number {
+  return ((((b - a) % 360) + 540) % 360) - 180;
+}
+
 // Blue location dot with an optional Apple/Google-style heading cone.
 function UserDot({ heading }: { heading?: number | null }) {
   return (
@@ -340,6 +350,7 @@ export default function MapView({
   searchedBox,
   userPos,
   userHeading,
+  followHeading = false,
   onMapClick,
   mapClickPopup,
   onUserPan,
@@ -412,6 +423,19 @@ export default function MapView({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recenterKey]);
+
+  // Heading-up rotation: turn the map so `userHeading` reads as "up". Programmatic
+  // bearing still works with touch-rotation disabled (that only blocks the gesture),
+  // and the recenter effect above never passes a bearing, so the two don't fight. A
+  // 2° deadband drops sensor jitter; rotate the short way. When follow turns off,
+  // ease back to north.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const target = followHeading && userHeading != null ? userHeading : 0;
+    if (Math.abs(shortestAngleDelta(map.getBearing(), target)) < 2) return;
+    map.easeTo({ bearing: target, duration: 300, essential: true });
+  }, [followHeading, userHeading]);
 
   // Pop new dots in: grow circle-radius 0 → target whenever the marker set
   // changes. Driven by React state fed declaratively into the layer paint (no
@@ -583,7 +607,10 @@ export default function MapView({
 
         {userPos && (
           <Marker longitude={userPos[1]} latitude={userPos[0]} anchor="center">
-            <UserDot heading={userHeading} />
+            {/* When following heading, the map itself is rotated to `userHeading`,
+                so the cone points straight up (0). Otherwise it rotates to the
+                heading over a north-up map. Null heading hides the cone entirely. */}
+            <UserDot heading={userHeading == null ? null : followHeading ? 0 : userHeading} />
           </Marker>
         )}
 

@@ -282,6 +282,18 @@ export function applyAction(
     next.drinking_water = humanOk ? "yes" : "no";
     next.dog = extras.audience === "humans" ? "no" : "yes";
   }
+  // Dispenser (bubbler / bottle-filler / both) → fountain=bubbler + bottle=*,
+  // only meaningful while the source still exists (confirm). "bubbler" is a jet
+  // you drink from directly (fountain=bubbler per the OSM wiki); "bottle" is a
+  // bottle-refill spout (bottle=yes); "both" carries both tags. A bottle-only
+  // source clears a stale fountain=bubbler so re-surveys stay deterministic.
+  if (extras?.dispenser && action === "confirm") {
+    const hasBubbler = extras.dispenser !== "bottle";
+    const hasBottle = extras.dispenser !== "bubbler";
+    if (hasBubbler) next.fountain = "bubbler";
+    else if (next.fountain === "bubbler") delete next.fountain;
+    next.bottle = hasBottle ? "yes" : "no";
+  }
   return next;
 }
 

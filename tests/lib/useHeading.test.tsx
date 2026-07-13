@@ -42,6 +42,30 @@ describe("useHeading — no compass support", () => {
   });
 });
 
+describe("useHeading — movement picks the source", () => {
+  it("while moving, prefers the GPS travel course over the compass", () => {
+    installOrientation();
+    const { result } = renderHook(() => useHeading(30, true));
+    // GPS course wins even once a compass reading arrives.
+    fireOrientation({ webkitCompassHeading: 200 });
+    expect(result.current.heading).toBe(30);
+  });
+
+  it("while moving with no GPS course, falls back to the compass", () => {
+    installOrientation();
+    const { result } = renderHook(() => useHeading(null, true));
+    fireOrientation({ webkitCompassHeading: 200 });
+    expect(result.current.heading).toBe(200);
+  });
+
+  it("while still, the compass wins over a stale GPS course", () => {
+    installOrientation();
+    const { result } = renderHook(() => useHeading(30, false));
+    fireOrientation({ webkitCompassHeading: 200 });
+    expect(result.current.heading).toBe(200);
+  });
+});
+
 describe("useHeading — sensor available without a permission gate", () => {
   it("reads iOS-style webkitCompassHeading directly", () => {
     installOrientation();

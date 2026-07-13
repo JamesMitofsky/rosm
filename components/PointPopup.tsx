@@ -36,6 +36,21 @@ const STATUS_LABEL: Partial<Record<StopStatus, string>> = {
   removed: "Marked removed",
 };
 
+// The two actions that open the survey-details step before submitting, each
+// with its own submit CTA. "Removed" is absent — it submits with no details.
+const DETAIL_STEP = {
+  confirm: {
+    submitLabel: "Confirm working",
+    submitIcon: <CheckCircleIcon size={16} weight="fill" />,
+    submitClassName: "bg-green-600 hover:bg-green-700",
+  },
+  out_of_order: {
+    submitLabel: "Mark out of order",
+    submitIcon: <WarningIcon size={16} />,
+    submitClassName: "bg-amber-500 hover:bg-amber-600",
+  },
+} as const;
+
 // True when OSM tags already flag this point as dog water / not human-potable,
 // so a future run shows the warning without re-surveying.
 function isDogWater(tags: Record<string, string>): boolean {
@@ -67,10 +82,11 @@ export default function PointPopup({
   onToggleRoute,
 }: Props) {
   const { close } = useMapPopup();
-  // "Working" opens the details step (audience/seasonal/note — see
-  // PointDetailsForm) before submitting; out-of-order / removed submit straight
-  // away with no extra survey.
-  const [confirming, setConfirming] = useState(false);
+  // "Working" and "Out of order" both open the details step
+  // (audience/seasonal/note — see PointDetailsForm) before submitting; the
+  // chosen action is recorded here so the same form drives either outcome.
+  // "Removed" still submits straight away with no extra survey.
+  const [detailFor, setDetailFor] = useState<"confirm" | "out_of_order" | null>(null);
   // Snapshot the clock once on mount — reading Date.now() during render is
   // impure; the "checked ago" label doesn't need to tick live.
   const [now] = useState(() => Date.now());
@@ -78,7 +94,7 @@ export default function PointPopup({
   return (
     <div className="flex w-60 flex-col gap-2.5 text-neutral-800">
       <AnimatePresence initial={false}>
-        {!confirming && (
+        {!detailFor && (
           <motion.div
             key="header"
             initial={{ opacity: 0, height: 0 }}
@@ -156,7 +172,7 @@ export default function PointPopup({
               </OsmSignInLink>
             ) : (
               <AnimatePresence mode="wait" initial={false}>
-                {!confirming ? (
+                {!detailFor ? (
                   <motion.div
                     key="actions"
                     initial={{ opacity: 0 }}
@@ -167,7 +183,7 @@ export default function PointPopup({
                   >
                     <button
                       disabled={busy}
-                      onClick={() => setConfirming(true)}
+                      onClick={() => setDetailFor("confirm")}
                       className="flex items-center justify-center gap-1.5 rounded-md bg-green-600 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50"
                     >
                       <CheckCircleIcon size={16} weight="fill" /> Working
@@ -175,7 +191,7 @@ export default function PointPopup({
                     <div className="grid grid-cols-2 gap-1.5">
                       <button
                         disabled={busy}
-                        onClick={() => onAction("out_of_order")}
+                        onClick={() => setDetailFor("out_of_order")}
                         className="flex items-center justify-center gap-1 rounded-md border border-amber-300 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
                       >
                         <WarningIcon size={14} /> Out of order
@@ -200,9 +216,10 @@ export default function PointPopup({
                     <PointDetailsForm
                       tags={fountain.tags}
                       busy={busy}
-                      submitLabel="Confirm working"
-                      submitIcon={<CheckCircleIcon size={16} weight="fill" />}
-                      onSubmit={(extras) => onAction("confirm", extras)}
+                      submitLabel={DETAIL_STEP[detailFor].submitLabel}
+                      submitIcon={DETAIL_STEP[detailFor].submitIcon}
+                      submitClassName={DETAIL_STEP[detailFor].submitClassName}
+                      onSubmit={(extras) => onAction(detailFor, extras)}
                     />
                   </motion.div>
                 )}

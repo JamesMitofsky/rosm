@@ -32,7 +32,7 @@ beforeEach(() => {
 });
 
 describe("watchPosition (foreground)", () => {
-  it("maps coords, keeping heading only when finite", async () => {
+  it("maps coords, keeping heading and speed only when finite", async () => {
     let cb!: WatchCb;
     vi.mocked(Geolocation.watchPosition).mockImplementation(async (_opts, callback) => {
       cb = callback as WatchCb;
@@ -45,14 +45,14 @@ describe("watchPosition (foreground)", () => {
       () => {},
     );
 
-    cb({ coords: { latitude: 48.8, longitude: 2.3, heading: 90, accuracy: 5 } });
-    cb({ coords: { latitude: 48.9, longitude: 2.4, heading: NaN, accuracy: null } });
+    cb({ coords: { latitude: 48.8, longitude: 2.3, heading: 90, speed: 1.5, accuracy: 5 } });
+    cb({ coords: { latitude: 48.9, longitude: 2.4, heading: NaN, speed: NaN, accuracy: null } });
     cb({ coords: { latitude: 49.0, longitude: 2.5, heading: null } });
 
     expect(points).toEqual([
-      { lat: 48.8, lon: 2.3, heading: 90, accuracy: 5 },
-      { lat: 48.9, lon: 2.4, heading: null, accuracy: undefined },
-      { lat: 49.0, lon: 2.5, heading: null, accuracy: undefined },
+      { lat: 48.8, lon: 2.3, heading: 90, speed: 1.5, accuracy: 5 },
+      { lat: 48.9, lon: 2.4, heading: null, speed: null, accuracy: undefined },
+      { lat: 49.0, lon: 2.5, heading: null, speed: null, accuracy: undefined },
     ]);
   });
 
@@ -109,7 +109,13 @@ describe("watchRunPosition", () => {
   it("uses background geolocation on native, mapping bearing to heading", async () => {
     native = true;
     type BgCb = (
-      loc?: { latitude: number; longitude: number; bearing?: number | null; accuracy?: number },
+      loc?: {
+        latitude: number;
+        longitude: number;
+        bearing?: number | null;
+        speed?: number | null;
+        accuracy?: number;
+      },
       err?: { message?: string },
     ) => void;
     let bgCb!: BgCb;
@@ -134,13 +140,13 @@ describe("watchRunPosition", () => {
       distanceFilter: 5,
     });
 
-    bgCb({ latitude: 1, longitude: 2, bearing: 45, accuracy: 3 });
-    bgCb({ latitude: 3, longitude: 4 }); // stationary: no bearing
+    bgCb({ latitude: 1, longitude: 2, bearing: 45, speed: 2, accuracy: 3 });
+    bgCb({ latitude: 3, longitude: 4 }); // stationary: no bearing/speed
     bgCb(undefined, { message: "bg denied" });
 
     expect(points).toEqual([
-      { lat: 1, lon: 2, heading: 45, accuracy: 3 },
-      { lat: 3, lon: 4, heading: null, accuracy: undefined },
+      { lat: 1, lon: 2, heading: 45, speed: 2, accuracy: 3 },
+      { lat: 3, lon: 4, heading: null, speed: null, accuracy: undefined },
     ]);
     expect(errors).toEqual(["bg denied"]);
 
@@ -152,13 +158,14 @@ describe("watchRunPosition", () => {
 describe("getCurrentPosition", () => {
   it("maps the one-shot fix", async () => {
     vi.mocked(Geolocation.getCurrentPosition).mockResolvedValue({
-      coords: { latitude: 48.8, longitude: 2.3, heading: null, accuracy: 10 },
+      coords: { latitude: 48.8, longitude: 2.3, heading: null, speed: null, accuracy: 10 },
     } as never);
 
     expect(await getCurrentPosition()).toEqual({
       lat: 48.8,
       lon: 2.3,
       heading: null,
+      speed: null,
       accuracy: 10,
     });
   });

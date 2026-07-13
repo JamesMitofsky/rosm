@@ -29,6 +29,19 @@ describe("editSummary", () => {
     );
   });
 
+  it("appends dispenser tags only on confirm", () => {
+    expect(editSummary("confirm", "amenity", T, { dispenser: "bubbler" })).toBe(
+      `confirmed · check_date=${T} · fountain=bubbler · bottle=no`,
+    );
+    expect(editSummary("confirm", "amenity", T, { dispenser: "bottle" })).toBe(
+      `confirmed · check_date=${T} · bottle=yes`,
+    );
+    expect(editSummary("confirm", "amenity", T, { dispenser: "both" })).toBe(
+      `confirmed · check_date=${T} · fountain=bubbler · bottle=yes`,
+    );
+    expect(editSummary("removed", "amenity", T, { dispenser: "both" })).not.toContain("bottle");
+  });
+
   it("uses the primary tag key in lifecycle summaries", () => {
     expect(editSummary("out_of_order", "natural", T)).toBe(
       `natural → disused:natural · check_date=${T}`,
