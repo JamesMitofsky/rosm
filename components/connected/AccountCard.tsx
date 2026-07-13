@@ -73,6 +73,11 @@ export default function AccountCard() {
               Sandbox
             </span>
           )}
+          {status.dryRun && (
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-600">
+              Dry run
+            </span>
+          )}
           {user?.username && (
             <a
               href={`https://www.openstreetmap.org/user/${encodeURIComponent(user.username)}`}

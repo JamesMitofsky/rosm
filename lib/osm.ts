@@ -9,6 +9,16 @@ export const API_BASE = process.env.OSM_API_BASE || "https://api.openstreetmap.o
 const CLIENT_ID = process.env.OSM_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.OSM_CLIENT_SECRET || ""; // optional (confidential client)
 const SCOPE = "read_prefs write_api";
+
+// Dry run (preview): keep real OAuth + reads, but stub every write so nothing
+// reaches the OSM map. Lets the full survey flow run against live data on a
+// preview deploy without persisting any edit. Reads (getNode/getNodeVersion)
+// stay real. Enable with OSM_DRY_RUN=1 in the environment.
+export const DRY_RUN = process.env.OSM_DRY_RUN === "1";
+// Sentinels the stubbed writes return. Positive so they never trip the falsy
+// `!changesetId` / nullish-reuse checks the way 0 would.
+const DRY_RUN_CHANGESET = 999999999;
+const DRY_RUN_NODE_ID = 999999999;
 // OSM `created_by` changeset tag — the editor/app attribution shown on every
 // changeset we open. Client-controlled (nothing OSM-side); we set it here. Uses
 // the brand name so app edits read as "ROSM" on osm.org, not the repo slug.
@@ -102,6 +112,7 @@ function escapeXml(s: string): string {
 
 // ---- changeset ----
 export async function openChangeset(token: string, comment: string): Promise<number> {
+  if (DRY_RUN) return DRY_RUN_CHANGESET;
   const xml = `<osm><changeset>
     <tag k="created_by" v="${escapeXml(CREATED_BY)}"/>
     <tag k="comment" v="${escapeXml(comment)}"/>
@@ -116,6 +127,7 @@ export async function openChangeset(token: string, comment: string): Promise<num
 }
 
 export async function closeChangeset(token: string, id: number): Promise<void> {
+  if (DRY_RUN) return;
   const res = await fetch(`${API_BASE}/api/0.6/changeset/${id}/close`, {
     method: "PUT",
     headers: auth(token),
@@ -185,6 +197,7 @@ export async function putNode(
   node: NodeData,
   changesetId: number,
 ): Promise<number> {
+  if (DRY_RUN) return node.version + 1;
   const xml = `<osm><node id="${id}" version="${node.version}" lat="${node.lat}" lon="${node.lon}" changeset="${changesetId}">${tagsXml(node.tags)}</node></osm>`;
   const res = await fetch(`${API_BASE}/api/0.6/node/${id}`, {
     method: "PUT",
@@ -203,6 +216,7 @@ export async function deleteNode(
   node: NodeData,
   changesetId: number,
 ): Promise<number> {
+  if (DRY_RUN) return node.version + 1;
   const xml = `<osm><node id="${id}" version="${node.version}" lat="${node.lat}" lon="${node.lon}" changeset="${changesetId}"/></osm>`;
   const res = await fetch(`${API_BASE}/api/0.6/node/${id}`, {
     method: "DELETE",
@@ -222,6 +236,7 @@ export async function createNode(
   tags: Record<string, string>,
   changesetId: number,
 ): Promise<number> {
+  if (DRY_RUN) return DRY_RUN_NODE_ID;
   const xml = `<osm><node lat="${lat}" lon="${lon}" changeset="${changesetId}">${tagsXml(tags)}</node></osm>`;
   const res = await fetch(`${API_BASE}/api/0.6/node/create`, {
     method: "PUT",
