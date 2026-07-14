@@ -7,6 +7,6 @@ export const contentType = ogContentType;
 export default function Image() {
   return renderOgImage({
     title: "How It Works",
-    subtitle: "Why ROSM runs on OpenStreetMap, and how your runs fix the map.",
+    subtitle: "Why Fountain Mapper runs on OpenStreetMap, and how your runs fix the map.",
   });
 }

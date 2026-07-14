@@ -11,7 +11,7 @@ const CLIENT_SECRET = process.env.OSM_CLIENT_SECRET || ""; // optional (confiden
 const SCOPE = "read_prefs write_api";
 // OSM `created_by` changeset tag — the editor/app attribution shown on every
 // changeset we open. Client-controlled (nothing OSM-side); we set it here. Uses
-// the brand name so app edits read as "ROSM" on osm.org, not the repo slug.
+// the brand name so app edits read as "Fountain Mapper" on osm.org, not the repo slug.
 const CREATED_BY = APP_NAME;
 
 // A returnTo is safe only as a same-origin relative path: one leading slash and

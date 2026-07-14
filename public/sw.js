@@ -1,5 +1,5 @@
 /*
- * ROSM service worker — hand-rolled (no build step) so it stays compatible
+ * Fountain Mapper service worker — hand-rolled (no build step) so it stays compatible
  * with Next 16 + Turbopack. Strategy per request class:
  *   - mutations / OSM write / auth         -> network only (never cache)
  *   - map basemap tiles                    -> cache-first + LRU cap

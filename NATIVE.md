@@ -1,4 +1,4 @@
-# ROSM — iOS (Capacitor) build & deploy
+# Fountain Mapper — iOS (Capacitor) build & deploy
 
 One codebase, two outputs:
 

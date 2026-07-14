@@ -100,7 +100,7 @@ export async function watchRunPosition(
     const id = await BackgroundGeolocation.addWatcher(
       {
         backgroundTitle: "Tracking your run",
-        backgroundMessage: "ROSM is recording your route and the points you survey.",
+        backgroundMessage: "Fountain Mapper is recording your route and the points you survey.",
         requestPermissions: true,
         stale: false,
         distanceFilter: 5,

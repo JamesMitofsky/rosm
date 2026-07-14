@@ -1,9 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { motion } from "framer-motion";
+import { heroFont } from "@/lib/heroFont";
 import FreshnessLegend from "@/components/FreshnessLegend";
-import FountainLeaderboard from "@/components/FountainLeaderboard";
+// import FountainLeaderboard from "@/components/FountainLeaderboard";
 import NativeEntryRedirect from "@/components/NativeEntryRedirect";
 import SiteNav from "@/components/SiteNav";
 import { DropIcon } from "@phosphor-icons/react";
@@ -117,61 +119,52 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         <Contours className="text-ink/[0.06] pointer-events-none absolute inset-0 h-full w-full" />
 
-        <div className="relative mx-auto max-w-6xl px-5 pt-14 pb-16 md:pt-20 md:pb-24">
-          <div className="flex flex-col items-start gap-8 md:flex-row md:items-center md:gap-12">
-            {/* Brand mascot, anchoring the hero headline. */}
-            {}
-            <motion.img
+        <div className="relative mx-auto max-w-6xl px-5 pt-7 pb-16 md:pt-20 md:pb-24">
+          {/* Mobile: title → map → subtitle (flex column). Desktop: map spans the
+              left column, title + subtitle stack in the right column (grid). */}
+          <div className="flex flex-col items-start gap-8 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-4">
+            <motion.h1
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.1 }}
+              className={`${heroFont.className} max-w-5xl text-[clamp(3.6rem,12vw,4.6rem)] leading-[0.9] font-bold tracking-tight md:col-start-2 md:row-start-1 md:self-end`}
+            >
+              Plan routes.
+              <br />
+              Verify fountains.
+            </motion.h1>
+
+            {/* Interactive demo of the run + edit flow, framed like a print plate. */}
+            <motion.div
               {...fadeUp}
               transition={{ ...fadeUp.transition, delay: 0.05 }}
-              src="/icons/icon.svg"
-              alt="ROSM"
-              className="w-32 shrink-0 md:w-56 lg:w-72"
-            />
-
-            <div>
-              <motion.h1
-                {...fadeUp}
-                transition={{ ...fadeUp.transition, delay: 0.1 }}
-                className="font-display max-w-5xl text-[clamp(2.2rem,7vw,5.2rem)] leading-[0.9] font-bold tracking-tight uppercase"
-              >
-                The DC Water
-                <br />
-                Fountain Map
-              </motion.h1>
-
-              <div className="mt-10 flex flex-col items-start gap-6">
-                <motion.p
-                  {...fadeUp}
-                  transition={{ ...fadeUp.transition, delay: 0.16 }}
-                  className="text-ink-dim max-w-xl text-lg leading-relaxed"
-                >
-                  With data sourced by (and <em>for</em>) runners, this is the definitive map of
-                  public fountains in DC.
-                </motion.p>
+              className="border-ink/10 bg-sky relative w-full overflow-hidden rounded-xl border md:col-start-1 md:row-span-2 md:self-center"
+            >
+              <div className="relative isolate z-0 h-[clamp(300px,40vw,460px)] w-full">
+                <DemoRunMap />
               </div>
-            </div>
+            </motion.div>
+
+            <motion.div
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.16 }}
+              className="flex flex-col items-start gap-6 md:col-start-2 md:row-start-2 md:self-start"
+            >
+              <p className="text-ink-dim max-w-xl text-xl leading-relaxed">
+                Map routes to verify the status of DC&apos;s drinking fountains
+              </p>
+              <Link
+                href="/mapping-portal"
+                className="bg-sky-deep text-paper hover:bg-sky-deep/90 inline-flex items-center gap-2.5 rounded-sm px-6 py-3 text-lg font-bold transition"
+              >
+                Begin Verifying
+                <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden className="h-6 w-6">
+                  <path d="M29.1,60.6L11.7,87.9c-1.8,2.9-1,6.7,1.9,8.6c1,0.7,2.2,1,3.3,1c2,0,4.1-1,5.2-2.9l17.1-26.8l-4.6-2.2C32.2,64.5,30.3,62.8,29.1,60.6z" />
+                  <circle cx="70.8" cy="13.4" r="10.9" />
+                  <path d="M89.1,44.2c-0.8-2.8-3.6-4.4-6.4-3.6l-7.7,2.1l-3.7-8.4c-1.1-2.5-2.9-4.6-5.2-6.1l-8.9-5.8c-2.6-1.7-5.8-2.5-8.9-2.3l-13.1,1c-1.4,0.1-2.6,0.8-3.5,1.8l-8.9,10.5c-1.9,2.2-1.6,5.4,0.6,7.3c2.2,1.9,5.4,1.6,7.3-0.6l7.5-8.8l7.8-0.6L34.7,50.9c-0.8,1.5-1,3.3-0.5,4.9c0.5,1.6,1.7,3,3.3,3.7l17.5,8.2L45.2,81c-2,2.8-1.4,6.7,1.3,8.7c1.1,0.8,2.4,1.2,3.7,1.2c1.9,0,3.8-0.9,5-2.5L69.4,69c1.1-1.5,1.5-3.4,1-5.2c-0.5-1.8-1.7-3.3-3.4-4.1L54.8,54l8.4-12.4l4.2,9.5c0.8,1.9,2.7,3.1,4.7,3.1c0.5,0,0.9-0.1,1.4-0.2l12-3.3C88.3,49.8,89.9,46.9,89.1,44.2z" />
+                </svg>
+              </Link>
+            </motion.div>
           </div>
-
-          {/* Sample-route label, sitting tightly above the map plate. */}
-          <motion.div
-            {...fadeUp}
-            transition={{ ...fadeUp.transition, delay: 0.24 }}
-            className="mt-14 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
-          >
-            <Label>Demo route</Label>
-          </motion.div>
-
-          {/* Interactive demo of the run + edit flow, framed like a print plate. */}
-          <motion.div
-            {...fadeUp}
-            transition={{ ...fadeUp.transition, delay: 0.28 }}
-            className="border-ink/10 bg-sky relative overflow-hidden rounded-xl border"
-          >
-            <div className="relative isolate z-0 h-[clamp(340px,48vw,560px)] w-full">
-              <DemoRunMap />
-            </div>
-          </motion.div>
         </div>
       </section>
 
@@ -181,7 +174,9 @@ export default function LandingPage() {
         <section className="bg-paper-deep" style={tornClip}>
           <div className="mx-auto max-w-3xl px-5 py-20 md:py-28">
             <motion.div {...fadeUp}>
-              <h2 className="font-display text-[clamp(2rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight">
+              <h2
+                className={`${heroFont.className} text-[clamp(2rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight`}
+              >
                 What&apos;s the deal?
               </h2>
               <p className="text-ink-dim mt-6 text-lg leading-relaxed">
@@ -196,7 +191,7 @@ export default function LandingPage() {
                 make light work of covering the whole city!
               </p>
               <p className="text-ink-dim mt-4 text-lg leading-relaxed">
-                ROSM caters to two groups:
+                Fountain Mapper caters to two groups:
               </p>
               <ol className="text-ink-dim mt-4 list-decimal space-y-1 pl-6 text-lg leading-relaxed">
                 <li>literally anyone looking for a working fountain</li>
@@ -223,7 +218,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
           <motion.h2
             {...fadeUp}
-            className="font-display text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+            className={`${heroFont.className} text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase`}
           >
             The State of the Fountains
           </motion.h2>
@@ -237,14 +232,14 @@ export default function LandingPage() {
 
           {/* Contributor leaderboard — self-hides when there's no attributed
               edit data yet. */}
-          <motion.div
+          {/* <motion.div
             {...fadeUp}
             transition={{ ...fadeUp.transition, delay: 0.14 }}
             className="mt-12"
           >
             <Label>Top contributors</Label>
             <FountainLeaderboard className="mt-6" />
-          </motion.div>
+          </motion.div> */}
 
           <motion.div
             {...fadeUp}

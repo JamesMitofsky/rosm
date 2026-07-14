@@ -475,10 +475,6 @@ export default function DemoRunMap({ className }: { className?: string }) {
         userPos={userPos}
         userHeading={userHeading}
       />
-      {/* Chips sit above tiles/markers (z ≤ 600) but below open popups (z 700). */}
-      <div className="border-ink/10 bg-paper/90 text-ink pointer-events-none absolute top-3 right-3 z-[650] rounded-full border px-2 py-0.5 font-mono text-[0.55rem] font-medium tracking-[0.14em] uppercase backdrop-blur-sm">
-        {target ? `${surveyed}/${DC_FOUNTAINS.length} recorded` : "Route complete ✓"}
-      </div>
     </div>
   );
 }

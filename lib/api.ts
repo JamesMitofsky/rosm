@@ -1,6 +1,6 @@
 "use client";
 
-// Single entry point for talking to the ROSM backend (the Next.js `/api` routes).
+// Single entry point for talking to the Fountain Mapper backend (the Next.js `/api` routes).
 //
 // On the web the app and its API share an origin, so the base is empty and the
 // httpOnly OSM cookie carries auth automatically. In the native (Capacitor) build

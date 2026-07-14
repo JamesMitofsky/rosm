@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Offline — ROSM",
+  title: "Offline — Fountain Mapper",
 };
 
 export default function OfflinePage() {
@@ -15,7 +15,7 @@ export default function OfflinePage() {
         This page isn&apos;t cached yet. Routes and tiles you&apos;ve already loaded stay available
         — reconnect to load anything new.
       </p>
-      <p className="text-xs text-[#b9b8ac]/70">ROSM keeps working in the field.</p>
+      <p className="text-xs text-[#b9b8ac]/70">Fountain Mapper keeps working in the field.</p>
     </main>
   );
 }

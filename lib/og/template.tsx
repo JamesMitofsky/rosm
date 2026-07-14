@@ -14,7 +14,7 @@ import { ImageResponse } from "next/og";
 
 export const ogSize = { width: 1200, height: 630 };
 export const ogContentType = "image/png";
-export const ogAlt = "ROSM — Running for Open-Sourced Maps";
+export const ogAlt = "Fountain Mapper — Running for Open-Sourced Maps";
 
 const PAPER = "#f7f2e8";
 const PAPER_LINE = "#d6cdb6";

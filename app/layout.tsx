@@ -22,7 +22,7 @@ const body = localFont({
   display: "swap",
 });
 
-const APP_NAME = "ROSM";
+const APP_NAME = "Fountain Mapper";
 const APP_DESCRIPTION =
   "Turn your run into open-map fieldwork. Plan a route past unverified OpenStreetMap points, run it with turn-by-turn cues, and fix the map from the ground.";
 
@@ -38,8 +38,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: APP_NAME,
   title: {
-    default: "ROSM — Running for Open-Sourced Maps",
-    template: "%s · ROSM",
+    default: "Fountain Mapper — Running for Open-Sourced Maps",
+    template: "%s · Fountain Mapper",
   },
   description: APP_DESCRIPTION,
   manifest: "/manifest.webmanifest",

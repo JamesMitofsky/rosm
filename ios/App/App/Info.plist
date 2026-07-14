@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>ROSM</string>
+        <string>Fountain Mapper</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -59,11 +59,11 @@
 		</dict>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ROSM uses your location to guide you along your route and to record the fountains you survey at the right spot on the map.</string>
+	<string>Fountain Mapper uses your location to guide you along your route and to record the fountains you survey at the right spot on the map.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>ROSM keeps tracking your route while the app is in the background or your screen is off, so your run and the points you survey are recorded even with the phone in your pocket.</string>
+	<string>Fountain Mapper keeps tracking your route while the app is in the background or your screen is off, so your run and the points you survey are recorded even with the phone in your pocket.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>ROSM uses the compass to show which way you're facing while navigating to the next point.</string>
+	<string>Fountain Mapper uses the compass to show which way you're facing while navigating to the next point.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

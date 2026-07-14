@@ -14,7 +14,7 @@ export function canShare(): boolean {
 export async function shareRun(url: string, text: string): Promise<void> {
   try {
     const { Share } = await import("@capacitor/share");
-    await Share.share({ title: "ROSM run", text, url });
+    await Share.share({ title: "Fountain Mapper run", text, url });
   } catch {
     /* user cancelled or share unavailable — ignore */
   }

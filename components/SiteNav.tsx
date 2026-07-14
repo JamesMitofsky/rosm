@@ -7,6 +7,8 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { CompassIcon, HouseIcon, ListIcon, QuestionIcon, XIcon } from "@phosphor-icons/react";
 import { MENU_ROW_CLASS } from "@/components/AccountChip";
+import { useOsmStatus } from "@/components/OsmStatus";
+import { heroFont } from "@/lib/heroFont";
 
 // Hydration-safe client detection: returns false during SSR / first paint,
 // true once mounted on the client — without setState-in-effect.
@@ -35,6 +37,9 @@ export default function SiteNav() {
   const mounted = useMounted();
   // Current route drives the active-link bolding.
   const pathname = usePathname();
+  // Portal CTA reflects auth: "Login" when signed out, "Mapper" once connected.
+  const { status } = useOsmStatus();
+  const portalLabel = status?.loggedIn ? "Verification Tools" : "Login";
 
   // Lock body scroll and wire Esc-to-close while the drawer is open.
   useEffect(() => {
@@ -53,15 +58,15 @@ export default function SiteNav() {
 
   return (
     <>
-      <header className="border-paper-line bg-paper/85 sticky top-0 z-[110] border-b pt-[env(safe-area-inset-top)] backdrop-blur-md">
+      <header className="bg-paper-deep sticky top-0 z-[110] pt-[env(safe-area-inset-top)] shadow-md">
         <nav className="mx-auto max-w-6xl px-5">
           <div className="flex items-center justify-between py-4">
             <Link href="/" className="flex items-center gap-5" onClick={() => setOpen(false)}>
               <span className="flex items-center gap-2.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icons/icon.svg" alt="" className="h-8 w-auto" />
-                <span className="font-display text-ink text-2xl font-bold tracking-tight">
-                  ROSM
+                <img src="/icons/icon.svg" alt="Fountain Mapper" className="h-8 w-auto" />
+                <span className={`${heroFont.className} text-ink text-3xl tracking-tight`}>
+                  Run Verified Maps
                 </span>
               </span>
             </Link>
@@ -100,8 +105,10 @@ export default function SiteNav() {
                   className={`inline-flex items-center text-base font-semibold whitespace-nowrap transition ${
                     "cta" in l && l.cta
                       ? "border-ink bg-ink text-paper hover:bg-ink-soft rounded-sm border px-5 py-2 font-bold"
-                      : `px-1 py-2 underline underline-offset-4 ${
-                          pathname === href ? "text-ink font-bold" : "text-ink-dim hover:text-ink"
+                      : `px-1 py-2 ${
+                          pathname === href
+                            ? "decoration-sky-deep text-ink font-bold underline decoration-2 underline-offset-4"
+                            : "text-ink-dim hover:text-ink"
                         }`
                   }`}
                 >
@@ -110,9 +117,9 @@ export default function SiteNav() {
               ))}
               <Link
                 href="/mapping-portal"
-                className="bg-sky-deep text-paper hover:bg-sky-deep/90 inline-flex items-center rounded-sm px-5 py-2 text-base font-bold whitespace-nowrap transition"
+                className="border-sky-deep text-sky-deep hover:bg-sky-deep hover:text-paper inline-flex items-center rounded-sm border px-5 py-2 text-base font-bold whitespace-nowrap transition"
               >
-                Mapping portal
+                {portalLabel}
               </Link>
             </div>
           </div>
@@ -161,9 +168,9 @@ export default function SiteNav() {
                     <Link
                       href="/mapping-portal"
                       onClick={() => setOpen(false)}
-                      className="bg-sky-deep text-paper hover:bg-sky-deep/90 mt-4 inline-flex items-center justify-center rounded-sm px-5 py-3 text-base font-bold transition"
+                      className="border-sky-deep text-sky-deep hover:bg-sky-deep hover:text-paper mt-4 inline-flex items-center justify-center rounded-sm border px-5 py-3 text-base font-bold transition"
                     >
-                      Mapping portal
+                      {portalLabel}
                     </Link>
                   </div>
                 </motion.div>
