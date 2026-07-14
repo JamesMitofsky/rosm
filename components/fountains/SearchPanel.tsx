@@ -3,7 +3,7 @@
 import FilterPills from "@/components/fountains/FilterPills";
 import SearchProgress from "@/components/fountains/SearchProgress";
 import ErrorNotice from "@/components/ui/ErrorNotice";
-import type { Counts, Svc, Water } from "@/lib/fountainFilters";
+import type { Counts, Water } from "@/lib/fountainFilters";
 
 // Radius for GPS-anchored searches. Widening happens by panning the map and
 // hitting "Search this area", so this is no longer editable.
@@ -15,8 +15,6 @@ export default function SearchPanel({
   busy,
   err,
   counts,
-  svc,
-  setSvc,
   water,
   setWater,
   onSearch,
@@ -24,8 +22,6 @@ export default function SearchPanel({
   busy: boolean;
   err: string | null;
   counts: Counts;
-  svc: Set<Svc>;
-  setSvc: (s: Set<Svc>) => void;
   water: Set<Water>;
   setWater: (s: Set<Water>) => void;
   onSearch: () => void;
@@ -33,7 +29,7 @@ export default function SearchPanel({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <FilterPills svc={svc} setSvc={setSvc} water={water} setWater={setWater} counts={counts} />
+        <FilterPills water={water} setWater={setWater} counts={counts} />
 
         {/* Filtering is client-side display only — results are already loaded, so
             there's no search button. A running search still narrates itself. */}

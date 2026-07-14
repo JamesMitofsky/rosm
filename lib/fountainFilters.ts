@@ -8,8 +8,6 @@ export type Water = "human" | "dog";
 // A fountain with its distance and its filter classifications, precomputed once.
 export type Ranked = { f: Fountain; distM: number | null; svc: Svc; water: Water };
 export type Counts = {
-  inN: number;
-  outN: number;
   humanN: number;
   dogN: number;
 };
@@ -47,14 +45,10 @@ export function rankFountains(fountains: Fountain[], anchor: Pt | null): Ranked[
 
 // Per-category totals for the filter counts (independent of the other dimensions).
 export function countBy(ranked: Ranked[]): Counts {
-  const c: Counts = { inN: 0, outN: 0, humanN: 0, dogN: 0 };
-  for (const r of ranked) {
-    if (r.svc === "in") c.inN++;
-    else c.outN++;
-    if (r.water === "human") c.humanN++;
-    else c.dogN++;
-  }
-  return c;
+  return {
+    humanN: ranked.filter((r) => r.water === "human").length,
+    dogN: ranked.filter((r) => r.water === "dog").length,
+  };
 }
 
 // Toggle a value in a Set-typed filter without mutating the original.

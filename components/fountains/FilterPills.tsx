@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { CheckIcon } from "@phosphor-icons/react";
-import { toggled, type Counts, type Svc, type Water } from "@/lib/fountainFilters";
+import { toggled, type Counts, type Water } from "@/lib/fountainFilters";
 
 function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -47,36 +47,16 @@ function Pill({
 }
 
 export default function FilterPills({
-  svc,
-  setSvc,
   water,
   setWater,
   counts,
 }: {
-  svc: Set<Svc>;
-  setSvc: (s: Set<Svc>) => void;
   water: Set<Water>;
   setWater: (s: Set<Water>) => void;
   counts: Counts;
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <FilterGroup label="Status">
-        <Pill
-          checked={svc.has("in")}
-          count={counts.inN}
-          onChange={() => setSvc(toggled(svc, "in"))}
-        >
-          In service
-        </Pill>
-        <Pill
-          checked={svc.has("out")}
-          count={counts.outN}
-          onChange={() => setSvc(toggled(svc, "out"))}
-        >
-          Out of service
-        </Pill>
-      </FilterGroup>
       <FilterGroup label="Intended for">
         <Pill
           checked={water.has("human")}

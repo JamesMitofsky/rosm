@@ -21,7 +21,7 @@ import FountainPopup from "@/components/fountains/FountainPopup";
 import SearchPanel, { DEFAULT_RADIUS_MI } from "@/components/fountains/SearchPanel";
 import { EDIT_COLOR, EDIT_LABEL } from "@/lib/editStatus";
 import { ptLabel } from "@/lib/pointTypes";
-import { countBy, rankFountains, type Ranked, type Svc, type Water } from "@/lib/fountainFilters";
+import { countBy, rankFountains, type Ranked, type Water } from "@/lib/fountainFilters";
 import { BUCKET_COLOR, bucketOf } from "@/components/FreshnessLegend";
 import { apiFetch } from "@/lib/api";
 import {
@@ -139,9 +139,9 @@ export default function FountainMap({
   // Radius for GPS-anchored searches. No longer user-editable — panning the
   // map and hitting "Search this area" is the way to widen.
   const defaultRadiusM = milesToMeters(defaultRadiusMi);
-  // Filters: default to in-service, human water. Verification age is no longer a
-  // filter — it's shown on the map via marker color instead.
-  const [svc, setSvc] = useState<Set<Svc>>(() => new Set<Svc>(["in"]));
+  // Filter: default to human water. Service status is no longer a filter —
+  // out-of-service points always show, dimmed + gray. Verification age isn't a
+  // filter either; it's shown on the map via marker color.
   const [water, setWater] = useState<Set<Water>>(() => new Set<Water>(["human"]));
   // The search/filter surface. Stays closed until the location-consent gate is
   // resolved, then collapses to a reopen button once a search succeeds.
@@ -380,10 +380,7 @@ export default function FountainMap({
 
   const counts = useMemo(() => countBy(ranked), [ranked]);
 
-  const visible = useMemo(
-    () => ranked.filter((r) => svc.has(r.svc) && water.has(r.water)),
-    [ranked, svc, water],
-  );
+  const visible = useMemo(() => ranked.filter((r) => water.has(r.water)), [ranked, water]);
 
   const markers: MapMarker[] = useMemo(() => {
     const edits = editable?.edits;
@@ -431,8 +428,6 @@ export default function FountainMap({
         busy={busy}
         err={err}
         counts={counts}
-        svc={svc}
-        setSvc={setSvc}
         water={water}
         setWater={setWater}
         onSearch={() => search()}
