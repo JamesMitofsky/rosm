@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import OsmSignInLink from "@/components/OsmSignInLink";
 
-export type OsmStatus = { loggedIn: boolean; apiBase: string; live: boolean };
+export type OsmStatus = { loggedIn: boolean; apiBase: string; live: boolean; dryRun?: boolean };
 
 export function useOsmStatus() {
   const [status, setStatus] = useState<OsmStatus | null>(null);

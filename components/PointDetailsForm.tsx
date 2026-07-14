@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { Audience, EditExtras } from "@/lib/schemas";
+import type { Audience, Dispenser, EditExtras } from "@/lib/schemas";
 import { audienceFromTags } from "@/lib/audience";
+import { dispenserFromTags } from "@/lib/dispenser";
 import AudienceToggle from "@/components/AudienceToggle";
+import DispenserToggle from "@/components/DispenserToggle";
 
 // The survey-details form: audience (humans/dogs/both), seasonal, public note,
 // and a single submit. It's the second step of PointPopup's confirm flow and
@@ -16,21 +18,27 @@ export default function PointDetailsForm({
   busy,
   submitLabel,
   submitIcon,
+  submitClassName = "bg-green-600 hover:bg-green-700",
   onSubmit,
 }: {
   tags: Record<string, string>;
   busy: boolean;
   submitLabel: string;
   submitIcon?: ReactNode;
+  // Colour of the final submit CTA. Green (default) confirms working; a caller
+  // marking the point out of order passes an amber variant so the action reads
+  // as a downgrade, not a confirmation.
+  submitClassName?: string;
   onSubmit: (extras?: EditExtras) => void;
 }) {
   const [seasonal, setSeasonal] = useState(tags.seasonal === "yes");
   const [audience, setAudience] = useState<Audience>(audienceFromTags(tags));
+  const [dispenser, setDispenser] = useState<Dispenser>(dispenserFromTags(tags));
   const [note, setNote] = useState(tags.note ?? "");
 
   function buildExtras(): EditExtras | undefined {
     const trimmed = note.trim();
-    const extras: EditExtras = { audience };
+    const extras: EditExtras = { audience, dispenser };
     if (seasonal) extras.seasonal = true;
     if (trimmed) extras.note = trimmed;
     return Object.keys(extras).length ? extras : undefined;
@@ -39,6 +47,7 @@ export default function PointDetailsForm({
   return (
     <div className="flex flex-col gap-2.5">
       <AudienceToggle value={audience} onChange={setAudience} />
+      <DispenserToggle value={dispenser} onChange={setDispenser} />
       <label className="flex items-center gap-2 text-xs text-neutral-700">
         <input
           type="checkbox"
@@ -59,7 +68,7 @@ export default function PointDetailsForm({
       <button
         disabled={busy}
         onClick={() => onSubmit(buildExtras())}
-        className="flex items-center justify-center gap-1.5 rounded-md bg-green-600 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50"
+        className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50 ${submitClassName}`}
       >
         {submitIcon} {submitLabel}
       </button>

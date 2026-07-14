@@ -1,3 +1,5 @@
+// HUMAN ONLY FILE. AI should never edit.
+//
 // OSM point types selectable in the planner.
 //
 // Ordering is intentional: the entries most likely to be mapped on a running

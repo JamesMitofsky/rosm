@@ -19,14 +19,27 @@ describe("editSummary", () => {
       `confirmed · check_date=${T} · drinking_water=no · dog=yes`,
     );
     expect(editSummary("confirm", "amenity", T, { audience: "humans" })).toBe(
-      `confirmed · check_date=${T} · drinking_water=yes · dog=no`,
+      `confirmed · check_date=${T} · dog=no`,
     );
     expect(editSummary("confirm", "amenity", T, { audience: "both" })).toBe(
-      `confirmed · check_date=${T} · drinking_water=yes · dog=yes`,
+      `confirmed · check_date=${T} · dog=yes`,
     );
     expect(editSummary("removed", "amenity", T, { audience: "dogs" })).not.toContain(
       "drinking_water",
     );
+  });
+
+  it("appends dispenser tags only on confirm", () => {
+    expect(editSummary("confirm", "amenity", T, { dispenser: "bubbler" })).toBe(
+      `confirmed · check_date=${T} · fountain=bubbler · bottle=no`,
+    );
+    expect(editSummary("confirm", "amenity", T, { dispenser: "bottle" })).toBe(
+      `confirmed · check_date=${T} · fountain=bottle_refill`,
+    );
+    expect(editSummary("confirm", "amenity", T, { dispenser: "both" })).toBe(
+      `confirmed · check_date=${T} · fountain=bubbler · bottle=yes`,
+    );
+    expect(editSummary("removed", "amenity", T, { dispenser: "both" })).not.toContain("bottle");
   });
 
   it("uses the primary tag key in lifecycle summaries", () => {

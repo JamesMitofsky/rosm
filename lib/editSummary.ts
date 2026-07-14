@@ -31,10 +31,19 @@ export function editSummary(
     base += " · seasonal=yes";
   }
   if (extras?.audience && action === "confirm") {
-    const humanOk = extras.audience !== "dogs";
-    base += ` · drinking_water=${humanOk ? "yes" : "no"} · dog=${
-      extras.audience === "humans" ? "no" : "yes"
-    }`;
+    // drinking_water=yes is redundant on a drinking_water primary, so only the
+    // informative =no (dogs-only) is surfaced; dog=* always is.
+    if (extras.audience === "dogs") base += " · drinking_water=no";
+    base += ` · dog=${extras.audience === "humans" ? "no" : "yes"}`;
+  }
+  if (extras?.dispenser && action === "confirm") {
+    // bottle=* is redundant on fountain=bottle_refill, so surface it only on a
+    // bubbler (=yes for "both", =no for bubbler-only).
+    if (extras.dispenser === "bottle") {
+      base += " · fountain=bottle_refill";
+    } else {
+      base += ` · fountain=bubbler · bottle=${extras.dispenser === "both" ? "yes" : "no"}`;
+    }
   }
   if (extras?.note) base += " · note added";
   return base;

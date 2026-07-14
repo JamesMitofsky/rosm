@@ -9,6 +9,16 @@ export const API_BASE = process.env.OSM_API_BASE || "https://api.openstreetmap.o
 const CLIENT_ID = process.env.OSM_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.OSM_CLIENT_SECRET || ""; // optional (confidential client)
 const SCOPE = "read_prefs write_api";
+
+// Dry run (preview): keep real OAuth + reads, but stub every write so nothing
+// reaches the OSM map. Lets the full survey flow run against live data on a
+// preview deploy without persisting any edit. Reads (getNode/getNodeVersion)
+// stay real. Enable with OSM_DRY_RUN=1 in the environment.
+export const DRY_RUN = process.env.OSM_DRY_RUN === "1";
+// Sentinels the stubbed writes return. Positive so they never trip the falsy
+// `!changesetId` / nullish-reuse checks the way 0 would.
+const DRY_RUN_CHANGESET = 999999999;
+const DRY_RUN_NODE_ID = 999999999;
 // OSM `created_by` changeset tag — the editor/app attribution shown on every
 // changeset we open. Client-controlled (nothing OSM-side); we set it here. Uses
 // the brand name so app edits read as "Run Verified Fountains" on osm.org, not the repo slug.
@@ -102,6 +112,7 @@ function escapeXml(s: string): string {
 
 // ---- changeset ----
 export async function openChangeset(token: string, comment: string): Promise<number> {
+  if (DRY_RUN) return DRY_RUN_CHANGESET;
   const xml = `<osm><changeset>
     <tag k="created_by" v="${escapeXml(CREATED_BY)}"/>
     <tag k="comment" v="${escapeXml(comment)}"/>
@@ -116,6 +127,7 @@ export async function openChangeset(token: string, comment: string): Promise<num
 }
 
 export async function closeChangeset(token: string, id: number): Promise<void> {
+  if (DRY_RUN) return;
   const res = await fetch(`${API_BASE}/api/0.6/changeset/${id}/close`, {
     method: "PUT",
     headers: auth(token),
@@ -185,6 +197,7 @@ export async function putNode(
   node: NodeData,
   changesetId: number,
 ): Promise<number> {
+  if (DRY_RUN) return node.version + 1;
   const xml = `<osm><node id="${id}" version="${node.version}" lat="${node.lat}" lon="${node.lon}" changeset="${changesetId}">${tagsXml(node.tags)}</node></osm>`;
   const res = await fetch(`${API_BASE}/api/0.6/node/${id}`, {
     method: "PUT",
@@ -203,6 +216,7 @@ export async function deleteNode(
   node: NodeData,
   changesetId: number,
 ): Promise<number> {
+  if (DRY_RUN) return node.version + 1;
   const xml = `<osm><node id="${id}" version="${node.version}" lat="${node.lat}" lon="${node.lon}" changeset="${changesetId}"/></osm>`;
   const res = await fetch(`${API_BASE}/api/0.6/node/${id}`, {
     method: "DELETE",
@@ -222,6 +236,7 @@ export async function createNode(
   tags: Record<string, string>,
   changesetId: number,
 ): Promise<number> {
+  if (DRY_RUN) return DRY_RUN_NODE_ID;
   const xml = `<osm><node lat="${lat}" lon="${lon}" changeset="${changesetId}">${tagsXml(tags)}</node></osm>`;
   const res = await fetch(`${API_BASE}/api/0.6/node/create`, {
     method: "PUT",
@@ -269,18 +284,60 @@ export function applyAction(
   }
   // Audience (humans / dogs / both) → drinking_water=* + dog=*, only meaningful
   // while the source still exists (confirm). amenity=drinking_water / =water_point
-  // self-assert human potability, so when the water is dogs-only demote that
-  // primary to a neutral physical feature (man_made=water_tap) before flagging
-  // drinking_water=no, per the OSM wiki. Other primaries (amenity=fountain,
-  // natural=spring) don't imply potability, so keep them and only set the flags.
+  // self-assert human potability, so a dogs-only source can't wear them — retag
+  // as amenity=watering_place (the OSM primary for an animal drinking place). The
+  // inverse restores amenity=drinking_water when a previously dogs-only point is
+  // re-surveyed as human-potable, so the toggle round-trips instead of one-way
+  // demoting. Other primaries (amenity=fountain, natural=spring) don't imply
+  // potability, so keep them and only set the flags.
+  //
+  // drinking_water=yes is redundant on a primary that already asserts human
+  // potability (amenity=drinking_water / water_point), so we drop it there and
+  // only state potability explicitly when the primary doesn't imply it.
+  // drinking_water=no is always informative (dogs-only / non-potable), so keep it.
   if (extras?.audience && action === "confirm") {
     const humanOk = extras.audience !== "dogs";
     if (!humanOk && (next.amenity === "drinking_water" || next.amenity === "water_point")) {
-      next.man_made = "water_tap";
-      delete next.amenity;
+      next.amenity = "watering_place";
+    } else if (humanOk && next.amenity === "watering_place") {
+      next.amenity = "drinking_water";
     }
-    next.drinking_water = humanOk ? "yes" : "no";
+    const primaryAssertsPotable =
+      next.amenity === "drinking_water" || next.amenity === "water_point";
+    if (!humanOk) {
+      next.drinking_water = "no";
+    } else if (primaryAssertsPotable) {
+      delete next.drinking_water;
+    } else {
+      next.drinking_water = "yes";
+    }
     next.dog = extras.audience === "humans" ? "no" : "yes";
+  }
+  // Dispenser (bubbler / bottle-filler / both), only meaningful while the source
+  // still exists (confirm). Follows the OSM wiki: fountain=* is the physical
+  // archetype (bubbler jets up to drink from; bottle_refill jets down to fill a
+  // bottle) and bottle=yes/no is an orthogonal "can you refill a bottle here".
+  // "both" = a bubbler you can also fill bottles at. Only overwrite fountain=*
+  // when it's unset or already a generic drinking type, so a regional value
+  // (nasone, wallace, …) survives a re-survey.
+  //
+  // bottle=* is redundant on fountain=bottle_refill (which already implies bottle
+  // refilling), so only state it on a bubbler: =yes when it also fills bottles
+  // ("both"), =no when it doesn't. If a regional archetype was preserved instead
+  // of bottle_refill, bottle=yes is still informative and is kept.
+  if (extras?.dispenser && action === "confirm") {
+    const desired = extras.dispenser === "bottle" ? "bottle_refill" : "bubbler";
+    const cur = next.fountain;
+    if (cur == null || cur === "bubbler" || cur === "bottle_refill") next.fountain = desired;
+    if (extras.dispenser === "bubbler") {
+      next.bottle = "no";
+    } else if (extras.dispenser === "both") {
+      next.bottle = "yes";
+    } else if (next.fountain === "bottle_refill") {
+      delete next.bottle;
+    } else {
+      next.bottle = "yes";
+    }
   }
   return next;
 }

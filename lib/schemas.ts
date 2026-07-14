@@ -1,3 +1,5 @@
+// HUMAN ONLY FILE. AI should never edit.
+
 import { z } from "zod";
 import { MAX_SEARCH_RADIUS_M, boundsHalfDiagonalM } from "./geo";
 
@@ -21,9 +23,14 @@ export type EditAction = z.infer<typeof EditAction>;
 export const Audience = z.enum(["humans", "dogs", "both"]);
 export type Audience = z.infer<typeof Audience>;
 
+// How the water is dispensed. Maps to fountain=bubbler + bottle=* on the node.
+export const Dispenser = z.enum(["bubbler", "bottle", "both"]);
+export type Dispenser = z.infer<typeof Dispenser>;
+
 export const EditExtras = z.object({
   seasonal: z.boolean().optional(), // seasonal=yes: source runs only part of the year
   audience: Audience.optional(), // humans / dogs / both → drinking_water + dog tags
+  dispenser: Dispenser.optional(), // bubbler / bottle-filler / both → fountain + bottle tags
   note: z.string().max(255).optional(), // OSM note=* : public free-text on the node
 });
 export type EditExtras = z.infer<typeof EditExtras>;

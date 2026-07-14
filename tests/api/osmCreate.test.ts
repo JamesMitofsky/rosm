@@ -104,7 +104,6 @@ describe("POST /api/osm/create", () => {
     expect((await res.json()).tags).toEqual({
       amenity: "drinking_water",
       check_date: today,
-      drinking_water: "yes",
       dog: "yes",
       seasonal: "yes",
       note: "behind the kiosk",
@@ -115,13 +114,13 @@ describe("POST /api/osm/create", () => {
     expect(xml).toContain('<tag k="seasonal" v="yes"/>');
   });
 
-  it("demotes a dogs-only drinking_water create to man_made=water_tap", async () => {
+  it("retags a dogs-only drinking_water create as amenity=watering_place", async () => {
     fetchSeq(text("88"), text("123456"));
 
     const res = await POST(post({ ...validBody, extras: { audience: "dogs" } }));
     expect(res.status).toBe(200);
     expect((await res.json()).tags).toEqual({
-      man_made: "water_tap",
+      amenity: "watering_place",
       check_date: today,
       drinking_water: "no",
       dog: "yes",
