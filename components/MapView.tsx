@@ -100,6 +100,9 @@ type Props = {
   fitPoints?: [number, number][];
   // Tuning for the `fitPoints` bounding-box fit. Defaults to a roomy frame.
   fitOptions?: { padding?: [number, number]; maxZoom?: number };
+  // Animate a tapped marker to the viewport center (keeping zoom). Off by default
+  // so the run/planner maps don't move under the user; the demo opts in.
+  centerOnSelect?: boolean;
   className?: string;
 };
 
@@ -348,6 +351,7 @@ export default function MapView({
   animateRecenter = false,
   fitPoints,
   fitOptions,
+  centerOnSelect = false,
   className,
 }: Props) {
   const mapRef = useRef<MapRef>(null);
@@ -457,6 +461,31 @@ export default function MapView({
     },
     [markerById, onMapClick, mapClickPopup],
   );
+
+  // Center the open popup in the viewport (demo maps opt in via `centerOnSelect`).
+  // The popup anchors above its pin, so centering the pin would push the popup
+  // toward the top. Measure the rendered popup after paint and fly the map so the
+  // popup's own box lands at the viewport center — the pin follows just below.
+  useEffect(() => {
+    if (!centerOnSelect || !selectedMarker) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const raf = requestAnimationFrame(() => {
+      const popupEl = map.getContainer().querySelector(".maplibregl-popup") as HTMLElement | null;
+      // Distance from the pin up to the popup's vertical center: the 14px anchor
+      // offset plus half the popup's height. Push the pin down by that much so the
+      // popup box straddles center. Fall back to a bare pin-center if unmeasured.
+      const offsetY = popupEl ? 14 + popupEl.offsetHeight / 2 : 0;
+      map.flyTo({
+        center: [selectedMarker.lon, selectedMarker.lat],
+        offset: [0, offsetY],
+        duration: 600,
+        essential: true,
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, centerOnSelect]);
 
   // Report the settled view to the caller. Fired on load (so the initial
   // viewport is known before any movement) and after every pan/zoom.

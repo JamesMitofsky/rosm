@@ -474,6 +474,7 @@ export default function DemoRunMap({ className }: { className?: string }) {
         markers={markers}
         userPos={userPos}
         userHeading={userHeading}
+        centerOnSelect
       />
       {/* Corner label so the hero map reads as a live, tappable demo rather than a
           static screenshot. Non-interactive — it never intercepts map gestures. */}
