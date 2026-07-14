@@ -126,7 +126,7 @@ export default function LandingPage() {
             <motion.h1
               {...fadeUp}
               transition={{ ...fadeUp.transition, delay: 0.1 }}
-              className={`${heroFont.className} max-w-5xl text-[clamp(3.6rem,12vw,4.6rem)] leading-[0.9] font-bold tracking-tight md:col-start-2 md:row-start-1 md:self-end`}
+              className={`${heroFont.className} max-w-5xl text-[clamp(2.6rem,12vw,4.6rem)] leading-[0.9] font-bold tracking-tight md:col-start-2 md:row-start-1 md:self-end`}
             >
               Plan routes.
               <br />
@@ -150,11 +150,11 @@ export default function LandingPage() {
               className="flex flex-col items-start gap-6 md:col-start-2 md:row-start-2 md:self-start"
             >
               <p className="text-ink-dim max-w-xl text-xl leading-relaxed">
-                Contribute to your community with local data
+                Contribute to your community with local&nbsp;data
               </p>
               <Link
                 href="/mapping-portal"
-                className="bg-sky-deep text-paper hover:bg-sky-deep/90 inline-flex items-center gap-2.5 rounded-sm px-6 py-3 text-lg font-bold transition"
+                className="bg-sky-deep text-paper hover:bg-sky-deep/90 inline-flex items-center gap-2.5 self-end rounded-sm px-6 py-3 text-lg font-bold transition md:self-start"
               >
                 Begin Verifying
                 <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden className="h-6 w-6">

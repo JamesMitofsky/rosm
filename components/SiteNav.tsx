@@ -65,7 +65,9 @@ export default function SiteNav() {
               <span className="flex items-center gap-2.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/icons/icon.svg" alt="Run Verified Fountains" className="h-8 w-auto" />
-                <span className={`${heroFont.className} text-ink text-3xl tracking-tight`}>
+                <span
+                  className={`${heroFont.className} text-ink text-2xl tracking-tight md:text-3xl`}
+                >
                   Run Verified Fountains
                 </span>
               </span>
