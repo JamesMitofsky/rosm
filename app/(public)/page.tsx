@@ -177,7 +177,7 @@ export default function LandingPage() {
               <h2
                 className={`${heroFont.className} text-[clamp(2rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight`}
               >
-                What&apos;s the problem?
+                The Problem
               </h2>
               <p className="text-ink-dim mt-6 text-lg leading-relaxed">
                 Despite DC&apos;s many public drinking fountains, there is no reliable way to know

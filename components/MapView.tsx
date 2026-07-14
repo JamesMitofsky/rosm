@@ -454,7 +454,11 @@ export default function MapView({
       // report the tap straight to the caller (drop-a-pin).
       setSelected(null);
       if (mapClickPopup) {
-        setPendingTap({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+        // Toggle: a tap while the popup is open dismisses it rather than moving
+        // it to the new spot.
+        setPendingTap((prev) =>
+          prev ? null : { lat: e.lngLat.lat, lon: e.lngLat.lng },
+        );
         return;
       }
       onMapClick?.(e.lngLat.lat, e.lngLat.lng);
