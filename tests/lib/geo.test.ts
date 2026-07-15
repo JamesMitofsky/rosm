@@ -10,8 +10,11 @@ import {
   milesToMeters,
   nearestCumDistOnPath,
   pathLength,
+  pointAtDistOnPath,
+  routeHeadingAt,
   toDeg,
   toRad,
+  type Pt,
 } from "@/lib/geo";
 
 // 1 degree of latitude (or of longitude at the equator) on the R=6371000 sphere.
@@ -236,5 +239,88 @@ describe("nearestCumDistOnPath", () => {
     ];
     const d = nearestCumDistOnPath(withDup, { lat: 0, lon: 0.0015 });
     expect(d).toBeCloseTo(0.0015 * M_PER_LON, 0);
+  });
+});
+
+describe("pointAtDistOnPath", () => {
+  // Straight path due east along the equator.
+  const path: [number, number][] = [
+    [0, 0],
+    [0.001, 0],
+    [0.002, 0],
+  ];
+
+  it("returns the start at/under zero distance", () => {
+    expect(pointAtDistOnPath(path, 0)).toEqual([0, 0]);
+    expect(pointAtDistOnPath(path, -50)).toEqual([0, 0]);
+  });
+
+  it("interpolates within a segment", () => {
+    // Half of the first segment (≈111 m) lands at lon 0.0005.
+    const [lon, lat] = pointAtDistOnPath(
+      path,
+      haversine({ lat: 0, lon: 0 }, { lat: 0, lon: 0.0005 }),
+    );
+    expect(lon).toBeCloseTo(0.0005, 6);
+    expect(lat).toBeCloseTo(0, 6);
+  });
+
+  it("clamps past the end to the last vertex", () => {
+    expect(pointAtDistOnPath(path, 1e6)).toEqual([0.002, 0]);
+  });
+
+  it("skips zero-length segments", () => {
+    const withDup: [number, number][] = [
+      [0, 0],
+      [0, 0],
+      [0.001, 0],
+    ];
+    const [lon] = pointAtDistOnPath(
+      withDup,
+      haversine({ lat: 0, lon: 0 }, { lat: 0, lon: 0.0005 }),
+    );
+    expect(lon).toBeCloseTo(0.0005, 6);
+  });
+});
+
+describe("routeHeadingAt", () => {
+  it("returns null for a route too short to have a direction", () => {
+    expect(routeHeadingAt([], { lat: 0, lon: 0 })).toBeNull();
+    expect(routeHeadingAt([[0, 0]], { lat: 0, lon: 0 })).toBeNull();
+  });
+
+  it("follows a straight leg due east (≈90°)", () => {
+    const path: [number, number][] = [
+      [0, 0],
+      [0.01, 0],
+    ];
+    expect(routeHeadingAt(path, { lat: 0, lon: 0.002 })).toBeCloseTo(90, 0);
+  });
+
+  it("gives the CURRENT leg's heading, not the crow-flies bearing to the end", () => {
+    // L-shaped route: due north up to the corner, then due east away from it. A
+    // runner partway up the first leg is heading north (0°) — even though the
+    // straight line to the destination points north-east. This is the exact bug:
+    // orient to the road you're on, not the diagonal to the goal.
+    const L: [number, number][] = [
+      [0, 0],
+      [0, 0.01], // corner, due north
+      [0.01, 0.01], // then due east
+    ];
+    const here: Pt = { lat: 0.002, lon: 0 }; // on the northbound leg
+    const heading = routeHeadingAt(L, here, 25);
+    expect(heading).toBeCloseTo(0, 0); // north, the current leg
+    // Sanity: the crow-flies bearing to the destination is clearly north-EAST,
+    // so the two genuinely differ.
+    expect(bearing(here, { lat: 0.01, lon: 0.01 })).toBeGreaterThan(40);
+  });
+
+  it("looks back along the final leg at the route's end", () => {
+    const path: [number, number][] = [
+      [0, 0],
+      [0.01, 0], // due east
+    ];
+    // Projecting at/past the last vertex: still resolves the eastbound heading.
+    expect(routeHeadingAt(path, { lat: 0, lon: 0.01 })).toBeCloseTo(90, 0);
   });
 });

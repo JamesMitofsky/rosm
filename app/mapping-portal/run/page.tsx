@@ -59,6 +59,8 @@ export default function RunPage() {
           line={session.line}
           userPos={session.userPos}
           userHeading={session.userHeading}
+          mapBearing={session.mapBearing}
+          followHeading
           mapClickPopup={(pt, close) => (
             // A bare map tap mid-run offers to create a new node of the surveyed
             // type right there — for points spotted off the route.

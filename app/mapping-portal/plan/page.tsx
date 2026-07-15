@@ -122,6 +122,18 @@ export default function PlannerPage() {
   // finished run (index past the last stop) is ignored so it can't hijack a
   // fresh planning session.
   useEffect(() => {
+    // A finished run left dirty in the module-singleton stores (e.g. the
+    // surveyor tapped "View this run", browsed away, then returned to /plan)
+    // must not hijack a fresh session. The stores outlive client-side
+    // navigation, so absent this only a full reload would clear them. An
+    // unfinished run (index before the last stop) is left intact so a
+    // mid-survey return drops straight back into it.
+    const dirty = useRun.getState();
+    if (dirty.hasPlan && dirty.index >= dirty.stops.length) {
+      session.reset();
+      usePlanner.getState().resetAfterRun();
+    }
+
     // Native: recover an interrupted run from the on-device archive (no server
     // run state). Web: read it back from /api/run. Deferred off the effect body so
     // the state update doesn't cascade-render synchronously.
@@ -209,6 +221,8 @@ export default function PlannerPage() {
           line={phase === "run" ? session.line : line}
           userPos={phase === "run" ? session.userPos : undefined}
           userHeading={phase === "run" ? session.userHeading : undefined}
+          mapBearing={phase === "run" ? session.mapBearing : undefined}
+          followHeading={phase === "run"}
           onMapClick={phase === "run" ? undefined : mapClick}
           mapClickPopup={
             phase === "map"

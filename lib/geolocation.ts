@@ -15,6 +15,7 @@ export type GeoPoint = {
   lat: number;
   lon: number;
   heading: number | null; // travel direction in degrees, present only while moving
+  speed?: number | null; // ground speed in m/s, null when the device can't report it
   accuracy?: number;
 };
 
@@ -57,15 +58,18 @@ type Coords = {
   latitude: number;
   longitude: number;
   heading?: number | null;
+  speed?: number | null;
   accuracy?: number | null;
 };
 
 function toPoint(c: Coords): GeoPoint {
   const h = c.heading;
+  const s = c.speed;
   return {
     lat: c.latitude,
     lon: c.longitude,
     heading: h != null && Number.isFinite(h) ? h : null,
+    speed: s != null && Number.isFinite(s) ? s : null,
     accuracy: c.accuracy ?? undefined,
   };
 }
@@ -117,6 +121,8 @@ export async function watchRunPosition(
               location.bearing != null && Number.isFinite(location.bearing)
                 ? location.bearing
                 : null,
+            speed:
+              location.speed != null && Number.isFinite(location.speed) ? location.speed : null,
             accuracy: location.accuracy ?? undefined,
           });
       },
