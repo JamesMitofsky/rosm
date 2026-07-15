@@ -28,77 +28,46 @@ afterEach(() => {
 });
 
 describe("useHeading — no compass support", () => {
-  it("falls back to the GPS travel heading", () => {
-    const { result } = renderHook(({ gps }) => useHeading(gps), {
-      initialProps: { gps: 123 as number | null },
-    });
-    expect(result.current.heading).toBe(123);
-    expect(result.current.needsCompassPermission).toBe(false);
-  });
-
-  it("returns null when neither source exists", () => {
-    const { result } = renderHook(() => useHeading(null));
+  it("returns null when no compass reading exists", () => {
+    const { result } = renderHook(() => useHeading());
     expect(result.current.heading).toBeNull();
-  });
-});
-
-describe("useHeading — movement picks the source", () => {
-  it("while moving, prefers the GPS travel course over the compass", () => {
-    installOrientation();
-    const { result } = renderHook(() => useHeading(30, true));
-    // GPS course wins even once a compass reading arrives.
-    fireOrientation({ webkitCompassHeading: 200 });
-    expect(result.current.heading).toBe(30);
-  });
-
-  it("while moving with no GPS course, falls back to the compass", () => {
-    installOrientation();
-    const { result } = renderHook(() => useHeading(null, true));
-    fireOrientation({ webkitCompassHeading: 200 });
-    expect(result.current.heading).toBe(200);
-  });
-
-  it("while still, the compass wins over a stale GPS course", () => {
-    installOrientation();
-    const { result } = renderHook(() => useHeading(30, false));
-    fireOrientation({ webkitCompassHeading: 200 });
-    expect(result.current.heading).toBe(200);
+    expect(result.current.needsCompassPermission).toBe(false);
   });
 });
 
 describe("useHeading — sensor available without a permission gate", () => {
   it("reads iOS-style webkitCompassHeading directly", () => {
     installOrientation();
-    const { result } = renderHook(() => useHeading(null));
+    const { result } = renderHook(() => useHeading());
     fireOrientation({ webkitCompassHeading: 42 });
     expect(result.current.heading).toBe(42);
   });
 
   it("inverts android-style absolute alpha into a clockwise heading", () => {
     installOrientation();
-    const { result } = renderHook(() => useHeading(null));
+    const { result } = renderHook(() => useHeading());
     fireOrientation({ alpha: 90, absolute: true });
     expect(result.current.heading).toBe(270);
   });
 
   it("ignores non-absolute alpha readings", () => {
     installOrientation();
-    const { result } = renderHook(() => useHeading(77));
+    const { result } = renderHook(() => useHeading());
     fireOrientation({ alpha: 90, absolute: false });
-    expect(result.current.heading).toBe(77); // still the GPS fallback
+    expect(result.current.heading).toBeNull();
   });
 
-  it("prefers the compass over the GPS heading once a fix arrives", () => {
+  it("tracks the compass as fixes arrive", () => {
     installOrientation();
-    const { result } = renderHook(() => useHeading(10));
-    expect(result.current.heading).toBe(10);
+    const { result } = renderHook(() => useHeading());
+    expect(result.current.heading).toBeNull();
     fireOrientation({ webkitCompassHeading: 200 });
     expect(result.current.heading).toBe(200);
   });
 
   it("stops listening after unmount", () => {
     installOrientation();
-    const { result, unmount } = renderHook(() => useHeading(null));
+    const { result, unmount } = renderHook(() => useHeading());
     fireOrientation({ webkitCompassHeading: 42 });
     expect(result.current.heading).toBe(42);
     unmount();
@@ -112,7 +81,7 @@ describe("useHeading — iOS 13+ permission gate", () => {
     const request = vi.fn(async () => "granted" as const);
     installOrientation(request);
 
-    const { result } = renderHook(() => useHeading(null));
+    const { result } = renderHook(() => useHeading());
     expect(result.current.needsCompassPermission).toBe(true);
 
     // Not listening yet: events are ignored until permission is granted.
@@ -129,16 +98,16 @@ describe("useHeading — iOS 13+ permission gate", () => {
     expect(result.current.heading).toBe(42);
   });
 
-  it("keeps the GPS fallback when permission is denied", async () => {
+  it("leaves the heading null when permission is denied", async () => {
     installOrientation(vi.fn(async () => "denied" as const));
 
-    const { result } = renderHook(() => useHeading(55));
+    const { result } = renderHook(() => useHeading());
     await act(async () => {
       await result.current.requestCompass();
     });
 
     fireOrientation({ webkitCompassHeading: 42 });
-    expect(result.current.heading).toBe(55);
+    expect(result.current.heading).toBeNull();
     expect(result.current.needsCompassPermission).toBe(false);
   });
 
@@ -149,10 +118,10 @@ describe("useHeading — iOS 13+ permission gate", () => {
       }),
     );
 
-    const { result } = renderHook(() => useHeading(55));
+    const { result } = renderHook(() => useHeading());
     await act(async () => {
       await result.current.requestCompass();
     });
-    expect(result.current.heading).toBe(55);
+    expect(result.current.heading).toBeNull();
   });
 });

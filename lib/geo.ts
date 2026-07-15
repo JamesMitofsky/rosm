@@ -14,12 +14,6 @@ export const MILES_TO_M = 1609.344;
 // is a real-world distance, the cap behaves identically on every screen size.
 export const MAX_SEARCH_RADIUS_M = 30_000;
 
-// Speed (m/s) at or above which we treat the user as *moving* rather than
-// standing still. ~0.5 m/s is a slow walk — below it GPS course-over-ground is
-// noise, so orientation should come from the device compass instead of travel
-// direction. Used to pick the heading source for the heading-up map.
-export const MOVE_MIN_SPEED = 0.5;
-
 export function toRad(d: number): number {
   return (d * Math.PI) / 180;
 }

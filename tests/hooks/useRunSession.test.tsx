@@ -59,8 +59,9 @@ vi.mock("@/lib/liveActivity", () => ({
 }));
 vi.mock("@/lib/confetti", () => ({ celebratePoint: vi.fn() }));
 vi.mock("@/lib/useHeading", () => ({
-  useHeading: (gps: number | null) => ({
-    heading: gps,
+  // Compass (device facing) only; independent of the GPS travel course now.
+  useHeading: () => ({
+    heading: 200,
     needsCompassPermission: false,
     requestCompass: vi.fn(),
   }),
@@ -218,7 +219,7 @@ describe("live guidance", () => {
     expect(result.current.bearingTo).toBeCloseTo(90, 1);
     expect(result.current.heading).toBe("E");
     expect(result.current.userPos).toEqual([0, 0.0005]);
-    expect(result.current.userHeading).toBe(45); // GPS heading via useHeading fallback
+    expect(result.current.userHeading).toBe(200); // compass (device facing), not the GPS course
     expect(result.current.arrived).toBe(false);
   });
 

@@ -18,20 +18,15 @@ function headingFromEvent(e: CompassEvent): number | null {
   return null;
 }
 
-// Resolves the orientation to show the user, blending two sources by movement:
-//   - `gpsHeading` = travel direction (course over ground), meaningful only while
-//     moving.
-//   - compass heading = where the phone is *pointed*, available at rest.
-// While `moving`, travel direction wins (heading-up nav follows where you're
-// going); when still it falls back to the compass. At rest we invert that —
-// the compass wins, since a stale GPS course would otherwise stick. Either
-// source falls through to the other when its own value is missing (compass
-// denied/unsupported, or no GPS course yet).
+// Reads the device compass heading (degrees, 0 = north, clockwise) — where the
+// phone is *pointed*. This drives the blue-dot cone so it shows the user's
+// facing; map rotation is handled separately from the GPS travel course. Returns
+// null when no absolute heading is available (compass denied/unsupported).
 //
 // On iOS the compass needs an explicit, user-gesture permission grant:
 // `needsPermission` is true until the caller invokes `requestPermission()` from
 // a tap handler.
-export function useHeading(gpsHeading: number | null, moving = false) {
+export function useHeading() {
   const [compassHeading, setCompassHeading] = useState<number | null>(null);
   const [needsPermission, setNeedsPermission] = useState(false);
 
@@ -77,9 +72,8 @@ export function useHeading(gpsHeading: number | null, moving = false) {
   }, [listen]);
 
   return {
-    // Moving → travel direction wins; still → compass wins. Each falls through
-    // to the other when its own reading is absent.
-    heading: moving ? (gpsHeading ?? compassHeading) : (compassHeading ?? gpsHeading),
+    // Device facing (compass); null until an absolute heading arrives.
+    heading: compassHeading,
     needsCompassPermission: needsPermission,
     requestCompass: requestPermission,
   };

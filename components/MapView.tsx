@@ -66,17 +66,16 @@ type Props = {
   userPos?: [number, number] | null;
   // Compass heading in degrees (0 = north, clockwise). Draws a direction cone.
   userHeading?: number | null;
-  // Deterministic map orientation (degrees, 0 = north, clockwise): the direction
-  // navigation is taking the user — e.g. the bearing to the next target. When set
-  // (and `followHeading`), the map rotates to THIS instead of the compass/GPS
-  // `userHeading`, so orientation never depends on a magnetometer. The blue-dot
-  // cone still shows `userHeading` (device facing) but relative to this rotation,
-  // so cone-up means "you're pointed where you're headed". Null falls back to
-  // `userHeading` for rotation (compass heading-up as before).
+  // Map orientation (degrees, 0 = north, clockwise): the GPS travel course — e.g.
+  // the route tangent or bearing to the next target. When set (and
+  // `followHeading`), the map rotates to THIS, so orientation is magnetometer-free
+  // and never uses the compass. The blue-dot cone still shows `userHeading`
+  // (device facing) relative to this rotation, so cone-up means "you're pointed
+  // where you're headed". Null leaves the map north-up (cone shows raw heading).
   mapBearing?: number | null;
-  // Rotate the whole map so heading is "up" (heading-up navigation). Rotation
-  // follows `mapBearing` when provided, else `userHeading`. Default false keeps
-  // the map north-up and the cone rotated to `userHeading` as before.
+  // Rotate the whole map so the travel course reads "up" (heading-up navigation).
+  // Rotation follows `mapBearing`; null leaves it north-up. Default false keeps
+  // the map north-up and the cone rotated to `userHeading`.
   followHeading?: boolean;
   onMapClick?: (lat: number, lon: number) => void;
   // When set, a tap on empty map opens a popup anchored at the tapped spot
@@ -438,13 +437,13 @@ export default function MapView({
   }, [recenterKey]);
 
   // Heading-up rotation: turn the map so the travel direction reads as "up".
-  // `mapBearing` (deterministic course to the next target) wins when supplied,
-  // else the compass/GPS `userHeading`. Programmatic bearing still works with
-  // touch-rotation disabled (that only blocks the gesture), and the recenter
-  // effect above never passes a bearing, so the two don't fight. A 2° deadband
-  // drops sensor jitter; rotate the short way. When follow turns off, ease back
-  // to north.
-  const rotateTo = mapBearing ?? userHeading;
+  // Always the GPS travel course via `mapBearing` — never the compass, so the map
+  // orientation is magnetometer-free. Null (no course yet) leaves the map
+  // north-up. Programmatic bearing still works with touch-rotation disabled (that
+  // only blocks the gesture), and the recenter effect above never passes a
+  // bearing, so the two don't fight. A 2° deadband drops jitter; rotate the short
+  // way. When follow turns off, ease back to north.
+  const rotateTo = mapBearing ?? null;
   useEffect(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
@@ -650,18 +649,19 @@ export default function MapView({
 
         {userPos && (
           <Marker longitude={userPos[1]} latitude={userPos[0]} anchor="center">
-            {/* Cone = device facing (`userHeading`) in the map's frame. Following
-                heading, the map is rotated to `rotateTo`, so the cone shows the
-                offset `userHeading - rotateTo` — 0 when they match (compass
-                heading-up), or "am I facing the target" when rotateTo is a
-                deterministic bearing. North-up, it's the raw heading. Null facing
-                hides the cone (orientation can still follow `mapBearing`). */}
+            {/* Cone = device facing (`userHeading`, compass) in the map's frame.
+                Following heading, the map is rotated to `rotateTo` (travel
+                course), so the cone shows the offset `userHeading - rotateTo` —
+                i.e. "am I facing where I'm headed". When there's no course yet
+                (`rotateTo` null) the map is north-up, so the cone shows the raw
+                compass heading. Null facing hides the cone (the map still follows
+                `mapBearing`). */}
             <UserDot
               heading={
                 userHeading == null
                   ? null
                   : followHeading
-                    ? userHeading - (rotateTo ?? userHeading)
+                    ? userHeading - (rotateTo ?? 0)
                     : userHeading
               }
             />

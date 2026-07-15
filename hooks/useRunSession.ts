@@ -10,7 +10,6 @@ import {
   haversine,
   nearestCumDistOnPath,
   routeHeadingAt,
-  MOVE_MIN_SPEED,
   type Pt,
 } from "@/lib/geo";
 import { ptLabel } from "@/lib/pointTypes";
@@ -45,16 +44,9 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const { status: osm, refresh } = useOsmStatus();
 
   const [pos, setPos] = useState<Pt | null>(null);
-  // GPS travel direction (only while moving) — orients the map/cone while moving.
+  // GPS travel direction (course over ground) — orients the heading-up map.
   const [gpsHeading, setGpsHeading] = useState<number | null>(null);
-  // Whether the user is moving — picks travel direction vs. device compass as the
-  // heading source (see useHeading).
-  const [moving, setMoving] = useState(false);
-  const {
-    heading: deviceHeading,
-    needsCompassPermission,
-    requestCompass,
-  } = useHeading(gpsHeading, moving);
+  const { heading: deviceHeading, needsCompassPermission, requestCompass } = useHeading();
   const [manualArrived, setManualArrived] = useState(false);
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -104,11 +96,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       (p) => {
         setPos({ lat: p.lat, lon: p.lon });
         // GPS heading is the travel direction in degrees, present only while
-        // moving — orients the heading-up map/cone while under way.
+        // moving — orients the heading-up map while under way.
         if (p.heading != null) setGpsHeading(p.heading);
-        // Speed is the primary movement signal; where a device omits it, browsers
-        // null out `heading` when near-stationary, so heading-presence is the backup.
-        setMoving(p.speed != null ? p.speed >= MOVE_MIN_SPEED : p.heading != null);
       },
       (msg) => setErr(`Location: ${msg}`),
     ).then((w) => {
@@ -530,15 +519,15 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     // Deterministic heading-up orientation, magnetometer-free: the direction the
     // route is taking the user (its tangent at the current position), so the road
     // ahead reads "up". Falls back to the crow-flies course to the target when
-    // off-route or the route is unavailable, then to null — where MapView drops
-    // back to the compass. The blue-dot cone still uses `userHeading` to show
-    // facing relative to this orientation.
+    // off-route, then to the raw GPS travel course, then null. Always the travel
+    // course — never the compass. The blue-dot cone uses `userHeading` (device
+    // facing) to show facing relative to this orientation.
     mapBearing:
       pos && run.routeCoords.length > 1
-        ? (routeHeadingAt(run.routeCoords, pos) ?? (target ? bearingTo : null))
+        ? (routeHeadingAt(run.routeCoords, pos) ?? (target ? bearingTo : gpsHeading))
         : pos && target
           ? bearingTo
-          : null,
+          : gpsHeading,
     needsCompassPermission,
     requestCompass,
     recenterKey,
