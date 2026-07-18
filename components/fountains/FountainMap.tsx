@@ -40,12 +40,11 @@ const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 const TAG = { key: "amenity", value: "drinking_water" } as const;
 
 // One message per acquisition-failure cause, so "allow location access" only
-// shows when permission is actually the problem (a GPS-less iPad failing to
+// shows when permission is actually the problem (a GPS-less device failing to
 // get a fix used to be blamed on permissions).
 const LOCATE_ERROR: Record<GeoErrorReason, string> = {
   denied:
-    "Location access is blocked for this site. Enable it in your browser or device settings " +
-    "(iPad: Settings → Privacy & Security → Location Services → Safari Websites), " +
+    "Location access is blocked for this site. Enable it in your browser or device settings, " +
     "or move the map and search the visible area instead.",
   unavailable:
     "Your device couldn't determine its position. Move the map and search the visible area instead.",
@@ -92,6 +91,7 @@ export default function FountainMap({
   const {
     pos: livePos,
     heading,
+    mapBearing,
     needsCompassPermission,
     requestCompass,
   } = useLiveLocation({ enabled: locationEnabled });
@@ -448,6 +448,8 @@ export default function FountainMap({
             searchedBox={searchedBox ?? undefined}
             userPos={livePos ?? (pos ? [pos.lat, pos.lon] : undefined)}
             userHeading={heading}
+            mapBearing={mapBearing}
+            followHeading={locationEnabled}
             onViewChange={onViewChange}
             mapClickPopup={
               editable

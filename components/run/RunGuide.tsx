@@ -14,6 +14,7 @@ import {
   PlusCircleIcon,
   EyeIcon,
   DogIcon,
+  FlagCheckeredIcon,
 } from "@phosphor-icons/react";
 import type { RunSession } from "@/hooks/useRunSession";
 import type { Audience } from "@/lib/schemas";
@@ -110,13 +111,16 @@ export default function RunGuide({
     record,
     skip,
     goBack,
+    endEarly,
     addHere,
   } = session;
 
-  // Skip and back both jump stops, so gate each behind an inline confirm. Tracking
-  // the stop index alongside the action auto-dismisses the prompt when the active
-  // stop changes — no reset effect needed.
-  const [confirm, setConfirm] = useState<{ i: number; action: "skip" | "back" } | null>(null);
+  // Skip, back and end-route all jump stops, so gate each behind an inline
+  // confirm. Tracking the stop index alongside the action auto-dismisses the
+  // prompt when the active stop changes — no reset effect needed.
+  const [confirm, setConfirm] = useState<{ i: number; action: "skip" | "back" | "end" } | null>(
+    null,
+  );
   const pending = confirm?.i === index ? confirm.action : null;
 
   // Who the current source serves, prefilled from its tags. Keyed by node id so
@@ -223,7 +227,9 @@ export default function RunGuide({
               <p className="text-sm font-medium">
                 {pending === "skip"
                   ? "Skip this stop? It’ll be marked skipped and you’ll move on."
-                  : "Go back to the previous stop? It’ll be re-opened for action."}
+                  : pending === "back"
+                    ? "Go back to the previous stop? It’ll be re-opened for action."
+                    : "End the route now? Any remaining stops stay unsurveyed and you’ll close the changeset."}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -242,7 +248,7 @@ export default function RunGuide({
                   >
                     <SkipForwardIcon size={18} /> Skip stop
                   </button>
-                ) : (
+                ) : pending === "back" ? (
                   <button
                     onClick={() => {
                       setConfirm(null);
@@ -251,6 +257,16 @@ export default function RunGuide({
                     className={`flex items-center justify-center gap-1.5 rounded py-2.5 text-sm font-semibold ${t.inspect}`}
                   >
                     <SkipBackIcon size={18} /> Go back
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setConfirm(null);
+                      endEarly();
+                    }}
+                    className="flex items-center justify-center gap-1.5 rounded bg-red-600 py-2.5 text-sm font-semibold text-white"
+                  >
+                    <FlagCheckeredIcon size={18} /> End route
                   </button>
                 )}
               </div>
@@ -288,6 +304,13 @@ export default function RunGuide({
           viewport. Hidden while a confirm dialog is up. */}
       {!pending && (
         <div className="fixed right-4 bottom-4 z-50 flex gap-2">
+          <button
+            title="End route now"
+            onClick={() => setConfirm({ i: index, action: "end" })}
+            className={`flex items-center justify-center rounded px-3 py-2 shadow-sm ${t.pin}`}
+          >
+            <FlagCheckeredIcon size={18} />
+          </button>
           {index > 0 && (
             <button
               title="Back to previous stop"

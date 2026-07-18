@@ -183,7 +183,7 @@ export default function LandingPage() {
                 Despite DC&apos;s many public drinking fountains, there is no reliable way to know
                 where they all are. And then, many are out of order. This is bad for everyone,
                 especially folks who spend a disproportionate amount of time outdoors—think runners,
-                tourists, the homeless, etc.
+                tourists, and the homeless.
               </p>
               <p className="text-ink-dim mt-4 text-lg leading-relaxed">
                 By building a robust, locally-sourced map of public drinking water, we can improve
@@ -192,16 +192,16 @@ export default function LandingPage() {
                 work.
               </p>
               <p className="text-ink-dim mt-4 text-lg leading-relaxed">
-                This project aims to improve DC on two levels:
+                In practice, this produces immediate and long-term benefits:
               </p>
               <ul className="text-ink-dim mt-4 list-disc space-y-1 pl-6 text-lg leading-relaxed">
                 <li>
-                  <span className="font-medium">Individual:</span> let anyone search for their
+                  <span className="font-medium">Immediately,</span> anyone can reliably locate the
                   nearest working fountain
                 </li>
                 <li>
-                  <span className="font-medium">Institutional:</span> automate notifying 311 when
-                  fountains are marked broken
+                  <span className="font-medium">Long-term,</span> 311 can have rapid visibility for
+                  when fountains break
                 </li>
               </ul>
             </motion.div>

@@ -166,3 +166,48 @@ export function pathLength(pts: Pt[], loop: boolean): number {
   if (loop && pts.length > 1) total += haversine(pts[pts.length - 1], pts[0]);
   return total;
 }
+
+// The [lon,lat] point `distM` meters along a [lon,lat] polyline, clamped to the
+// path's ends and linearly interpolated within the segment the distance lands
+// in. The inverse of nearestCumDistOnPath: turn a "meters travelled" figure back
+// into a position on the route. Segment lengths use haversine so it lines up with
+// nearestCumDistOnPath to within rounding at street scale.
+export function pointAtDistOnPath(coords: [number, number][], distM: number): [number, number] {
+  if (coords.length === 0) return [0, 0];
+  if (coords.length === 1 || distM <= 0) return coords[0];
+  const walk = (i: number, remaining: number): [number, number] => {
+    if (i >= coords.length - 1) return coords[coords.length - 1];
+    const a = coords[i];
+    const b = coords[i + 1];
+    const segLen = haversine({ lat: a[1], lon: a[0] }, { lat: b[1], lon: b[0] });
+    if (segLen === 0) return walk(i + 1, remaining);
+    if (remaining <= segLen) {
+      const t = remaining / segLen;
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
+    return walk(i + 1, remaining - segLen);
+  };
+  return walk(0, distM);
+}
+
+// Forward heading (deg, 0 = north, clockwise) of the route at the point nearest
+// `p`: the bearing from that projection to a point `lookaheadM` further along the
+// route. This is the *direction of travel* along the path — unlike bearing(p,
+// destination), which cuts straight to the goal and diverges from the road
+// wherever the route bends. The look-ahead window smooths GPS/vertex jitter and
+// eases the heading into an upcoming turn rather than snapping at each vertex.
+// Within `lookaheadM` of the end the window would collapse, so it looks back
+// along the final leg instead. Null when the route is too short to have a
+// direction. Feeds the heading-up map.
+export function routeHeadingAt(coords: [number, number][], p: Pt, lookaheadM = 25): number | null {
+  if (coords.length < 2) return null;
+  const traveled = nearestCumDistOnPath(coords, p);
+  const here = pointAtDistOnPath(coords, traveled);
+  const ahead = pointAtDistOnPath(coords, traveled + lookaheadM);
+  const forward = here[0] !== ahead[0] || here[1] !== ahead[1];
+  const [a, b] = forward
+    ? [here, ahead]
+    : [pointAtDistOnPath(coords, Math.max(0, traveled - lookaheadM)), here];
+  if (a[0] === b[0] && a[1] === b[1]) return null;
+  return bearing({ lat: a[1], lon: a[0] }, { lat: b[1], lon: b[0] });
+}
