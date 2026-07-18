@@ -91,7 +91,6 @@ export default function FountainMap({
   const {
     pos: livePos,
     heading,
-    mapBearing,
     needsCompassPermission,
     requestCompass,
   } = useLiveLocation({ enabled: locationEnabled });
@@ -448,8 +447,7 @@ export default function FountainMap({
             searchedBox={searchedBox ?? undefined}
             userPos={livePos ?? (pos ? [pos.lat, pos.lon] : undefined)}
             userHeading={heading}
-            mapBearing={mapBearing}
-            followHeading={locationEnabled}
+            followHeading={false}
             onViewChange={onViewChange}
             mapClickPopup={
               editable
