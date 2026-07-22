@@ -18,7 +18,7 @@
 /* Display face for the hero headline + nav brand wordmark (was lib/heroFont). */
 @font-face {
   font-family: "OrangeJuice";
-  src: url("/fonts/OrangeJuice.ttf") format("truetype");
+  src: url("/fonts/OrangeJuice.woff2") format("woff2");
   font-display: swap;
 }
 .font-hero {
