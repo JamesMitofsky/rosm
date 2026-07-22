@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
-import type { MapMarker } from "@/components/MapView";
+import MapView, { type MapMarker } from "@/components/MapView";
 import PointPopup, { type PointEdit } from "@/components/PointPopup";
 import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
 import type { StopStatus } from "@rosm/core/stores/run";
 import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { celebratePoint } from "@/lib/confetti";
-
-const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 /* ------------------------------------------------------------------ */
 /* Real sample route — a 24.5 km foot loop through Columbia Heights,   */
@@ -420,7 +417,7 @@ export default function DemoRunMap({ className }: { className?: string }) {
     id: f.id,
     lat: f.lat,
     lon: f.lon,
-    color: i === currentIdx ? "#2563eb" : STATUS_COLOR[statuses[f.id] ?? "pending"],
+    color: STATUS_COLOR[statuses[f.id] ?? "pending"],
     label: String(i + 1),
     popup: (
       <PointPopup

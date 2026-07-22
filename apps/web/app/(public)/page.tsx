@@ -10,7 +10,14 @@ import JoinBetaModal from "@/components/JoinBetaModal";
 import SiteNav from "@/components/SiteNav";
 import { DropIcon } from "@phosphor-icons/react";
 
-const DemoRunMap = dynamic(() => import("@/components/DemoRunMap"), { ssr: false });
+const DemoRunMap = dynamic(() => import("@/components/DemoRunMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-sky/20 flex h-full w-full animate-pulse items-center justify-center">
+      <div className="border-sky-deep/20 border-t-sky-deep h-6 w-6 animate-spin rounded-full border-2" />
+    </div>
+  ),
+});
 const LiveFountainMap = dynamic(() => import("@/components/LiveFountainMap"), { ssr: false });
 
 /* ------------------------------------------------------------------ */

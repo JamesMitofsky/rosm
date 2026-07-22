@@ -452,12 +452,24 @@ export default function MapView({
     map.easeTo({ bearing: target, duration: 300, essential: true });
   }, [followHeading, rotateTo]);
 
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Fallback timer so map becomes visible even if onLoad event stalls.
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoaded(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Pop new dots in: grow circle-radius 0 → target whenever the marker set
   // changes. Driven by React state fed declaratively into the layer paint (no
   // imperative setPaintProperty racing react-map-gl). Radius is a shader
   // uniform, so this stays smooth for hundreds of points. Layout effect sets the
   // 0-start before paint → no full-size flash. Honors prefers-reduced-motion.
   useIsoLayoutEffect(() => {
+    if (!isLoaded) {
+      setPopScale(0);
+      return;
+    }
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       setPopScale(1);
       return;
@@ -470,7 +482,7 @@ export default function MapView({
       if (t < 1) raf = requestAnimationFrame(tick);
     });
     return () => cancelAnimationFrame(raf);
-  }, [markerIdSig]);
+  }, [markerIdSig, isLoaded]);
 
   const handleClick = useCallback(
     (e: MapLayerMouseEvent) => {
@@ -564,7 +576,16 @@ export default function MapView({
   const popupCtx = useMemo(() => ({ close: () => setSelected(null) }), []);
 
   return (
-    <div className={className} style={{ position: "relative", height: "100%", width: "100%" }}>
+    <div
+      className={className}
+      style={{
+        position: "relative",
+        height: "100%",
+        width: "100%",
+        opacity: isLoaded ? 1 : 0,
+        transition: "opacity 350ms ease-out",
+      }}
+    >
       <MapGL
         ref={mapRef}
         initialViewState={{ longitude: center[1], latitude: center[0], zoom }}
@@ -584,6 +605,7 @@ export default function MapView({
         boxZoom={interactive}
         keyboard={interactive}
         onLoad={() => {
+          setIsLoaded(true);
           mapRef.current?.getMap().touchZoomRotate.disableRotation();
           emitView(false);
         }}
