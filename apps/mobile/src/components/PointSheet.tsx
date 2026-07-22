@@ -25,7 +25,7 @@ export type PointEdit = {
 
 const STATUS_LABEL: Record<SurveyAction, string> = {
   confirm: "Confirmed working",
-  broken: "Marked broken but working",
+  broken: "Marked working but broken",
   out_of_order: "Marked out of order",
   removed: "Marked removed",
 };
@@ -50,7 +50,7 @@ type ActionButton = {
 
 const ACTIONS: ActionButton[] = [
   { action: "confirm", title: "Working", Icon: CheckCircleIcon, box: "bg-green-600" },
-  { action: "broken", title: "Broken but working", Icon: WrenchIcon, box: "bg-amber-500" },
+  { action: "broken", title: "Working but broken", Icon: WrenchIcon, box: "bg-amber-500" },
   { action: "out_of_order", title: "Out of order", Icon: WarningIcon, box: "bg-orange-600" },
   { action: "removed", title: "Removed", Icon: TrashIcon, box: "bg-red-600" },
 ];
@@ -136,7 +136,7 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
             detailFor === "confirm"
               ? "Confirm working"
               : detailFor === "broken"
-                ? "Mark broken but working"
+                ? "Mark working but broken"
                 : detailFor === "out_of_order"
                   ? "Mark out of order"
                   : "Confirm removed"

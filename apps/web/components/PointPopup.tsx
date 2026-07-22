@@ -33,7 +33,7 @@ export type PointEdit = {
 
 const STATUS_LABEL: Record<string, string> = {
   confirm: "Confirmed working",
-  broken: "Marked broken but working",
+  broken: "Marked working but broken",
   out_of_order: "Marked out of order",
   removed: "Marked removed",
 };
@@ -47,7 +47,7 @@ const DETAIL_STEP = {
     submitClassName: "bg-green-600 hover:bg-green-700",
   },
   broken: {
-    submitLabel: "Mark broken but working",
+    submitLabel: "Mark working but broken",
     submitIcon: <WrenchIcon size={16} />,
     submitClassName: "bg-amber-500 hover:bg-amber-600",
   },
@@ -203,7 +203,7 @@ export default function PointPopup({
                       onClick={() => setDetailFor("broken")}
                       className="flex items-center justify-center gap-1.5 rounded-md bg-amber-500 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50"
                     >
-                      <WrenchIcon size={14} /> Broken but working
+                      <WrenchIcon size={14} /> Working but broken
                     </button>
                     <div className="grid grid-cols-2 gap-2">
                       <button

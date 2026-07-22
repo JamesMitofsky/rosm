@@ -19,11 +19,11 @@ export const WorkingForm: Story = {
   },
 };
 
-export const BrokenButWorkingForm: Story = {
+export const WorkingButBrokenForm: Story = {
   args: {
     tags: { amenity: "drinking_water", name: "Prospect Park Fountain" },
     busy: false,
-    submitLabel: "Mark broken but working",
+    submitLabel: "Mark working but broken",
     isBroken: true,
     onSubmit: (extras?: EditExtras) => console.log("Submit broken", extras),
   },

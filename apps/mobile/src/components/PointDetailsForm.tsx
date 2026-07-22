@@ -127,7 +127,7 @@ export function PointDetailsForm({
         </>
       )}
 
-      {/* 4th Category "Broken but working" issue details + quick tag pills */}
+      {/* 4th Category "Working but broken" issue details + quick tag pills */}
       {isBroken ? (
         <View className="gap-2 pt-1">
           <Text className="text-ink text-xs font-bold tracking-wider uppercase">

@@ -20,7 +20,7 @@ export function editSummary(
       base = `confirmed · check_date=${today}`;
       break;
     case "broken":
-      base = `marked broken but working · check_date=${today}`;
+      base = `marked working but broken · check_date=${today}`;
       break;
     case "out_of_order":
       base = `${tagKey} → disused:${tagKey} · check_date=${today}`;
