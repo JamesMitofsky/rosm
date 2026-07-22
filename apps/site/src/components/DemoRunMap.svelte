@@ -39,8 +39,7 @@
   let statuses = $state<Record<number, StopStatus>>({ ...SEED_STATUSES });
   let edits = $state<Record<number, PointEdit>>(seedEdits());
 
-  // Current target = first unsurveyed stop along the route, like the real run.
-  const currentIdx = $derived(DC_FOUNTAINS.findIndex((f) => !statuses[f.id]));
+
 
   function record(f: Fountain, action: EditAction, extras?: EditExtras) {
     statuses = { ...statuses, [f.id]: action as StopStatus };
@@ -66,7 +65,7 @@
       id: f.id,
       lat: f.lat,
       lon: f.lon,
-      color: i === currentIdx ? "#2563eb" : STATUS_COLOR[statuses[f.id] ?? "pending"],
+      color: STATUS_COLOR[statuses[f.id] ?? "pending"],
       label: String(i + 1),
       data: { f },
     })),

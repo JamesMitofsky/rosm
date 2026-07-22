@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Next.js production build
+      - name: Production build
         run: pnpm build
 
   deploy:

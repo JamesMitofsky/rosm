@@ -30,7 +30,7 @@ A pnpm + [Turborepo](https://turbo.build) monorepo with two apps and shared logi
 
 ```
 apps/
-  web/     @rosm/web    — Next.js 16 site + /api backend + PWA (deployed to Vercel)
+  site/    @rosm/site   — Astro + Svelte site + /api backend (deployed to Vercel)
   mobile/  @rosm/mobile — Expo (React Native) app for iOS/Android
 packages/
   core/              @rosm/core — shared logic (GPS math, routing, Zod schemas,
