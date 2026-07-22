@@ -14,13 +14,9 @@ const ASSET_CACHE = `${VERSION}-assets`;
 const TILE_CACHE = `${VERSION}-tiles`;
 const TILE_MAX = 2000;
 
-const OFFLINE_URL = "/~offline";
 // Core shell warmed at install so first offline launch still renders.
 const SHELL_URLS = [
   "/",
-  "/plan",
-  "/run",
-  OFFLINE_URL,
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -112,7 +108,7 @@ async function navigate(request) {
   } catch {
     const cache = await caches.open(SHELL_CACHE);
     const cached = (await cache.match(request)) || (await cache.match("/"));
-    return cached || (await cache.match(OFFLINE_URL)) || Response.error();
+    return cached || Response.error();
   }
 }
 

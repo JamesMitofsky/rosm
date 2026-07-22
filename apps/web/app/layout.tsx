@@ -2,10 +2,6 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
-import OutboxSync from "@/components/OutboxSync";
-import UndoToast from "@/components/UndoToast";
-import NativeAuth from "@/components/NativeAuth";
-import NativeChrome from "@/components/NativeChrome";
 
 // Self-hosted so builds never depend on reaching Google Fonts at build time.
 const display = localFont({
@@ -76,11 +72,7 @@ export default function RootLayout({
     <html lang="en" className={`h-full antialiased ${display.variable} ${body.variable}`}>
       <body className="min-h-full">
         {children}
-        <OutboxSync />
-        <UndoToast />
         <ServiceWorkerRegister />
-        <NativeAuth />
-        <NativeChrome />
       </body>
     </html>
   );

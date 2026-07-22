@@ -5,3 +5,6 @@ import cfg from "@rosm/core/appConfig.json";
 export const APP_NAME = cfg.appName;
 export const APP_TAGLINE = cfg.appTagline;
 export const PWA_THEME_COLOR = cfg.pwaThemeColor;
+// Store/download link for the mobile app. Empty until the app is published —
+// fill in the App Store / Play Store URL here (single source in appConfig.json).
+export const APP_STORE_URL = cfg.appStoreUrl || "#";

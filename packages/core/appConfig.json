@@ -4,6 +4,7 @@
   "appTagline": "Running for Open-Sourced Maps",
   "scheme": "rosm",
   "apiBase": "https://rosm.app",
+  "appStoreUrl": "",
   "nativeBackground": "#0c0d0a",
   "pwaThemeColor": "#f1ebdd",
   "colors": {
