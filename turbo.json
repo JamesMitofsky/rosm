@@ -4,8 +4,8 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "env": ["NEXT_PUBLIC_*", "VERCEL_*", "NEXT_TELEMETRY_DISABLED"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**", ".vercel/output/**"]
+      "env": ["VERCEL_*"],
+      "outputs": ["dist/**", ".vercel/output/**", ".astro/**"]
     },
     "lint": {},
     "typecheck": {},

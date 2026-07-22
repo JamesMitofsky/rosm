@@ -1,6 +1,6 @@
 # @rosm/core
 
-Platform-agnostic logic shared by [`@rosm/web`](../../apps/web) and
+Platform-agnostic logic shared by [`@rosm/site`](../../apps/site) and
 [`@rosm/mobile`](../../apps/mobile): GPS/distance math, the orienteering route
 planner, BRouter turn extraction, Zod schemas, the Zustand stores (run / planner /
 outbox), the route archive, and the live-run guidance. Nothing here touches a
