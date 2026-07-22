@@ -14,7 +14,7 @@ type NavAction = {
 // empty slot so the present control keeps its edge.
 export function PhaseNav({ back, forward }: { back?: NavAction; forward?: NavAction }) {
   return (
-    <View className="border-paper-line flex-row items-center justify-between border-t pt-3">
+    <View className="flex-row items-center justify-between pt-3">
       {back ? (
         <Pressable
           onPress={back.onPress}

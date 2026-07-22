@@ -1691,7 +1691,7 @@
       "type": "fill",
       "source": "carto",
       "source-layer": "building",
-      "layout": { "visibility": "visible" },
+      "layout": { "visibility": "none" },
       "paint": {
         "fill-color": {
           "base": 1,
@@ -1708,7 +1708,7 @@
       "type": "fill",
       "source": "carto",
       "source-layer": "building",
-      "layout": { "visibility": "visible" },
+      "layout": { "visibility": "none" },
       "paint": {
         "fill-translate": {
           "base": 1,
@@ -2428,6 +2428,7 @@
       "minzoom": 15,
       "filter": ["all", ["in", "class", "stadium", "cemetery", "attraction"], ["<=", "rank", 3]],
       "layout": {
+        "visibility": "none",
         "text-field": "{name}",
         "text-font": ["Noto Sans Regular"],
         "text-size": {
@@ -2600,6 +2601,7 @@
       "minzoom": 17,
       "maxzoom": 24,
       "layout": {
+        "visibility": "none",
         "text-field": "{housenumber}",
         "text-size": {
           "stops": [

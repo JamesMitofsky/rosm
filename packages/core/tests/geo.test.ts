@@ -173,14 +173,13 @@ describe("compass", () => {
 });
 
 describe("fmtDist", () => {
-  it("renders meters below 1 km", () => {
-    expect(fmtDist(0)).toBe("0 m");
-    expect(fmtDist(120.4)).toBe("120 m");
-    expect(fmtDist(999.4)).toBe("999 m");
+  it("renders feet below 1000 ft", () => {
+    expect(fmtDist(0)).toBe("0 ft");
+    expect(fmtDist(120.4)).toBe("395 ft");
   });
 
-  it("renders miles from 1 km up", () => {
-    expect(fmtDist(1000)).toBe("0.62 mi");
+  it("renders miles from 1000 ft up", () => {
+    expect(fmtDist(305)).toBe("0.19 mi");
     expect(fmtDist(1609.344)).toBe("1.00 mi");
     expect(fmtDist(5000)).toBe("3.11 mi");
   });

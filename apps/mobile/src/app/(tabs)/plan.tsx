@@ -2,11 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Text, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import { BottomSheet, RNHostView } from "@expo/ui";
-import {
-  interactiveDismissDisabled,
-  presentationBackground,
-  presentationBackgroundInteraction,
-} from "@expo/ui/swift-ui/modifiers";
 import { usePlanner, inRouteIdsOf } from "@rosm/core/stores/planner";
 import { useRun } from "@rosm/core/stores/run";
 import { useOutbox } from "@rosm/core/stores/outbox";
@@ -83,18 +78,26 @@ export default function Plan() {
     usePlanner.getState().mapClick(lat, lon);
   }, []);
 
-  // Numeric ids are fountains (open the sheet); "via-N" removes that waypoint;
+  // Numeric ids are fountains (toggling in route during build phase); "via-N" removes that waypoint;
   // the start flag and island highlight ignore taps.
-  const onMarkerPress = useCallback((id: RosmMarker["id"]) => {
-    if (typeof id === "number") {
-      setSelectedId(id);
-      return;
-    }
-    if (id.startsWith("via-")) {
-      hapticSelect();
-      usePlanner.getState().removeVia(Number(id.slice(4)));
-    }
-  }, []);
+  const onMarkerPress = useCallback(
+    (id: RosmMarker["id"]) => {
+      if (typeof id === "number") {
+        if (phase === "map") {
+          hapticSelect();
+          usePlanner.getState().toggleStop(id);
+          return;
+        }
+        setSelectedId(id);
+        return;
+      }
+      if (id.startsWith("via-")) {
+        hapticSelect();
+        usePlanner.getState().removeVia(Number(id.slice(4)));
+      }
+    },
+    [phase],
+  );
 
   const startRun = useCallback(async () => {
     await usePlanner.getState().startRun();
@@ -117,6 +120,10 @@ export default function Plan() {
   }, []);
 
   const mapCenter: [number, number] = center ? [center.lat, center.lon] : [20, 0];
+  const userPos: [number, number] | null = useMemo(
+    () => (center ? [center.lat, center.lon] : null),
+    [center],
+  );
 
   return (
     <View className="bg-paper flex-1">
@@ -125,52 +132,41 @@ export default function Plan() {
         zoom={center ? 15 : 1.5}
         markers={markers}
         line={line}
+        userPos={userPos}
         initialOnly
         recenterKey={recenterKey}
         onMapPress={onMapPress}
         onMarkerPress={onMarkerPress}
       />
 
-      {/* The planner's controls live directly on a persistent native sheet over
-          the map (no floating card). Background interaction stays enabled so the
-          map behind it keeps taking taps — picking points, dropping waypoints —
-          and dismissal is disabled since this sheet is the tab's primary surface. */}
-      <BottomSheet
-        isPresented
-        onDismiss={() => {}}
-        showDragIndicator={false}
-        modifiers={[
-          presentationBackground("#f7f2e8"),
-          presentationBackgroundInteraction("enabled"),
-          interactiveDismissDisabled(true),
-        ]}
-      >
-        <RNHostView matchContents>
-          <View style={{ width: winW - 32 }}>
-            {phase === "config" ? (
-              <ConfigPanel />
-            ) : phase === "map" ? (
-              <RouteBuilderPanel onStartRun={startRun} />
-            ) : (
-              <View className="gap-3">
-                <Text className="text-ink font-bold">
-                  Run in progress — {stops.length} stops · {fmtDist(distanceM)}
-                </Text>
-                <View className="flex-row gap-2">
-                  <View className="flex-1">
-                    <Button title="Open run" onPress={() => router.push("/run")} />
-                  </View>
-                  <Button title="End run" variant="danger" onPress={confirmEndRun} />
-                </View>
-                {/* Last view — step back to the builder; no forward. */}
-                <PhaseNav
-                  back={{ label: "Build", onPress: () => usePlanner.getState().setPhase("map") }}
-                />
+      {/* Planner controls pinned to the bottom of the screen, full-width,
+          matching the active-run panel in run.tsx. */}
+      <View className="bg-paper border-ink/10 absolute right-0 bottom-0 left-0 border-t px-5 pt-5 pb-28">
+        {phase === "config" ? (
+          <ConfigPanel />
+        ) : phase === "map" ? (
+          <RouteBuilderPanel onStartRun={startRun} />
+        ) : (
+          <View className="gap-3">
+            <Text className="text-ink font-bold">
+              Run in progress — {stops.length} stops · {fmtDist(distanceM)}
+            </Text>
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <Button title="Open run" onPress={() => router.push("/run")} />
               </View>
-            )}
+              <Button title="End run" variant="danger" onPress={confirmEndRun} />
+            </View>
+            {/* Last view — step back to the builder; no forward. */}
+            <PhaseNav
+              back={{
+                label: "Pick fountains",
+                onPress: () => usePlanner.getState().setPhase("map"),
+              }}
+            />
           </View>
-        </RNHostView>
-      </BottomSheet>
+        )}
+      </View>
 
       {/* Native OS bottom sheet for the tapped point (same host pattern as the
           quick-update tab — see the comments there for the sizing workaround). */}

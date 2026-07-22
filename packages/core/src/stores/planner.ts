@@ -168,7 +168,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   recencyMonths: 6,
   // Prefilled target so switching to distance mode lands ready-to-plan.
   targetMi: 3,
-  sizeMode: "distance",
+  sizeMode: "points",
   loop: true,
   tag: { key: "amenity", value: "drinking_water" },
 
@@ -178,7 +178,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   line: [],
   distanceM: 0,
   turns: [],
-  hasRoute: false,
+  hasRoute: true,
   islandPt: null,
   autoCount: 0,
   busy: null,
@@ -291,7 +291,13 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   // fitPoints re-fit), so the points load INTO an already-framed map instead of
   // popping in off-screen. The search runs after, streaming into that frame.
   finishConfig: async () => {
-    set({ phase: "map", step: BUILD_STEP_INDEX, recenterKey: `fit-${++recenterSeq}` });
+    set({
+      phase: "map",
+      step: BUILD_STEP_INDEX,
+      recenterKey: `fit-${++recenterSeq}`,
+      sizeMode: "points",
+      hasRoute: true,
+    });
     await get().findPoints();
   },
 
@@ -326,13 +332,14 @@ export const usePlanner = create<PlannerState>((set, get) => ({
           err:
             sizeMode === "distance"
               ? "No points fit that distance. Increase target distance or add via-points."
-              : "No points left in the route — add one back or pin a point.",
+              : excludedIds.length > 0 || pinnedIds.length > 0
+                ? "No points left in the route — add one back or pin a point."
+                : null,
           stops: [],
           line: [],
           distanceM: 0,
           turns: [],
           autoCount: 0,
-          // Stay "live" (don't reset hasRoute) so adding a point back re-plans.
         });
         return;
       }
@@ -363,10 +370,9 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     }
   },
 
-  // Once a route exists, every membership change re-plans immediately. A no-op
-  // before the first route is built (the "Plan route" button does that).
+  // Once a route exists (or in waypoints mode), every membership change re-plans immediately.
   replan: () => {
-    if (get().hasRoute) get().planAndRoute();
+    if (get().hasRoute || get().sizeMode === "points") get().planAndRoute();
   },
 
   // "Plan route" button: validate inputs, then build.
@@ -543,9 +549,11 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
 
   startRun: async () => {
-    const { center, stops, loop, tag, vias, fountains, line, distanceM, turns } = get();
-    if (!center || stops.length === 0) return;
-    const runStops: RunStop[] = stops.map((f) => ({ ...f, status: "pending" }));
+    const { center, stops, pinnedIds, loop, tag, vias, fountains, line, distanceM, turns } = get();
+    const effectiveStops =
+      stops.length > 0 ? stops : fountains.filter((f) => pinnedIds.includes(f.id));
+    if (!center || effectiveStops.length === 0) return;
+    const runStops: RunStop[] = effectiveStops.map((f) => ({ ...f, status: "pending" }));
     const plan = {
       start: center,
       loop,

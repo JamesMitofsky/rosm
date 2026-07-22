@@ -3,7 +3,7 @@ import type { Fountain } from "../schemas";
 import type { Pt } from "../geo";
 import type { Turn } from "../brouter";
 
-export type StopStatus = "pending" | "confirm" | "out_of_order" | "removed" | "skipped";
+export type StopStatus = "pending" | "confirm" | "broken" | "out_of_order" | "removed" | "skipped";
 
 export type RunStop = Fountain & { status: StopStatus };
 

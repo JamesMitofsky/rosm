@@ -4,6 +4,7 @@ import { SafeArea } from "../components/ui/SafeArea";
 import { getArchivedRoutes } from "@rosm/core/routeArchive";
 import { STATUS_COLOR } from "@rosm/core/editStatus";
 import { RosmMap, type RosmMarker } from "../map/RosmMap";
+import { fmtDist } from "@rosm/core/geo";
 import { Button } from "../components/ui/Button";
 
 // Read-only replay of one archived run — validates the archive schema end-to-end.
@@ -48,7 +49,7 @@ export default function RunDetail() {
           {new Date(route.updatedAt).toLocaleString()}
         </Text>
         <Text className="text-ink-dim">
-          {(plan.distanceM / 1000).toFixed(1)} km · {plan.stops.length} stops
+          {fmtDist(plan.distanceM)} · {plan.stops.length} stops
         </Text>
         {plan.stops.map((s, i) => (
           <Text key={s.id} className="text-ink">

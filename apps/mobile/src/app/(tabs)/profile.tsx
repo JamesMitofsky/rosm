@@ -4,6 +4,7 @@ import { withUniwind } from "uniwind";
 import { useRouter } from "expo-router";
 import { SafeArea } from "../../components/ui/SafeArea";
 import { getArchivedRoutes } from "@rosm/core/routeArchive";
+import { fmtDist } from "@rosm/core/geo";
 import { useOsmStatus } from "../../auth/useOsmStatus";
 import { useOsmUser } from "../../auth/useOsmUser";
 import { signOutOsm } from "../../auth/osmAuth";
@@ -65,7 +66,7 @@ export default function Profile() {
         {user ? (
           <Panel>
             <View className="border-paper-line flex-row items-center justify-between border-b py-2.5">
-              <Text className="text-ink-dim">Lifetime changesets</Text>
+              <Text className="text-ink-dim">Lifetime contributions</Text>
               <Text className="text-ink font-bold">{user.changesetCount}</Text>
             </View>
             {user.accountCreated ? (
@@ -94,8 +95,8 @@ export default function Profile() {
                 className="border-paper-line border-t py-2.5"
               >
                 <Text className="text-ink">
-                  {new Date(r.updatedAt).toLocaleDateString()} ·{" "}
-                  {(r.plan.distanceM / 1000).toFixed(1)} km · {r.plan.stops.length} stops
+                  {new Date(r.updatedAt).toLocaleDateString()} · {fmtDist(r.plan.distanceM)} ·{" "}
+                  {r.plan.stops.length} stops
                 </Text>
               </Pressable>
             ))

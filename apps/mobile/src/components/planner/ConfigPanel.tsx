@@ -1,18 +1,9 @@
 import { useEffect } from "react";
 import { Text, TextInput, View } from "react-native";
 import { usePlanner } from "@rosm/core/stores/planner";
-import type { RecencyMode } from "@rosm/core/schemas";
 import { getLastKnownPosition } from "../../ports/geolocation";
 import { Button } from "../ui/Button";
 import { PhaseNav } from "./PhaseNav";
-import { SegmentedControl } from "../ui/SegmentedControl";
-
-// Recency filter modes, shown as a segmented control in the radius step.
-const RECENCY_MODES: readonly { key: RecencyMode; label: string }[] = [
-  { key: "stale", label: "Not checked in" },
-  { key: "fresh", label: "Checked within" },
-  { key: "any", label: "Any time" },
-];
 
 // Numeric field → store value: empty/invalid text stays "" so the store keeps
 // its `number | ""` shape (same contract as the web inputs).
@@ -56,35 +47,6 @@ export function ConfigPanel() {
             onChangeText={(t) => p.setRadiusMi(toNum(t))}
           />
           <Text className="text-ink text-sm">mile search radius</Text>
-        </View>
-
-        {/* Recency filter — narrow the pool by when each point was last
-            surveyed (OSM check_date). Defaults to points not checked in the
-            last 6 months: the ones worth verifying on the ground. */}
-        <View className="gap-2">
-          <SegmentedControl
-            options={RECENCY_MODES}
-            value={p.recencyMode}
-            onChange={p.setRecencyMode}
-          />
-          {p.recencyMode !== "any" ? (
-            <View className="flex-row items-center gap-2">
-              <TextInput
-                className="border-paper-line bg-paper/40 text-ink w-20 rounded-lg border px-2 py-2"
-                keyboardType="number-pad"
-                value={p.recencyMonths === "" ? "" : String(p.recencyMonths)}
-                onChangeText={(t) => p.setRecencyMonths(toNum(t))}
-              />
-              <Text className="text-ink-dim text-sm">months</Text>
-            </View>
-          ) : null}
-          <Text className="text-ink-dim text-xs">
-            {p.recencyMode === "stale"
-              ? `Show points not surveyed in the last ${p.recencyMonths || 6} months (or never) — the ones worth checking.`
-              : p.recencyMode === "fresh"
-                ? `Show only points surveyed within the last ${p.recencyMonths || 6} months.`
-                : "Show all matching points regardless of when last surveyed."}
-          </Text>
         </View>
       </View>
 

@@ -120,9 +120,10 @@ export function compass(deg: number): string {
   return dirs[Math.round(deg / 45) % 8];
 }
 
-// Human distance: meters under 1000 -> "120 m", else miles "1.4 mi".
+// Human distance: feet under 1000 ft -> "395 ft", else miles "1.40 mi".
 export function fmtDist(m: number): string {
-  if (m < 1000) return `${Math.round(m)} m`;
+  const ft = metersToFeet(m);
+  if (ft < 1000) return `${Math.round(ft)} ft`;
   return `${metersToMiles(m).toFixed(2)} mi`;
 }
 

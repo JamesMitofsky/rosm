@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { SafeArea } from "../../components/ui/SafeArea";
-import type { Fountain, EditAction, EditExtras } from "@rosm/core/schemas";
+import type { Fountain, EditExtras } from "@rosm/core/schemas";
 import type { StopStatus } from "@rosm/core/stores/run";
 import { milesToMeters, haversine, boundsCenter, boundsRadiusM, type Pt } from "@rosm/core/geo";
 import { useOutbox } from "@rosm/core/stores/outbox";
@@ -13,7 +13,7 @@ import { celebratePoint } from "../../ports/confetti";
 import { hapticSuccess } from "../../ports/haptics";
 import { BottomSheet, RNHostView } from "@expo/ui";
 import { RosmMap, type RosmMarker, type RosmRegion } from "../../map/RosmMap";
-import { PointSheet, type PointEdit } from "../../components/PointSheet";
+import { PointSheet, type PointEdit, type SurveyAction } from "../../components/PointSheet";
 
 const TAG = { key: "amenity", value: "drinking_water" };
 const RADIUS_MI = 0.3;
@@ -133,7 +133,7 @@ export default function QuickUpdate() {
 
   // Record a status update to the offline outbox. Keeps the sheet open so it can
   // flip to the recorded-state view (with sync status), matching the web popup.
-  function record(node: Fountain, action: EditAction, extras?: EditExtras) {
+  function record(node: Fountain, action: SurveyAction, extras?: EditExtras) {
     useOutbox
       .getState()
       .enqueue({ nodeId: node.id, action, tagKey: TAG.key, name: node.tags?.name, extras });

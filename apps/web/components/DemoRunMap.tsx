@@ -349,6 +349,7 @@ const DC_ROUTE: [number, number][] = [
 const STATUS_COLOR: Record<StopStatus, string> = {
   pending: "#9ca3af",
   confirm: "#16a34a",
+  broken: "#f59e0b",
   out_of_order: "#d97706",
   removed: "#dc2626",
   skipped: "#6b7280",

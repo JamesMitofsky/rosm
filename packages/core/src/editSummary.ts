@@ -9,7 +9,7 @@ export function todayLocal(): string {
 // Human-readable summary of an edit. Shared by the server edit route (real write)
 // and the client outbox (optimistic, shown before the write reaches OSM).
 export function editSummary(
-  action: EditAction,
+  action: EditAction | "broken",
   tagKey: string,
   today: string,
   extras?: EditExtras,
@@ -18,6 +18,9 @@ export function editSummary(
   switch (action) {
     case "confirm":
       base = `confirmed · check_date=${today}`;
+      break;
+    case "broken":
+      base = `marked broken but working · check_date=${today}`;
       break;
     case "out_of_order":
       base = `${tagKey} → disused:${tagKey} · check_date=${today}`;

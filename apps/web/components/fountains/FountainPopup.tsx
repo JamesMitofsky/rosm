@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DogIcon, WrenchIcon } from "@phosphor-icons/react";
+import { WrenchIcon } from "@phosphor-icons/react";
+import { DogIcon } from "@/components/icons/DogIcon";
 import type { Fountain } from "@rosm/core/schemas";
 import { isDogWater, isOutOfService } from "@rosm/core/fountainFilters";
 import { checkedAgoLabel } from "@rosm/core/checkDate";

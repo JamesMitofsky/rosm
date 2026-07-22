@@ -4,13 +4,14 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircleIcon,
-  WarningIcon,
-  TrashIcon,
-  PlusCircleIcon,
   MinusCircleIcon,
-  DogIcon,
+  PlusCircleIcon,
   SnowflakeIcon,
+  TrashIcon,
+  WarningIcon,
+  WrenchIcon,
 } from "@phosphor-icons/react";
+import { DogIcon } from "@/components/icons/DogIcon";
 import { useMapPopup } from "@/components/MapView";
 import type { Fountain, EditAction, EditExtras } from "@rosm/core/schemas";
 import type { StopStatus } from "@rosm/core/stores/run";
@@ -30,8 +31,9 @@ export type PointEdit = {
   extras?: EditExtras;
 };
 
-const STATUS_LABEL: Partial<Record<StopStatus, string>> = {
+const STATUS_LABEL: Record<string, string> = {
   confirm: "Confirmed working",
+  broken: "Marked broken but working",
   out_of_order: "Marked out of order",
   removed: "Marked removed",
 };
@@ -44,10 +46,20 @@ const DETAIL_STEP = {
     submitIcon: <CheckCircleIcon size={16} weight="fill" />,
     submitClassName: "bg-green-600 hover:bg-green-700",
   },
+  broken: {
+    submitLabel: "Mark broken but working",
+    submitIcon: <WrenchIcon size={16} />,
+    submitClassName: "bg-amber-500 hover:bg-amber-600",
+  },
   out_of_order: {
     submitLabel: "Mark out of order",
     submitIcon: <WarningIcon size={16} />,
-    submitClassName: "bg-amber-500 hover:bg-amber-600",
+    submitClassName: "bg-orange-600 hover:bg-orange-700",
+  },
+  removed: {
+    submitLabel: "Confirm removed",
+    submitIcon: <TrashIcon size={16} />,
+    submitClassName: "bg-red-600 hover:bg-red-700",
   },
 } as const;
 
@@ -82,11 +94,9 @@ export default function PointPopup({
   onToggleRoute,
 }: Props) {
   const { close } = useMapPopup();
-  // "Working" and "Out of order" both open the details step
-  // (audience/seasonal/note — see PointDetailsForm) before submitting; the
-  // chosen action is recorded here so the same form drives either outcome.
-  // "Removed" still submits straight away with no extra survey.
-  const [detailFor, setDetailFor] = useState<"confirm" | "out_of_order" | null>(null);
+  const [detailFor, setDetailFor] = useState<
+    "confirm" | "broken" | "out_of_order" | "removed" | null
+  >(null);
   // Snapshot the clock once on mount — reading Date.now() during render is
   // impure; the "checked ago" label doesn't need to tick live.
   const [now] = useState(() => Date.now());
@@ -179,7 +189,7 @@ export default function PointPopup({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="flex flex-col gap-2"
+                    className="flex flex-col gap-2.5"
                   >
                     <button
                       disabled={busy}
@@ -188,17 +198,24 @@ export default function PointPopup({
                     >
                       <CheckCircleIcon size={16} weight="fill" /> Working
                     </button>
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      disabled={busy}
+                      onClick={() => setDetailFor("broken")}
+                      className="flex items-center justify-center gap-1.5 rounded-md bg-amber-500 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50"
+                    >
+                      <WrenchIcon size={14} /> Broken but working
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         disabled={busy}
                         onClick={() => setDetailFor("out_of_order")}
-                        className="flex items-center justify-center gap-1 rounded-md border border-amber-300 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
+                        className="flex items-center justify-center gap-1 rounded-md border border-orange-300 py-1.5 text-xs font-medium text-orange-700 transition hover:bg-orange-50 disabled:opacity-50"
                       >
                         <WarningIcon size={14} /> Out of order
                       </button>
                       <button
                         disabled={busy}
-                        onClick={() => onAction("removed")}
+                        onClick={() => setDetailFor("removed")}
                         className="flex items-center justify-center gap-1 rounded-md border border-red-300 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         <TrashIcon size={14} /> Removed
@@ -212,6 +229,7 @@ export default function PointPopup({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
+                    className="flex flex-col gap-2"
                   >
                     <PointDetailsForm
                       tags={fountain.tags}
@@ -219,8 +237,20 @@ export default function PointPopup({
                       submitLabel={DETAIL_STEP[detailFor].submitLabel}
                       submitIcon={DETAIL_STEP[detailFor].submitIcon}
                       submitClassName={DETAIL_STEP[detailFor].submitClassName}
-                      onSubmit={(extras) => onAction(detailFor, extras)}
+                      isRemoved={detailFor === "removed"}
+                      isOutOfOrder={detailFor === "out_of_order"}
+                      isBroken={detailFor === "broken"}
+                      onSubmit={(extras) => {
+                        onAction(detailFor, extras);
+                        setDetailFor(null);
+                      }}
                     />
+                    <button
+                      onClick={() => setDetailFor(null)}
+                      className="rounded border border-neutral-200 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-100"
+                    >
+                      Cancel
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>

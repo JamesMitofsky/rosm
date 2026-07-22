@@ -1,15 +1,16 @@
 import type { Dispenser } from "@rosm/core/schemas";
+import { BubblerIcon, BothDispenserIcon, BottleIcon } from "@/components/icons/DispenserIcons";
 
-const OPTIONS: readonly { key: Dispenser; label: string }[] = [
-  { key: "bubbler", label: "Bubbler" },
-  { key: "bottle", label: "Bottle filler" },
-  { key: "both", label: "Both" },
+const OPTIONS: readonly {
+  key: Dispenser;
+  label: string;
+  Icon: typeof BubblerIcon;
+}[] = [
+  { key: "bubbler", label: "Bubbler", Icon: BubblerIcon },
+  { key: "both", label: "Both", Icon: BothDispenserIcon },
+  { key: "bottle", label: "Bottle filler", Icon: BottleIcon },
 ];
 
-// Segmented three-way control for how a water source is dispensed. "bubbler" = a
-// jet you drink from directly, "bottle" = a bottle-refill spout, "both" = a
-// fountain that does both. Writes fountain=bubbler + bottle=* via
-// EditExtras.dispenser on the confirm action.
 export default function DispenserToggle({
   value,
   onChange,
@@ -23,18 +24,19 @@ export default function DispenserToggle({
     <div className="flex flex-col gap-1">
       <span className="text-xs font-medium tracking-wide text-neutral-500 uppercase">{label}</span>
       <div className="flex gap-1 rounded-md bg-neutral-100 p-0.5">
-        {OPTIONS.map((option) => (
+        {OPTIONS.map(({ key, label: optLabel, Icon }) => (
           <button
-            key={option.key}
+            key={key}
             type="button"
-            onClick={() => onChange(option.key)}
-            className={`flex-1 rounded py-1 text-xs font-medium transition ${
-              value === option.key
+            onClick={() => onChange(key)}
+            className={`flex flex-1 items-center justify-center gap-1 rounded py-1 text-xs font-medium transition ${
+              value === key
                 ? "bg-white text-neutral-900 shadow-sm"
                 : "text-neutral-500 hover:text-neutral-800"
             }`}
           >
-            {option.label}
+            <Icon size={14} />
+            <span>{optLabel}</span>
           </button>
         ))}
       </div>

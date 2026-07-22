@@ -20,7 +20,7 @@ export const UNDO_WINDOW_MS = 5000;
 export type OutboxItem = {
   id: string;
   nodeId: number;
-  action: EditAction;
+  action: EditAction | "broken";
   tagKey: string;
   name?: string; // for the review list
   extras?: EditExtras; // advanced OSM tags (seasonal, note)
@@ -48,7 +48,7 @@ let holdTimer: ReturnType<typeof setTimeout> | undefined;
 
 type EnqueueInput = {
   nodeId: number;
-  action: EditAction;
+  action: EditAction | "broken";
   tagKey: string;
   name?: string;
   extras?: EditExtras;

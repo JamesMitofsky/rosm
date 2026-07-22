@@ -1,116 +1,119 @@
-import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import { BottomSheet, RNHostView } from "@expo/ui";
-import {
-  ArrowSquareOutIcon,
-  CheckCircleIcon,
-  DogIcon,
-  PlusCircleIcon,
-  SkipBackIcon,
-  SkipForwardIcon,
-  TrashIcon,
-  WarningIcon,
-} from "phosphor-react-native";
+import { CheckCircleIcon, SkipBackIcon, SkipForwardIcon, XCircleIcon } from "phosphor-react-native";
+import { DogIcon } from "../components/icons/DogIcon";
+import { fmtDist } from "@rosm/core/geo";
 import { useOutbox } from "@rosm/core/stores/outbox";
 import { usePlanner } from "@rosm/core/stores/planner";
-import type { EditAction } from "@rosm/core/schemas";
-import { fmtDist, maneuver } from "@rosm/core/geo";
-import { SafeArea } from "../components/ui/SafeArea";
+import { RosmMap } from "../map/RosmMap";
 import { useRunSession } from "../run/useRunSession";
-import { RosmMap, type RosmMarker } from "../map/RosmMap";
+import { PointSheet } from "../components/PointSheet";
 import { Button } from "../components/ui/Button";
-import { PointSheet, type PointEdit } from "../components/PointSheet";
 
-// The four arrival actions, mirroring the web RunGuide (and PointSheet's order).
-const ACTIONS: { action: EditAction; title: string; Icon: typeof CheckCircleIcon; box: string }[] =
-  [
-    { action: "confirm", title: "Working — confirm", Icon: CheckCircleIcon, box: "bg-green-600" },
-    { action: "out_of_order", title: "Out of order", Icon: WarningIcon, box: "bg-amber-500" },
-    { action: "removed", title: "Removed", Icon: TrashIcon, box: "bg-red-600" },
-  ];
+function checkedAgoLabel(tags?: Record<string, string>, now: Date = new Date()): string {
+  const d = tags?.check_date ?? tags?.["check_date:drinking_water"];
+  if (!d) return "Not surveyed yet";
+  const diffMs = now.getTime() - new Date(d).getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days <= 0) return "Checked today";
+  if (days === 1) return "Checked yesterday";
+  if (days < 30) return `Checked ${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return "Checked 1 month ago";
+  return `Checked ${months} months ago`;
+}
 
-// Standalone run: live HUD over the shared map, driven by the run session hook.
-// Recovers an interrupted run from the archive on cold start. Any marker —
-// routed stop, pool point off the route, or a node added on the fly — opens the
-// point sheet so it can be updated mid-run without advancing the target.
-export default function Run() {
-  const router = useRouter();
+function maneuver(deg: number): string {
+  const norm = ((deg % 360) + 360) % 360;
+  if (norm < 20 || norm > 340) return "Continue straight";
+  if (norm <= 45) return "Slight right";
+  if (norm <= 135) return "Turn right";
+  if (norm <= 160) return "Sharp right";
+  if (norm <= 200) return "U-turn";
+  if (norm <= 225) return "Sharp left";
+  if (norm <= 315) return "Turn left";
+  return "Slight left";
+}
+
+export default function RunScreen() {
+  const s = useRunSession();
   const { width: winW } = useWindowDimensions();
-  const s = useRunSession({ enabled: true });
 
-  // Skip and back both jump stops, so gate each behind an inline confirm.
-  // Keying on the stop index auto-dismisses the prompt when the stop changes.
-  const [confirm, setConfirm] = useState<{ i: number; action: "skip" | "back" } | null>(null);
-  const pending = confirm?.i === s.index ? confirm.action : null;
+  const [selectedId, setSelectedId] = useState<number | string | null>(null);
+  const [addLocation, setAddLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [confirm, setConfirm] = useState<{ i: number; action: "end" } | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
-  // Tapped marker → point sheet. Resolve against stops first (keeps status),
-  // then on-the-fly adds and the off-route pool.
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selectedNode = useMemo(() => {
-    if (selectedId == null) return null;
-    const inStops = s.stops.find((x) => x.id === selectedId);
-    if (inStops) return inStops;
-    const extra = [...s.added, ...s.pool].find((x) => x.id === selectedId);
-    return extra ? { ...extra, status: "pending" as const } : null;
-  }, [selectedId, s.stops, s.added, s.pool]);
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
-  // Edits recorded this session, for the sheet's saved-state view.
-  const outboxItems = useOutbox((st) => st.items);
-  const edits = useMemo(() => {
-    const m: Record<number, PointEdit> = {};
-    for (const it of outboxItems) {
-      m[it.nodeId] = {
-        status: it.action,
-        summary: it.summary,
-        syncState: it.syncState,
-        changesetUrl: it.changesetUrl,
-        extras: it.extras,
-      };
-    }
-    return m;
-  }, [outboxItems]);
+  const pending = confirm && confirm.i === s.index ? confirm.action : null;
 
-  const onMarkerPress = (id: RosmMarker["id"]) => {
-    if (typeof id === "number") setSelectedId(id);
+  const onMarkerPress = (id: number | string) => {
+    setSelectedId(id);
   };
 
-  if (s.closed) {
-    const surveyed = s.stops.filter((x) => x.status !== "pending" && x.status !== "skipped").length;
+  const onMapPress = (lat: number, lon: number) => {
+    setAddLocation({ lat, lon });
+  };
+
+  const selectedPoint = useMemo(() => {
+    if (selectedId == null) return null;
     return (
-      <SafeArea className="bg-ink flex-1 items-center justify-center gap-4 px-6">
-        <Text className="text-cream text-2xl font-bold">Run complete</Text>
-        <Text className="text-cream-dim">
-          You surveyed {surveyed} {surveyed === 1 ? "point" : "points"}. Nice work!
-        </Text>
-        {s.closed.changesetUrl ? (
-          <Pressable
-            onPress={() => Linking.openURL(s.closed!.changesetUrl!)}
-            accessibilityRole="link"
-            className="flex-row items-center gap-1.5"
-          >
-            <ArrowSquareOutIcon size={16} color="#ccff2e" />
-            <Text className="text-volt font-semibold underline">View changeset on OSM</Text>
-          </Pressable>
-        ) : null}
-        <Button
-          title="Done"
-          onPress={() => {
-            s.reset();
-            // Clear the planner too, so the Survey tab starts a fresh config
-            // instead of falling back into the stale map phase.
-            usePlanner.getState().resetAfterRun();
-            router.replace("/plan");
-          }}
-        />
-      </SafeArea>
+      s.stops.find((st) => st.id === selectedId) ??
+      s.added.find((a) => a.id === selectedId) ??
+      s.pool.find((p) => p.id === selectedId) ??
+      null
+    );
+  }, [selectedId, s.stops, s.added, s.pool]);
+
+  const selectedEdit = useMemo(() => {
+    if (selectedId == null) return undefined;
+    const items = useOutbox.getState().items;
+    const it = items.find((x) => String(x.nodeId) === String(selectedId));
+    if (!it) return undefined;
+    return {
+      status: it.action,
+      summary: it.summary,
+      syncState: it.syncState,
+      changesetUrl: it.changesetUrl,
+      extras: it.extras,
+    };
+  }, [selectedId]);
+
+  const activeInPlanner = useMemo(() => {
+    if (selectedId == null) return false;
+    const stops = usePlanner.getState().stops;
+    return stops.some((st) => String(st.id) === String(selectedId));
+  }, [selectedId]);
+
+  const onToggleRoute = () => {
+    if (selectedId == null || !selectedPoint) return;
+    usePlanner.getState().toggleStop(Number(selectedPoint.id));
+  };
+
+  const mapMarkers = useMemo(() => {
+    if (!addLocation) return s.markers;
+    return [
+      ...s.markers,
+      {
+        id: "pending-add",
+        lat: addLocation.lat,
+        lon: addLocation.lon,
+        color: "#16a34a",
+        label: "+",
+      },
+    ];
+  }, [s.markers, addLocation]);
+
+  if (s.hydrating) {
+    return (
+      <View className="bg-ink flex-1 items-center justify-center">
+        <Text className="text-cream font-medium">Loading session…</Text>
+      </View>
     );
   }
 
@@ -118,168 +121,160 @@ export default function Run() {
     <View className="bg-ink flex-1">
       <RosmMap
         center={s.center}
-        markers={s.markers}
+        bearing={s.mapBearing ?? undefined}
+        markers={mapMarkers}
         line={s.line}
         userPos={s.userPos}
         recenterKey={s.recenterKey}
         fitPoints={s.fitPoints}
         onMarkerPress={onMarkerPress}
+        onMapPress={onMapPress}
       />
-      <SafeArea edges={["bottom"]} className="absolute right-0 bottom-0 left-0 p-4">
-        <View className="bg-ink-soft gap-3 rounded-2xl p-4">
-          {s.done ? (
-            <>
-              <Text className="text-cream text-lg font-bold">All points surveyed</Text>
-              <Button title="Finish & close changeset" onPress={s.finish} loading={s.finishing} />
-            </>
-          ) : s.target ? (
-            <>
-              <Text className="text-cream text-lg font-bold">
-                {s.target.tags?.name ?? `Node ${s.target.id}`}
-              </Text>
-              <Text className="text-cream-dim">
-                {s.distToTarget != null ? `${fmtDist(s.distToTarget)} ${s.heading}` : "Locating…"}
-                {s.nextTurn
-                  ? ` · ${maneuver(s.nextTurn.angle)} in ${fmtDist(s.distToTurn ?? 0)}`
-                  : ""}
-              </Text>
+      <View className="bg-ink-soft border-cream/10 absolute right-0 bottom-0 left-0 border-t px-5 pt-5 pb-8">
+        {s.done ? (
+          <>
+            <Text className="text-cream text-lg font-bold">All points surveyed</Text>
+            <Button title="Finish run" onPress={s.finish} loading={s.finishing} />
+          </>
+        ) : s.target ? (
+          <>
+            <Text className="text-cream text-lg font-bold">
+              {s.target.tags?.name ??
+                (s.nextTurn
+                  ? `${maneuver(s.nextTurn.angle)} in ${fmtDist(s.distToTurn ?? 0)}`
+                  : "Next stop")}
+            </Text>
+            <Text className="text-cream-dim">{checkedAgoLabel(s.target.tags, now)}</Text>
 
-              {s.target.tags?.drinking_water === "no" ? (
-                <View className="flex-row items-center gap-1.5">
-                  <DogIcon size={16} color="#a78bfa" weight="fill" />
-                  <Text className="text-sm font-medium text-violet-400">
-                    Dog water — not for humans
-                  </Text>
-                </View>
-              ) : null}
-
-              {s.osm && !s.osm.loggedIn ? (
-                <Text className="text-cream-dim text-xs">
-                  Sign in to OSM (Profile tab) to record updates.
+            {s.target.tags?.drinking_water === "no" ? (
+              <View className="flex-row items-center gap-1.5">
+                <DogIcon size={16} color="#a78bfa" />
+                <Text className="text-sm font-medium text-violet-400">
+                  Dog water — not for humans
                 </Text>
-              ) : null}
+              </View>
+            ) : null}
 
-              {pending ? (
-                // Inline confirmation for the stop-jumping actions (skip / back).
-                <View className="gap-2">
-                  <Text className="text-cream text-sm font-medium">
-                    {pending === "skip"
-                      ? "Skip this stop? It’ll be marked skipped and you’ll move on."
-                      : "Go back to the previous stop? It’ll be re-opened for action."}
-                  </Text>
-                  <View className="flex-row gap-2">
-                    <View className="flex-1">
-                      <Button title="Cancel" variant="ghost" onPress={() => setConfirm(null)} />
-                    </View>
-                    <View className="flex-1">
-                      <Button
-                        title={pending === "skip" ? "Skip stop" : "Go back"}
-                        onPress={() => {
-                          setConfirm(null);
-                          if (pending === "skip") s.skip();
-                          else s.goBack();
-                        }}
-                      />
-                    </View>
+            {s.osm && !s.osm.loggedIn ? (
+              <Text className="text-cream-dim text-xs">
+                Sign in (Profile tab) to record updates.
+              </Text>
+            ) : null}
+
+            {pending === "end" ? (
+              <View className="gap-2">
+                <Text className="text-cream text-sm font-medium">
+                  End this route early? Remaining stops will be left for next time.
+                </Text>
+                <View className="flex-row gap-2">
+                  <View className="flex-1">
+                    <Button title="Cancel" variant="ghost-dark" onPress={() => setConfirm(null)} />
+                  </View>
+                  <View className="flex-1">
+                    <Button
+                      title="End route"
+                      onPress={() => {
+                        setConfirm(null);
+                        s.endEarly();
+                      }}
+                    />
                   </View>
                 </View>
-              ) : s.arrived ? (
-                <View className="gap-2">
-                  {ACTIONS.map(({ action, title, Icon, box }) => (
+              </View>
+            ) : (
+              <View className="gap-6 pt-5 pb-3">
+                <Button
+                  title="I'm here"
+                  variant="blue"
+                  onPress={() => {
+                    s.setManualArrived(true);
+                    if (s.target) setSelectedId(s.target.id);
+                  }}
+                />
+                <View className="flex-row gap-3">
+                  <Pressable
+                    onPress={() => setConfirm({ i: s.index, action: "end" })}
+                    accessibilityRole="button"
+                    accessibilityLabel="End route early"
+                    className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-red-400/40 bg-red-950/20 px-3 py-2.5"
+                  >
+                    <XCircleIcon size={18} color="#f87171" />
+                    <Text className="text-sm font-bold text-red-400">End</Text>
+                  </Pressable>
+                  {s.index > 0 ? (
                     <Pressable
-                      key={action}
-                      onPress={() => s.record(action)}
+                      onPress={() => s.goBack()}
                       accessibilityRole="button"
-                      className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-3 ${box}`}
+                      accessibilityLabel="Back to previous stop"
+                      className="border-cream/25 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5"
                     >
-                      <Icon size={18} color="#ffffff" weight="bold" />
-                      <Text className="text-base font-bold text-white">{title}</Text>
+                      <SkipBackIcon size={18} color="#f7f2e8" />
+                      <Text className="text-cream text-sm font-semibold">Back</Text>
                     </Pressable>
-                  ))}
-                  <Button
-                    title="Skip"
-                    variant="ghost"
-                    onPress={() => setConfirm({ i: s.index, action: "skip" })}
-                  />
+                  ) : null}
+                  <Pressable
+                    onPress={() => s.skip()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Skip this stop"
+                    className="border-cream/25 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5"
+                  >
+                    <SkipForwardIcon size={18} color="#f7f2e8" />
+                    <Text className="text-cream text-sm font-semibold">Skip</Text>
+                  </Pressable>
                 </View>
-              ) : (
-                <View className="gap-2">
-                  <View className="flex-row gap-2">
-                    {/* Add a new node of the surveyed type at the current GPS. */}
-                    <Pressable
-                      onPress={s.addHere}
-                      disabled={!s.osm?.loggedIn || s.adding || !s.userPos}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Add ${s.addLabel} here`}
-                      className={`border-sky-deep/60 items-center justify-center rounded-xl border px-4 py-3 ${
-                        !s.osm?.loggedIn || s.adding || !s.userPos ? "opacity-50" : ""
-                      }`}
-                    >
-                      {s.adding ? (
-                        <ActivityIndicator size="small" color="#4fafd4" />
-                      ) : (
-                        <PlusCircleIcon size={22} color="#4fafd4" weight="bold" />
-                      )}
-                    </Pressable>
-                    <View className="flex-1">
-                      <Button title="I'm here" onPress={() => s.setManualArrived(true)} />
-                    </View>
-                  </View>
-                  <View className="flex-row gap-2">
-                    {s.index > 0 ? (
-                      <Pressable
-                        onPress={() => setConfirm({ i: s.index, action: "back" })}
-                        accessibilityRole="button"
-                        accessibilityLabel="Back to previous stop"
-                        className="border-paper-line/30 items-center justify-center rounded-xl border px-4 py-2"
-                      >
-                        <SkipBackIcon size={18} color="#b9b8ac" />
-                      </Pressable>
-                    ) : null}
-                    <Pressable
-                      onPress={() => setConfirm({ i: s.index, action: "skip" })}
-                      accessibilityRole="button"
-                      accessibilityLabel="Skip this stop"
-                      className="border-paper-line/30 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border px-4 py-2"
-                    >
-                      <SkipForwardIcon size={18} color="#b9b8ac" />
-                      <Text className="text-cream-dim text-sm font-semibold">Skip</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              )}
-            </>
-          ) : (
-            <Text className="text-cream-dim">Waiting for GPS…</Text>
-          )}
+              </View>
+            )}
+          </>
+        ) : (
+          <Text className="text-cream-dim">Waiting for GPS…</Text>
+        )}
 
-          {s.lastSaved ? (
-            <View className="flex-row items-center gap-2">
-              <CheckCircleIcon size={16} color="#4ade80" />
-              <Text className="flex-1 text-sm text-green-300">Saved · {s.lastSaved.summary}</Text>
-            </View>
-          ) : null}
-          {s.err ? <Text className="text-red-400">{s.err}</Text> : null}
-        </View>
-      </SafeArea>
+        {s.lastSaved ? (
+          <View className="flex-row items-center gap-2">
+            <CheckCircleIcon size={16} color="#4ade80" />
+            <Text className="flex-1 text-sm text-green-300">Saved · {s.lastSaved.summary}</Text>
+          </View>
+        ) : null}
+        {s.err ? <Text className="text-red-400">{s.err}</Text> : null}
+      </View>
 
-      {/* Point sheet for any tapped marker — routed, added, or off-route pool.
-          Recording the current target advances the run; recording any other
-          point saves it and stays put (core recordFor behavior). */}
       <BottomSheet isPresented={selectedId != null} onDismiss={() => setSelectedId(null)}>
         <RNHostView matchContents>
           <View style={{ width: winW - 32 }}>
-            {selectedNode ? (
+            {selectedPoint ? (
               <PointSheet
-                fountain={selectedNode}
-                edit={edits[selectedNode.id]}
-                onAction={(action, extras) => s.recordFor(selectedNode, action, extras)}
+                fountain={selectedPoint}
+                edit={selectedEdit}
+                inRoute={activeInPlanner}
+                onToggleRoute={onToggleRoute}
+                onAction={(action, extras) => {
+                  s.recordFor(selectedPoint, action, extras);
+                  setSelectedId(null);
+                }}
               />
-            ) : (
-              <View className="items-center justify-center py-12">
-                <ActivityIndicator />
-              </View>
-            )}
+            ) : null}
+          </View>
+        </RNHostView>
+      </BottomSheet>
+
+      <BottomSheet isPresented={addLocation != null} onDismiss={() => setAddLocation(null)}>
+        <RNHostView matchContents>
+          <View style={{ width: winW - 32 }}>
+            {addLocation ? (
+              <PointSheet
+                fountain={{
+                  id: -1,
+                  lat: addLocation.lat,
+                  lon: addLocation.lon,
+                  tags: { amenity: "drinking_water" },
+                }}
+                onAction={async (_action, extras) => {
+                  const loc = addLocation;
+                  setAddLocation(null);
+                  await s.addAt(loc, extras);
+                }}
+              />
+            ) : null}
           </View>
         </RNHostView>
       </BottomSheet>

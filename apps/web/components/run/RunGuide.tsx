@@ -13,16 +13,15 @@ import {
   SkipForwardIcon,
   PlusCircleIcon,
   EyeIcon,
-  DogIcon,
   FlagCheckeredIcon,
 } from "@phosphor-icons/react";
 import type { RunSession } from "@/hooks/useRunSession";
-import type { Audience } from "@rosm/core/schemas";
 import { fmtFeet, maneuver } from "@rosm/core/geo";
-import { audienceFromTags } from "@/lib/audience";
-import AudienceToggle from "@/components/AudienceToggle";
+import { DogIcon } from "@/components/icons/DogIcon";
 import SyncStatus from "@/components/SyncStatus";
 import OsmSignInLink from "@/components/OsmSignInLink";
+
+import PointDetailsForm from "@/components/PointDetailsForm";
 
 type Tone = "light" | "dark";
 
@@ -118,20 +117,10 @@ export default function RunGuide({
   // Skip, back and end-route all jump stops, so gate each behind an inline
   // confirm. Tracking the stop index alongside the action auto-dismisses the
   // prompt when the active stop changes — no reset effect needed.
-  const [confirm, setConfirm] = useState<{ i: number; action: "skip" | "back" | "end" } | null>(
-    null,
-  );
+  const [confirm, setConfirm] = useState<{ i: number; action: "end" } | null>(null);
   const pending = confirm?.i === index ? confirm.action : null;
 
-  // Who the current source serves, prefilled from its tags. Keyed by node id so
-  // the toggle auto-resets to the next stop's tags when the target changes.
-  const [aud, setAud] = useState<{ id: number; value: Audience } | null>(null);
-  const audience: Audience =
-    aud && target && aud.id === target.id
-      ? aud.value
-      : target
-        ? audienceFromTags(target.tags ?? {})
-        : "humans";
+  const [detailFor, setDetailFor] = useState<"confirm" | "out_of_order" | "removed" | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -192,44 +181,78 @@ export default function RunGuide({
             </OsmSignInLink>
           )}
 
-          {arrived && (
-            <div className="grid gap-2">
-              {target && (
-                <AudienceToggle
-                  value={audience}
-                  onChange={(value) => setAud({ id: target.id, value })}
+          {arrived &&
+            (detailFor ? (
+              <div className="flex flex-col gap-2">
+                <PointDetailsForm
+                  tags={target?.tags ?? {}}
+                  busy={false}
+                  submitLabel={
+                    detailFor === "confirm"
+                      ? "Confirm working"
+                      : detailFor === "out_of_order"
+                        ? "Mark out of order"
+                        : "Confirm removed"
+                  }
+                  submitIcon={
+                    detailFor === "confirm" ? (
+                      <CheckCircleIcon size={16} weight="fill" />
+                    ) : detailFor === "out_of_order" ? (
+                      <WarningIcon size={16} />
+                    ) : (
+                      <TrashIcon size={16} />
+                    )
+                  }
+                  submitClassName={
+                    detailFor === "confirm"
+                      ? "bg-green-600 hover:bg-green-700"
+                      : detailFor === "out_of_order"
+                        ? "bg-amber-500 hover:bg-amber-600"
+                        : "bg-red-600 hover:bg-red-700"
+                  }
+                  isRemoved={detailFor === "removed"}
+                  onSubmit={(extras) => {
+                    record(detailFor, extras);
+                    setDetailFor(null);
+                  }}
                 />
-              )}
-              <button
-                onClick={() => record("confirm", { audience })}
-                className="flex items-center justify-center gap-2 rounded bg-green-600 py-3 font-semibold text-white disabled:opacity-50"
-              >
-                <CheckCircleIcon size={20} /> Working — confirm (set check_date)
-              </button>
-              <button
-                onClick={() => record("out_of_order")}
-                className="flex items-center justify-center gap-2 rounded bg-amber-500 py-3 font-semibold text-white disabled:opacity-50"
-              >
-                <WarningIcon size={20} /> Out of order (disused:)
-              </button>
-              <button
-                onClick={() => record("removed")}
-                className="flex items-center justify-center gap-2 rounded bg-red-600 py-3 font-semibold text-white disabled:opacity-50"
-              >
-                <TrashIcon size={20} /> Removed (abandoned:)
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={() => setDetailFor(null)}
+                  className="rounded border border-neutral-300 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                <button
+                  onClick={() => setDetailFor("confirm")}
+                  className="flex items-center justify-center gap-2 rounded bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+                >
+                  <CheckCircleIcon size={20} /> Working
+                </button>
+                <button
+                  onClick={() => setDetailFor("out_of_order")}
+                  className="flex items-center justify-center gap-2 rounded bg-amber-500 py-3 font-semibold text-white transition hover:bg-amber-600 disabled:opacity-50"
+                >
+                  <WarningIcon size={20} /> Out of order
+                </button>
+                <button
+                  onClick={() => setDetailFor("removed")}
+                  className="flex items-center justify-center gap-2 rounded bg-red-600 py-3 font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  <TrashIcon size={20} /> Removed
+                </button>
+              </div>
+            ))}
 
-          {pending ? (
-            // Inline confirmation for the stop-jumping actions (skip / back).
+          {pending === "end" ? (
+            // Inline confirmation for ending route early.
             <div className={`flex flex-col gap-2 rounded-lg border p-3 ${t.card}`}>
               <p className="text-sm font-medium">
-                {pending === "skip"
-                  ? "Skip this stop? It’ll be marked skipped and you’ll move on."
-                  : pending === "back"
-                    ? "Go back to the previous stop? It’ll be re-opened for action."
-                    : "End the route now? Any remaining stops stay unsurveyed and you’ll close the changeset."}
+                End the route now? Any remaining stops stay unsurveyed and you’ll close the
+                changeset.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -238,37 +261,15 @@ export default function RunGuide({
                 >
                   Cancel
                 </button>
-                {pending === "skip" ? (
-                  <button
-                    onClick={() => {
-                      setConfirm(null);
-                      skip();
-                    }}
-                    className="flex items-center justify-center gap-1.5 rounded bg-amber-500 py-2.5 text-sm font-semibold text-white"
-                  >
-                    <SkipForwardIcon size={18} /> Skip stop
-                  </button>
-                ) : pending === "back" ? (
-                  <button
-                    onClick={() => {
-                      setConfirm(null);
-                      goBack();
-                    }}
-                    className={`flex items-center justify-center gap-1.5 rounded py-2.5 text-sm font-semibold ${t.inspect}`}
-                  >
-                    <SkipBackIcon size={18} /> Go back
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setConfirm(null);
-                      endEarly();
-                    }}
-                    className="flex items-center justify-center gap-1.5 rounded bg-red-600 py-2.5 text-sm font-semibold text-white"
-                  >
-                    <FlagCheckeredIcon size={18} /> End route
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    setConfirm(null);
+                    endEarly();
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded bg-red-600 py-2.5 text-sm font-semibold text-white"
+                >
+                  <FlagCheckeredIcon size={18} /> End route
+                </button>
               </div>
             </div>
           ) : (
@@ -307,23 +308,23 @@ export default function RunGuide({
           <button
             title="End route now"
             onClick={() => setConfirm({ i: index, action: "end" })}
-            className={`flex items-center justify-center rounded px-3 py-2 shadow-sm ${t.pin}`}
+            className={`flex size-9 items-center justify-center rounded shadow-sm ${t.pin}`}
           >
             <FlagCheckeredIcon size={18} />
           </button>
           {index > 0 && (
             <button
               title="Back to previous stop"
-              onClick={() => setConfirm({ i: index, action: "back" })}
-              className={`flex items-center justify-center rounded px-3 py-2 shadow-sm ${t.pin}`}
+              onClick={() => goBack()}
+              className={`flex size-9 items-center justify-center rounded shadow-sm ${t.pin}`}
             >
               <SkipBackIcon size={18} />
             </button>
           )}
           <button
             title="Skip this stop"
-            onClick={() => setConfirm({ i: index, action: "skip" })}
-            className={`flex items-center justify-center rounded px-3 py-2 shadow-sm ${t.pin}`}
+            onClick={() => skip()}
+            className={`flex size-9 items-center justify-center rounded shadow-sm ${t.pin}`}
           >
             <SkipForwardIcon size={18} />
           </button>

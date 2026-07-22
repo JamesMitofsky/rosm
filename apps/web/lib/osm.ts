@@ -264,6 +264,7 @@ export function applyAction(
   };
   switch (action) {
     case "confirm":
+    case "broken":
       next.check_date = today;
       break;
     case "out_of_order":

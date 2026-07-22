@@ -489,9 +489,14 @@ export default function MapView({
       // report the tap straight to the caller (drop-a-pin).
       setSelected(null);
       if (mapClickPopup) {
-        // Toggle: a tap while the popup is open dismisses it rather than moving
-        // it to the new spot.
-        setPendingTap((prev) => (prev ? null : { lat: e.lngLat.lat, lon: e.lngLat.lng }));
+        // Toggle if exact same location clicked; move to new location on different tap.
+        setPendingTap((prev) =>
+          prev &&
+          Math.abs(prev.lat - e.lngLat.lat) < 1e-6 &&
+          Math.abs(prev.lon - e.lngLat.lng) < 1e-6
+            ? null
+            : { lat: e.lngLat.lat, lon: e.lngLat.lng },
+        );
         return;
       }
       onMapClick?.(e.lngLat.lat, e.lngLat.lng);
@@ -614,7 +619,7 @@ export default function MapView({
         )}
         {lineData && (
           <Source id="route" type="geojson" data={lineData}>
-            <Layer {...lineLayer} />
+            <Layer {...lineLayer} beforeId={MARKERS_LAYER} />
           </Source>
         )}
 
@@ -686,18 +691,40 @@ export default function MapView({
         )}
 
         {pendingTap && mapClickPopup && (
-          <Popup
-            longitude={pendingTap.lon}
-            latitude={pendingTap.lat}
-            anchor="bottom"
-            offset={14}
-            closeOnClick={false}
-            closeButton={false}
-            maxWidth="none"
-            onClose={() => setPendingTap(null)}
-          >
-            {mapClickPopup(pendingTap, () => setPendingTap(null))}
-          </Popup>
+          <>
+            <Marker longitude={pendingTap.lon} latitude={pendingTap.lat} anchor="center">
+              <div
+                style={{
+                  width: (markerRadius || 9) * 2,
+                  height: (markerRadius || 9) * 2,
+                  borderRadius: "50%",
+                  background: "#16a34a",
+                  border: "2px solid #ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ffffff",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                }}
+              >
+                +
+              </div>
+            </Marker>
+            <Popup
+              longitude={pendingTap.lon}
+              latitude={pendingTap.lat}
+              anchor="bottom"
+              offset={14}
+              closeOnClick={false}
+              closeButton={false}
+              maxWidth="none"
+              onClose={() => setPendingTap(null)}
+            >
+              {mapClickPopup(pendingTap, () => setPendingTap(null))}
+            </Popup>
+          </>
         )}
       </MapGL>
     </div>

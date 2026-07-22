@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRun, type RunStop } from "@rosm/core/stores/run";
 import { useOutbox } from "@rosm/core/stores/outbox";
 import { runGuidance, ARRIVAL_RADIUS_M, PROXIMITY_RADIUS_M } from "@rosm/core/guidance";
-import { compass, type Pt } from "@rosm/core/geo";
+import { compass, routeHeadingAt, fmtDist, type Pt } from "@rosm/core/geo";
 import { ptLabel } from "@rosm/core/pointTypes";
 import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { STATUS_COLOR } from "@rosm/core/editStatus";
 import { archiveRoute, getArchivedRoutes } from "@rosm/core/routeArchive";
-import type { EditAction, EditExtras } from "@rosm/core/schemas";
+import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
+import type { SurveyAction } from "../components/PointSheet";
 import { api } from "../ports/api";
 import { useOsmStatus } from "../auth/useOsmStatus";
 import { watchRunPosition } from "../ports/geolocation";
@@ -15,7 +16,12 @@ import type { GeoWatch } from "@rosm/core/ports";
 import { hapticSuccess } from "../ports/haptics";
 import { keepAwake, allowSleep } from "../ports/keepAwake";
 import { celebratePoint } from "../ports/confetti";
-import { ensureNotifyPermission, notifyProximity, notifyRunComplete } from "../ports/notify";
+import {
+  ensureNotifyPermission,
+  notifyProximity,
+  notifyRunComplete,
+  updateLiveActivityNotification,
+} from "../ports/notify";
 import type { RosmMarker } from "../map/RosmMap";
 
 // The Expo run session: live GPS, the shared guidance derived from it, the OSM
@@ -101,6 +107,17 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     }
   }, [enabled, target, distToTarget, index]);
 
+  // Update Live Activity lock screen state with distance to next fountain & turn maneuvers
+  useEffect(() => {
+    if (!enabled || !target || distToTarget == null) return;
+    const name = target.tags?.name || `Stop #${index + 1}`;
+    const turnText =
+      nextTurn && distToTurn
+        ? `${nextTurn.angle < 180 ? "Right" : "Left"} in ${fmtDist(distToTurn)}`
+        : undefined;
+    updateLiveActivityNotification(name, distToTarget, turnText);
+  }, [enabled, target, distToTarget, index, nextTurn, distToTurn]);
+
   const notifiedDoneRef = useRef(false);
   useEffect(() => {
     if (!enabled) return;
@@ -143,7 +160,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   }, [index, run, persist]);
 
   const recordFor = useCallback(
-    (node: RunStop, action: EditAction, extras?: EditExtras) => {
+    (node: Fountain, action: SurveyAction, extras?: EditExtras) => {
       const isCurrent = !!target && node.id === target.id;
       setErr(null);
       useOutbox
@@ -165,8 +182,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   );
 
   const record = useCallback(
-    (action: EditAction) => {
-      if (target) recordFor(target, action);
+    (action: EditAction, extras?: EditExtras) => {
+      if (target) recordFor(target, action, extras);
     },
     [target, recordFor],
   );
@@ -190,9 +207,45 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     persist(pi);
   }, [index, stops, run, persist]);
 
-  // Create a brand-new node of the surveyed type at the current GPS position.
-  // Online-only (needs a fresh node id back from OSM), but shares the outbox's
-  // changeset so the create lands with the run's edits.
+  // Create a brand-new node of the surveyed type at a given spot (GPS position or tapped map location).
+  const addAt = useCallback(
+    async (at: { lat: number; lon: number }, extras?: EditExtras) => {
+      if (!osm?.loggedIn) {
+        setErr("Sign in to OSM first.");
+        return;
+      }
+      setAdding(true);
+      setErr(null);
+      setLastSaved(null);
+      try {
+        const r = await api.apiFetch("/api/osm/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lat: at.lat,
+            lon: at.lon,
+            tag: { key: tagKey, value: tagValue },
+            changesetId: useOutbox.getState().changesetId,
+            extras,
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "create failed");
+        useOutbox.getState().setChangeset(j.changesetId);
+        run.addNode({ id: j.nodeId, lat: j.lat, lon: j.lon, tags: j.tags });
+        celebratePoint();
+        hapticSuccess();
+        setLastSaved({ nodeId: j.nodeId, summary: j.summary });
+        persist(index, j.changesetId);
+      } catch (e) {
+        setErr((e as Error).message);
+      } finally {
+        setAdding(false);
+      }
+    },
+    [osm, tagKey, tagValue, run, index, persist],
+  );
+
   const addHere = useCallback(async () => {
     if (!osm?.loggedIn) {
       setErr("Sign in to OSM first.");
@@ -202,34 +255,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       setErr("Waiting for GPS fix.");
       return;
     }
-    setAdding(true);
-    setErr(null);
-    setLastSaved(null);
-    try {
-      const r = await api.apiFetch("/api/osm/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: pos.lat,
-          lon: pos.lon,
-          tag: { key: tagKey, value: tagValue },
-          changesetId: useOutbox.getState().changesetId,
-        }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "create failed");
-      useOutbox.getState().setChangeset(j.changesetId);
-      run.addNode({ id: j.nodeId, lat: j.lat, lon: j.lon, tags: j.tags });
-      celebratePoint();
-      hapticSuccess();
-      setLastSaved({ nodeId: j.nodeId, summary: j.summary });
-      persist(index, j.changesetId);
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setAdding(false);
-    }
-  }, [osm, pos, tagKey, tagValue, run, index, persist]);
+    await addAt(pos);
+  }, [osm, pos, addAt]);
 
   const finish = useCallback(async () => {
     setFinishing(true);
@@ -260,6 +287,23 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     run.reset();
     useOutbox.getState().clear();
   }, [run]);
+
+  const endEarly = useCallback(() => {
+    setLastSaved(null);
+    setManualArrived(false);
+    run.setIndex(stops.length);
+    persist(stops.length);
+  }, [stops.length, run, persist]);
+
+  const mapBearing = useMemo(
+    () =>
+      pos && run.routeCoords.length > 1
+        ? (routeHeadingAt(run.routeCoords, pos) ?? (target ? bearingTo : gpsHeading))
+        : pos && target
+          ? bearingTo
+          : gpsHeading,
+    [pos, run.routeCoords, target, bearingTo, gpsHeading],
+  );
 
   const line: [number, number][] = useMemo(
     () => run.routeCoords.map(([lon, lat]) => [lat, lon]),
@@ -312,6 +356,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     center,
     userPos: pos ? ([pos.lat, pos.lon] as [number, number]) : null,
     userHeading: gpsHeading,
+    mapBearing,
     recenterKey,
     fitPoints,
     hydrating,
@@ -339,7 +384,9 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     record,
     skip,
     goBack,
+    endEarly,
     addHere,
+    addAt,
     finish,
     reset,
   };

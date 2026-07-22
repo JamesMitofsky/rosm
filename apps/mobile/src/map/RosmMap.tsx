@@ -41,6 +41,7 @@ export type RosmRegion = {
 type Props = {
   center: [number, number]; // [lat, lon]
   zoom?: number;
+  bearing?: number;
   markers?: RosmMarker[];
   line?: [number, number][]; // [lat, lon][]
   userPos?: [number, number] | null; // [lat, lon]
@@ -171,6 +172,7 @@ export function RosmMap({
           <Layer
             id="route-line"
             type="line"
+            beforeId={MARKER_LAYER}
             paint={{ "line-color": "#2563eb", "line-width": 4, "line-opacity": 0.85 }}
           />
         </GeoJSONSource>
@@ -210,7 +212,7 @@ export function RosmMap({
           point every render. `userPos` presence gates it so planning/history
           views (which don't pass it) stay dotless. minDisplacement throttles
           updates to ~5m of movement. */}
-      {userPos ? <UserLocation heading minDisplacement={5} /> : null}
+      {userPos ? <UserLocation animated heading accuracy minDisplacement={1} /> : null}
     </Map>
   );
 }
