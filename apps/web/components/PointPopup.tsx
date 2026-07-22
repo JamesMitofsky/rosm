@@ -193,35 +193,35 @@ export default function PointPopup({
                   >
                     <button
                       disabled={busy}
-                      onClick={() => setDetailFor("confirm")}
-                      className="flex flex-col items-center justify-center gap-1.5 rounded-md bg-green-600 px-1 py-3 text-center text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50"
-                    >
-                      <CheckCircleIcon size={22} weight="fill" />
-                      <span>Working</span>
-                    </button>
-                    <button
-                      disabled={busy}
-                      onClick={() => setDetailFor("broken")}
-                      className="flex flex-col items-center justify-center gap-1.5 rounded-md bg-amber-500 px-1 py-3 text-center text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50"
-                    >
-                      <WrenchIcon size={22} weight="bold" />
-                      <span>Working but broken</span>
-                    </button>
-                    <button
-                      disabled={busy}
                       onClick={() => setDetailFor("out_of_order")}
-                      className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-orange-300 px-1 py-3 text-center text-xs font-semibold text-orange-700 transition hover:bg-orange-50 disabled:opacity-50"
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-orange-300 px-1 py-3.5 text-center text-xs font-semibold text-orange-700 transition hover:bg-orange-50 disabled:opacity-50"
                     >
-                      <WarningIcon size={22} weight="bold" />
+                      <WarningIcon size={26} weight="bold" />
                       <span>Out of order</span>
                     </button>
                     <button
                       disabled={busy}
-                      onClick={() => setDetailFor("removed")}
-                      className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-red-300 px-1 py-3 text-center text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                      onClick={() => setDetailFor("confirm")}
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-md bg-green-600 px-1 py-3.5 text-center text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50"
                     >
-                      <TrashIcon size={22} weight="bold" />
+                      <CheckCircleIcon size={26} weight="fill" />
+                      <span>Working</span>
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => setDetailFor("removed")}
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-red-300 px-1 py-3.5 text-center text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <TrashIcon size={26} weight="bold" />
                       <span>Removed</span>
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => setDetailFor("broken")}
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-md bg-amber-500 px-1 py-3.5 text-center text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50"
+                    >
+                      <WrenchIcon size={26} weight="bold" />
+                      <span>Working but broken</span>
                     </button>
                   </motion.div>
                 ) : (

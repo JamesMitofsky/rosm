@@ -49,10 +49,10 @@ type ActionButton = {
 };
 
 const ACTIONS: ActionButton[] = [
-  { action: "confirm", title: "Working", Icon: CheckCircleIcon, box: "bg-green-600" },
-  { action: "broken", title: "Working but broken", Icon: WrenchIcon, box: "bg-amber-500" },
   { action: "out_of_order", title: "Out of order", Icon: WarningIcon, box: "bg-orange-600" },
+  { action: "confirm", title: "Working", Icon: CheckCircleIcon, box: "bg-green-600" },
   { action: "removed", title: "Removed", Icon: TrashIcon, box: "bg-red-600" },
+  { action: "broken", title: "Working but broken", Icon: WrenchIcon, box: "bg-amber-500" },
 ];
 
 type Props = {
@@ -175,9 +175,9 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
                 key={action}
                 onPress={() => setDetailFor(action)}
                 accessibilityRole="button"
-                className={`h-20 flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 ${box}`}
+                className={`h-22 flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 ${box}`}
               >
-                <Icon size={24} color="#ffffff" weight="bold" />
+                <Icon size={28} color="#ffffff" weight="bold" />
                 <Text className="flex-shrink text-center text-sm font-bold text-white">
                   {title}
                 </Text>
@@ -190,9 +190,9 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
                 key={action}
                 onPress={() => setDetailFor(action)}
                 accessibilityRole="button"
-                className={`h-20 flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 ${box}`}
+                className={`h-22 flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 ${box}`}
               >
-                <Icon size={24} color="#ffffff" weight="bold" />
+                <Icon size={28} color="#ffffff" weight="bold" />
                 <Text className="flex-shrink text-center text-sm font-bold text-white">
                   {title}
                 </Text>
