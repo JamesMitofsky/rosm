@@ -66,7 +66,7 @@
         class="inline-flex items-center gap-2.5 rounded-xl bg-blue px-3 py-2.5 text-sm font-bold text-white transition hover:bg-[#0a6fa3]"
       >
         <Barbell class="h-5 w-5" weight="fill" />
-        Test the App
+        Contribute
       </button>
     </div>
   {/if}

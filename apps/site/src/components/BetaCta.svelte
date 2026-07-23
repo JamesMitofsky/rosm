@@ -96,7 +96,7 @@
       d="M89.1,44.2c-0.8-2.8-3.6-4.4-6.4-3.6l-7.7,2.1l-3.7-8.4c-1.1-2.5-2.9-4.6-5.2-6.1l-8.9-5.8c-2.6-1.7-5.8-2.5-8.9-2.3l-13.1,1c-1.4,0.1-2.6,0.8-3.5,1.8l-8.9,10.5c-1.9,2.2-1.6,5.4,0.6,7.3c2.2,1.9,5.4,1.6,7.3-0.6l7.5-8.8l7.8-0.6L34.7,50.9c-0.8,1.5-1,3.3-0.5,4.9c0.5,1.6,1.7,3,3.3,3.7l17.5,8.2L45.2,81c-2,2.8-1.4,6.7,1.3,8.7c1.1,0.8,2.4,1.2,3.7,1.2c1.9,0,3.8-0.9,5-2.5L69.4,69c1.1-1.5,1.5-3.4,1-5.2c-0.5-1.8-1.7-3.3-3.4-4.1L54.8,54l8.4-12.4l4.2,9.5c0.8,1.9,2.7,3.1,4.7,3.1c0.5,0,0.9-0.1,1.4-0.2l12-3.3C88.3,49.8,89.9,46.9,89.1,44.2z"
     ></path>
   </svg>
-  Test the App
+  Contribute
 </button>
 
 <dialog
@@ -117,7 +117,7 @@
     <X class="h-5 w-5" weight="bold" />
   </button>
 
-  <h2 id="join-beta-title" class="font-hero text-hero text-3xl font-bold tracking-tight">Test the App</h2>
+  <h2 id="join-beta-title" class="font-hero text-hero text-3xl font-bold tracking-tight">Contribute</h2>
 
   {#if status === "success"}
     <p class="text-muted mt-4 text-lg leading-relaxed">
