@@ -7,6 +7,9 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "build:ios:local": "eas build --profile preview --platform ios --local",
+    "build:ios:testflight": "eas build --profile production --platform ios --local --output ./build/rosm.ipa",
+    "submit:testflight": "./scripts/submit-testflight.sh",
     "uniwind:types": "uniwind generate-artifacts --css ./src/global.css --dts ./src/uniwind-types.d.ts",
     "typecheck": "pnpm uniwind:types && tsc --noEmit",
     "lint": "eslint ."
@@ -54,6 +57,7 @@
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
     "@types/react": "~19.2.2",
+    "babel-preset-expo": "~57.0.4",
     "eslint": "^9.39.4",
     "eslint-config-expo": "^57.0.0",
     "expo-mcp": "~0.2.4",
