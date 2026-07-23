@@ -11,7 +11,7 @@ import { PointSheet } from "../components/PointSheet";
 import { Button } from "../components/ui/Button";
 
 function checkedAgoLabel(tags?: Record<string, string>, now: Date = new Date()): string {
-  const d = tags?.check_date ?? tags?.["check_date:drbaseing_water"];
+  const d = tags?.check_date ?? tags?.["check_date:drinking_water"];
   if (!d) return "Not surveyed yet";
   const diffMs = now.getTime() - new Date(d).getTime();
   const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -134,7 +134,7 @@ export default function RunScreen() {
             </Text>
             <Text className="text-light-muted">{checkedAgoLabel(s.target.tags, now)}</Text>
 
-            {s.target.tags?.drbaseing_water === "no" ? (
+            {s.target.tags?.drinking_water === "no" ? (
               <View className="flex-row items-center gap-1.5">
                 <DogIcon size={16} color="#a78bfa" />
                 <Text className="text-sm font-medium text-violet-400">
@@ -252,7 +252,7 @@ export default function RunScreen() {
                   id: -1,
                   lat: addLocation.lat,
                   lon: addLocation.lon,
-                  tags: { amenity: "drbaseing_water" },
+                  tags: { amenity: "drinking_water" },
                 }}
                 onAction={async (_action, extras) => {
                   const loc = addLocation;

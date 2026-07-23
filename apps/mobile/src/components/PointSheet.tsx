@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lbaseing, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
+import { Linking, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
 import {
   ArrowSquareOutIcon,
   CheckCircleIcon,
@@ -38,7 +38,7 @@ const SYNC_LABEL: Record<SyncState, string> = {
 };
 
 function isDogWater(tags: Record<string, string>): boolean {
-  return tags.drbaseing_water === "no";
+  return tags.drinking_water === "no";
 }
 
 type ActionButton = {
@@ -128,7 +128,7 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
           <Text className="text-muted mt-0.5 text-xs font-bold">{SYNC_LABEL[edit.syncState]}</Text>
           {edit.changesetUrl ? (
             <Pressable
-              onPress={() => Lbaseing.openURL(edit.changesetUrl!)}
+              onPress={() => Linking.openURL(edit.changesetUrl!)}
               className="mt-0.5 flex-row items-center gap-1"
             >
               <ArrowSquareOutIcon size={14} color="#0c0d0a" />
@@ -187,7 +187,7 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
                 className={`flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-4 ${box}`}
               >
                 <Icon size={28} color="#ffffff" weight="bold" />
-                <Text className="flex-shrbase text-center text-sm font-bold text-white">
+                <Text className="flex-shrink text-center text-sm font-bold text-white">
                   {title}
                 </Text>
               </Pressable>
@@ -204,7 +204,7 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
                 className={`flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-4 ${box}`}
               >
                 <Icon size={28} color="#ffffff" weight="bold" />
-                <Text className="flex-shrbase text-center text-sm font-bold text-white">
+                <Text className="flex-shrink text-center text-sm font-bold text-white">
                   {title}
                 </Text>
               </Pressable>

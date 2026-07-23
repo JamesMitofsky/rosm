@@ -6,7 +6,7 @@
   // holds until the fetch resolves. Callers can override with location copy.
   export const DEFAULT_LOADING_STEPS: LoadingStep[] = [
     { text: "Opening a socket to OpenStreetMap servers…", ms: 5000 },
-    { text: "Scanning nearby drbaseing-water nodes…", ms: 5000 },
+    { text: "Scanning nearby drinking-water nodes…", ms: 5000 },
     { text: "Reading check_date tags to grade recency…", ms: 5000 },
   ];
 

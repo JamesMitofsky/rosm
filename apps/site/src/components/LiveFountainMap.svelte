@@ -10,18 +10,18 @@
   import { haversine } from "@rosm/core/geo";
 
   // Live counterpart to DemoRunMap: on mount it queries Overpass for every
-  // amenity=drbaseing_water node in the on-screen viewport around central DC and
+  // amenity=drinking_water node in the on-screen viewport around central DC and
   // colors each by how recently it was verified. Read-only; no editing.
   let { class: className = "" }: { class?: string } = $props();
 
   const DC_CENTER: [number, number] = [38.8972, -77.0369];
   const CENTER_PT = { lat: DC_CENTER[0], lon: DC_CENTER[1] };
-  const TAG = { key: "amenity", value: "drbaseing_water" } as const;
+  const TAG = { key: "amenity", value: "drinking_water" } as const;
 
   // Location-specific play-by-play for the hero fetch.
   const LOADING_STEPS: LoadingStep[] = [
     { text: "Opening a socket to OpenStreetMap servers…", ms: 5000 },
-    { text: "Scanning drbaseing-water nodes around Washington, DC…", ms: 5000 },
+    { text: "Scanning drinking-water nodes around Washington, DC…", ms: 5000 },
     { text: "Reading check_date tags to grade recency…", ms: 5000 },
   ];
 

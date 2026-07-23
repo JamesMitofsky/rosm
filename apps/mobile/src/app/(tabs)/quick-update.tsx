@@ -15,7 +15,7 @@ import { BottomSheet, RNHostView } from "@expo/ui";
 import { RosmMap, type RosmMarker, type RosmRegion } from "../../map/RosmMap";
 import { PointSheet, type PointEdit, type SurveyAction } from "../../components/PointSheet";
 
-const TAG = { key: "amenity", value: "drbaseing_water" };
+const TAG = { key: "amenity", value: "drinking_water" };
 const RADIUS_MI = 0.3;
 // Cap the queried area so a fully zoomed-out map can't fire a huge Overpass query.
 const MAX_RADIUS_M = milesToMeters(25);
