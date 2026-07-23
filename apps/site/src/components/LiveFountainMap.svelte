@@ -92,6 +92,14 @@
     load();
   }
 
+  // The map failed before it could report a viewport, so the fountain query
+  // never fires. Stop the loader (MapView shows its own error card) instead of
+  // spinning forever behind it.
+  function onMapError() {
+    didQuery = true;
+    busy = false;
+  }
+
   const buckets = $derived(fountains.map((f) => ({ f, bucket: bucketOf(f.tags, nowMs) })));
 
   const markers = $derived<MapMarker[]>(
@@ -129,6 +137,7 @@
     maxZoom={18}
     interactive
     {onViewChange}
+    onError={onMapError}
     {markers}
     markerRadius={6}
     {fitPoints}
@@ -149,7 +158,7 @@
 
   <!-- Fetch failed: floating retry card. -->
   {#if err && !busy}
-    <div class="absolute top-3 left-3 z-[650] max-w-xs">
+    <div class="absolute top-3 left-3 z-[700] max-w-xs">
       <ErrorNotice message={err} tone="light" onRetry={load} retrying={busy} />
     </div>
   {/if}

@@ -169,7 +169,7 @@
   </div>
 {/snippet}
 
-{#if show}
+{#if show && !failed}
   {#if variant === "overlay"}
     <div
       transition:fade={{ duration: 550 }}

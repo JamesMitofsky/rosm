@@ -104,6 +104,9 @@
     fitOptions?: { padding?: [number, number]; maxZoom?: number };
     centerOnSelect?: boolean;
     class?: string;
+    // Fired on a fatal (pre-load) map failure so callers can stop their own
+    // loaders and let the error surface.
+    onError?: (err: unknown) => void;
     // Rendered inside the map popup when a marker is tapped, given that marker.
     markerPopup?: Snippet<[MapMarker]>;
   };
@@ -126,6 +129,7 @@
     fitOptions,
     centerOnSelect = false,
     class: className,
+    onError,
     markerPopup,
   }: Props = $props();
 
@@ -181,7 +185,7 @@
   });
 
   let isLoaded = $state(false);
-
+  let hasError = $state(false);
 
   $effect(() => {
     const timer = setTimeout(() => (isLoaded = true), 2500);
@@ -189,9 +193,15 @@
   });
 
   // Map/style/tile failures surface here. Flag once so the fallback replaces
-  // the loader instead of leaving a stuck spinner or a blank canvas.
+  // the loader instead of leaving a stuck spinner or a blank canvas. Only
+  // fatal (pre-load) failures trip it — a lone tile 404 on a working map
+  // shouldn't wipe the whole view.
   function handleError(ev: maplibregl.ErrorEvent) {
     console.error("MapLibre error", ev.error);
+    if (!isLoaded) {
+      hasError = true;
+      onError?.(ev.error);
+    }
   }
 
   // Pop new dots in: grow circle-radius 0 → target whenever the marker set
