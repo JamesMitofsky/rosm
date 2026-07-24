@@ -42,12 +42,13 @@ describe("buildQuery", () => {
     expect(q).not.toContain("around:");
   });
 
-  it("adds lifecycle-prefixed selectors when includeDisused is set", () => {
+  it("adds the disused selector when includeDisused is set, but never abandoned/removed", () => {
     const q = mod.buildQuery({ lat: 48.85, lon: 2.35, radiusM: 500 }, tag, true);
     expect(q).toContain('node["disused:amenity"="drinking_water"]');
-    expect(q).toContain('node["abandoned:amenity"="drinking_water"]');
-    // 3 element kinds × 3 prefixes.
-    expect(q.match(/\(around:/g)).toHaveLength(9);
+    // Removed points (abandoned:) are never surfaced, so they're never fetched.
+    expect(q).not.toContain("abandoned:");
+    // 3 element kinds × 2 prefixes.
+    expect(q.match(/\(around:/g)).toHaveLength(6);
   });
 });
 

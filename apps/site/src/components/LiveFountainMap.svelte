@@ -197,5 +197,5 @@
 
 {#snippet markerPopup(m: MapMarker)}
   {@const f = (m.data as { f: Fountain }).f}
-  <FountainPopup {f} distM={haversine(CENTER_PT, f)} />
+  <FountainPopup {f} />
 {/snippet}

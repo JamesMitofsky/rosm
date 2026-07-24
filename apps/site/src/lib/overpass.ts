@@ -141,12 +141,13 @@ function areaFilter(region: SearchRegion): string {
 }
 
 // Build a query for nodes/ways/relations matching key=value within a region.
-// With `includeDisused`, also match the OSM lifecycle-prefixed variants
-// (disused:key / abandoned:key) so out-of-service points come back too; the
-// prefix is preserved in each element's tags for client-side classification.
+// With `includeDisused`, also match the `disused:key` lifecycle variant so
+// out-of-order points come back too; the prefix is preserved in each element's
+// tags for client-side classification. `abandoned:` (removed) is deliberately
+// left out — removed points are never surfaced, so we don't fetch them.
 export function buildQuery(region: SearchRegion, tag: TagFilter, includeDisused = false): string {
   const area = areaFilter(region);
-  const prefixes = includeDisused ? ["", "disused:", "abandoned:"] : [""];
+  const prefixes = includeDisused ? ["", "disused:"] : [""];
   const stmts = prefixes
     .flatMap((prefix) => {
       const sel = `["${prefix}${tag.key}"="${tag.value}"]`;

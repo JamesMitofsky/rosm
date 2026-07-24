@@ -402,7 +402,7 @@
         id={MARKERS_LAYER}
         paint={{
           "circle-radius": radius,
-          "circle-color": ["get", "color"],
+          "circle-color": ["case", ["get", "dimmed"], "#9ca3af", ["get", "color"]],
           "circle-opacity": ["case", ["get", "dimmed"], 0.45, 1],
           "circle-stroke-width": strokeW,
           "circle-stroke-color": "#fff",

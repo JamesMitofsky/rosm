@@ -4,11 +4,10 @@
   import type { Fountain } from "@rosm/core/schemas";
   import { isDogWater, isOutOfService } from "@rosm/core/fountainFilters";
   import { checkedAgoLabel } from "@rosm/core/checkDate";
-  import { fmtDist } from "@rosm/core/geo";
 
   // Read-only popup: name, last-checked date, status flags. No edit controls —
   // this view is purely for finding water nearby.
-  let { f, distM }: { f: Fountain; distM: number | null } = $props();
+  let { f }: { f: Fountain } = $props();
 
   // Snapshot the clock once — the "checked ago" label doesn't need to tick live.
   const now = Date.now();
@@ -16,9 +15,6 @@
 
 <div class="flex w-52 flex-col gap-1 text-neutral-800">
   <div class="leading-tight font-semibold">{checkedAgoLabel(f.tags, now)}</div>
-  {#if distM != null}
-    <div class="text-xs text-neutral-500">{fmtDist(distM)} away</div>
-  {/if}
   {#if isDogWater(f.tags)}
     <div class="mt-1 flex items-center gap-1 text-xs font-medium text-violet-700">
       <DogIcon size={14} /> Dog water — not for humans
@@ -26,7 +22,7 @@
   {/if}
   {#if isOutOfService(f.tags)}
     <div class="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700">
-      <Wrench size={14} /> Marked out of service
+      <Wrench size={14} /> Out of order
     </div>
   {/if}
 </div>
