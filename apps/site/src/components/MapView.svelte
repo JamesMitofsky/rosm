@@ -97,8 +97,6 @@
     markers?: MapMarker[];
     markerRadius?: number;
     line?: [number, number][];
-    userPos?: [number, number] | null;
-    userHeading?: number | null;
     onViewChange?: (
       view: {
         lat: number;
@@ -132,8 +130,6 @@
     markers = [],
     markerRadius = 9,
     line,
-    userPos = null,
-    userHeading = null,
     onViewChange,
     recenterKey,
     fitPoints,
@@ -171,8 +167,6 @@
 
   const radius = $derived(Math.max(0, markerRadius * popScale));
   const strokeW = $derived(Math.max(0, 2 * popScale));
-
-  const cone = $derived(userHeading);
 
   // Recenter / fit on explicit request (recenterKey change), never fighting a pan.
   function doRecenter() {
@@ -453,34 +447,6 @@
         {/snippet}
       </Marker>
     {/each}
-
-    {#if userPos}
-      <Marker lnglat={[userPos[1], userPos[0]]}>
-        {#snippet content()}
-          <div style="position:relative; width:64px; height:64px; pointer-events:none;">
-            {#if cone != null}
-              <svg
-                width="64"
-                height="64"
-                viewBox="0 0 64 64"
-                style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate({cone}deg);"
-              >
-                <defs>
-                  <radialGradient id="userCone" cx="50%" cy="50%" r="55%">
-                    <stop offset="0%" stop-color="#2563eb" stop-opacity="0.55" />
-                    <stop offset="100%" stop-color="#2563eb" stop-opacity="0" />
-                  </radialGradient>
-                </defs>
-                <path d="M32 32 L16 4 A30 30 0 0 1 48 4 Z" fill="url(#userCone)" />
-              </svg>
-            {/if}
-            <div
-              style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#2563eb; width:16px; height:16px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 2px #2563eb;"
-            ></div>
-          </div>
-        {/snippet}
-      </Marker>
-    {/if}
 
     {#if selectedMarker && markerPopup && !selectedMarker.noPopup}
       <Popup
