@@ -9,6 +9,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Local build artifacts (TestFlight .ipa etc.)
+build/
+*.ipa
+
 # Uniwind generated className typings (see metro.config.js dtsFile)
 src/uniwind-types.d.ts
 

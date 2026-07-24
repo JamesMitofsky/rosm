@@ -46,6 +46,10 @@ const config: ExpoConfig = {
     "expo-secure-store",
     "expo-sqlite",
     "expo-sharing",
+    "expo-font",
+    "expo-image",
+    "expo-status-bar",
+    "expo-web-browser",
     [
       "expo-splash-screen",
       {
@@ -58,8 +62,7 @@ const config: ExpoConfig = {
   ],
   experiments: { typedRoutes: true },
   extra: {
-    // Set by `eas init`.
-    eas: { projectId: "00000000-0000-0000-0000-000000000000" },
+    eas: { projectId: "a80cccc0-d7d5-46b3-aaa7-77d843699b6c" },
   },
 };
 
