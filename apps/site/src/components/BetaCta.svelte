@@ -127,8 +127,10 @@
     </p>
   {:else}
     <p class="text-muted mt-4 text-lg leading-relaxed">
-      The run app is working... mostly! If you're all about improving that H20-access and down to
-      share feedback, add your info and I'll send an invite!
+      The run app is working... mostly!
+    </p>
+    <p class="text-muted mt-4 text-lg leading-relaxed">
+      If you're down to share feedback, add your info and I'll send an invite!
     </p>
 
     <form onsubmit={submit} class="mt-6 flex flex-col gap-4">
