@@ -64,10 +64,12 @@ const waveAmp = 24; // px crest height (topWave dips reach 0.03 of its box)
 const topWaveMax = Math.max(...topWave.map((p) => p.y));
 const contourLines = Array.from({ length: contourRows }, (_, i) => {
   const baseY = waveTopY + i * waveGap;
-  // Reuse topWave's shape: x spread past both edges so the line bleeds under the
-  // slice crop; y offset by the normalized crest so it echoes the torn edge.
+  // Reuse topWave's exact shape: x maps straight to width fractions (viewBox is
+  // 1200 wide, drawn with preserveAspectRatio="none" so 0..1200 = 0..width),
+  // so each crest sits at the same x as the manifesto torn edge below; y offset
+  // by the normalized crest depth so the line echoes that edge in proportion.
   const pts = topWave.map((p) => ({
-    x: r(-50 + p.x * 1300),
+    x: r(p.x * 1200),
     y: r(baseY + (p.y / topWaveMax) * waveAmp),
   }));
   return {
@@ -85,7 +87,7 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
         class="pointer-events-none absolute inset-0 h-full w-full" style="color: #0E85C6"
         viewBox="0 0 1200 600"
         fill="none"
-        preserveAspectRatio="xMidYMid slice"
+        preserveAspectRatio="none"
         aria-hidden="true"
       >
         {contourLines.map((l) => (
@@ -250,7 +252,7 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
         <h2
           class="font-hero text-hero text-center text-[clamp(2rem,5vw,3.4rem)] leading-tight font-bold tracking-tight"
         >
-          Help map the fountains!
+          Help map the map!
         </h2>
         <div class="flex flex-wrap items-center justify-center gap-3">
           <a
