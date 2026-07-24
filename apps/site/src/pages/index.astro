@@ -99,7 +99,7 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
         {/* Mobile: title -> map -> subtitle (flex column). Desktop: map spans the
             left column, title + subtitle stack in the right column (grid). */}
         <div
-          class="flex flex-col items-start gap-8 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-4"
+          class="flex flex-col items-start gap-8 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-2"
         >
           <h1
             class="reveal font-hero text-hero max-w-5xl text-[clamp(3.2rem,14vw,5.8rem)] leading-[0.9] font-bold tracking-tight md:col-start-2 md:row-start-1 md:self-end"
@@ -140,11 +140,11 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
           </div>
 
           <div
-            class="reveal flex flex-col items-start gap-6 md:col-start-2 md:row-start-2 md:self-start"
+            class="reveal flex flex-col items-start gap-16 md:col-start-2 md:row-start-2 md:self-start"
             style="transition-delay: 0.16s"
           >
             <p class="text-muted max-w-xl text-xl leading-relaxed">
-              A runner-sourced map of DC's drinking fountains.
+              A runner-sourced map of DC's drinking fountains
             </p>
             <div class="flex items-center gap-3">
               <a
