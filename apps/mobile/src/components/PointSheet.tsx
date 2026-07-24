@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { Linking, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import {
   ArrowSquareOutIcon,
   CheckCircleIcon,
   SnowflakeIcon,
   TrashIcon,
   WarningIcon,
-  WrenchIcon,
 } from "phosphor-react-native";
 import { DogIcon } from "./icons/DogIcon";
 import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
@@ -42,17 +41,29 @@ function isDogWater(tags: Record<string, string>): boolean {
 }
 
 type ActionButton = {
-  action: SurveyAction;
+  action: "confirm" | "problem" | "removed";
   title: string;
   Icon: typeof CheckCircleIcon;
   box: string;
+  secondary?: true;
+  borderClass?: string;
+  textColorClass?: string;
+  iconHex?: string;
 };
 
 const ACTIONS: ActionButton[] = [
-  { action: "out_of_order", title: "Out of order", Icon: WarningIcon, box: "bg-orange-600" },
   { action: "confirm", title: "Working", Icon: CheckCircleIcon, box: "bg-green-600" },
-  { action: "removed", title: "Removed", Icon: TrashIcon, box: "bg-red-600" },
-  { action: "broken", title: "Working but broken", Icon: WrenchIcon, box: "bg-amber-500" },
+  { action: "problem", title: "Broken", Icon: WarningIcon, box: "bg-orange-600" },
+  {
+    action: "removed",
+    title: "Removed",
+    Icon: TrashIcon,
+    box: "bg-red-600",
+    secondary: true,
+    borderClass: "border-2 border-red-600",
+    textColorClass: "text-red-600",
+    iconHex: "#dc2626",
+  },
 ];
 
 type Props = {
@@ -65,24 +76,35 @@ type Props = {
 
 export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }: Props) {
   const tags = fountain.tags ?? {};
-  const [detailFor, setDetailFor] = useState<
-    "confirm" | "broken" | "out_of_order" | "removed" | null
-  >(null);
+  const [detailFor, setDetailFor] = useState<"confirm" | "problem" | "removed" | null>(null);
 
   const [prevId, setPrevId] = useState(fountain.id);
-  const [maxHeight, setMaxHeight] = useState<number | null>(null);
   if (prevId !== fountain.id) {
     setPrevId(fountain.id);
     setDetailFor(null);
-    setMaxHeight(null);
   }
 
-  const handleLayout = (e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    if (h && (!maxHeight || h > maxHeight)) {
-      setMaxHeight(h);
-    }
-  };
+  const byAction = (action: ActionButton["action"]) => ACTIONS.find((a) => a.action === action)!;
+
+  const renderAction = (a: ActionButton, extra: string, showLabel = true) => (
+    <Pressable
+      onPress={() => setDetailFor(a.action)}
+      accessibilityRole="button"
+      accessibilityLabel={a.title}
+      className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-6 ${
+        a.secondary ? a.borderClass : a.box
+      } ${extra}`}
+    >
+      <a.Icon size={28} color={a.secondary ? a.iconHex! : "#ffffff"} weight="bold" />
+      {showLabel ? (
+        <Text
+          className={`text-center text-xl font-bold ${a.secondary ? a.textColorClass : "text-white"}`}
+        >
+          {a.title}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
 
   return (
     <View className="gap-3.5 px-1 py-1">
@@ -139,76 +161,22 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
       ) : detailFor ? (
         <PointDetailsForm
           tags={tags}
-          submitLabel={
-            detailFor === "confirm"
-              ? "Confirm working"
-              : detailFor === "broken"
-                ? "Mark working but broken"
-                : detailFor === "out_of_order"
-                  ? "Mark out of order"
-                  : "Confirm removed"
-          }
-          SubmitIcon={
-            detailFor === "confirm"
-              ? CheckCircleIcon
-              : detailFor === "broken"
-                ? WrenchIcon
-                : detailFor === "out_of_order"
-                  ? WarningIcon
-                  : TrashIcon
-          }
-          submitBox={
-            detailFor === "confirm"
-              ? "bg-green-600"
-              : detailFor === "broken"
-                ? "bg-amber-500"
-                : detailFor === "out_of_order"
-                  ? "bg-orange-600"
-                  : "bg-red-600"
-          }
+          submitLabel={detailFor === "confirm" ? "Confirm working" : "Confirm removed"}
+          SubmitIcon={detailFor === "confirm" ? CheckCircleIcon : TrashIcon}
+          submitBox={detailFor === "confirm" ? "bg-green-600" : "bg-red-600"}
           isRemoved={detailFor === "removed"}
-          isOutOfOrder={detailFor === "out_of_order"}
-          isBroken={detailFor === "broken"}
-          onSubmit={(extras) => {
-            onAction(detailFor, extras);
+          isProblem={detailFor === "problem"}
+          onSubmit={(extras, action) => {
+            onAction(action ?? (detailFor as SurveyAction), extras);
             setDetailFor(null);
           }}
         />
       ) : (
-        <View className="gap-4 py-1">
-          <View className="flex-row gap-4">
-            {ACTIONS.slice(0, 2).map(({ action, title, Icon, box }) => (
-              <Pressable
-                key={action}
-                onPress={() => setDetailFor(action)}
-                accessibilityRole="button"
-                onLayout={handleLayout}
-                style={{ height: maxHeight ?? undefined }}
-                className={`flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-4 ${box}`}
-              >
-                <Icon size={28} color="#ffffff" weight="bold" />
-                <Text className="flex-shrink text-center text-sm font-bold text-white">
-                  {title}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <View className="flex-row gap-4">
-            {ACTIONS.slice(2, 4).map(({ action, title, Icon, box }) => (
-              <Pressable
-                key={action}
-                onPress={() => setDetailFor(action)}
-                accessibilityRole="button"
-                onLayout={handleLayout}
-                style={{ height: maxHeight ?? undefined }}
-                className={`flex-1 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-4 ${box}`}
-              >
-                <Icon size={28} color="#ffffff" weight="bold" />
-                <Text className="flex-shrink text-center text-sm font-bold text-white">
-                  {title}
-                </Text>
-              </Pressable>
-            ))}
+        <View className="gap-5 py-1">
+          {renderAction(byAction("confirm"), "py-8")}
+          <View className="flex-row gap-5">
+            {renderAction(byAction("removed"), "px-8", false)}
+            {renderAction(byAction("problem"), "flex-1")}
           </View>
         </View>
       )}

@@ -115,6 +115,7 @@ export default function RunScreen() {
         userPos={s.userPos}
         recenterKey={s.recenterKey}
         fitPoints={s.fitPoints}
+        showLocationButton
         onMarkerPress={onMarkerPress}
         onMapPress={onMapPress}
       />

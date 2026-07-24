@@ -53,8 +53,6 @@ const config: ExpoConfig = {
     [
       "expo-splash-screen",
       {
-        // Match the logo's cream backdrop so the icon sits flush on the splash.
-        backgroundColor: rosm.colors.paper,
         image: "./assets/splash-icon.png",
         imageWidth: 180,
       },

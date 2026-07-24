@@ -204,30 +204,34 @@ export default function QuickUpdate() {
         </View>
       )}
 
-      {/* Top pill: one visual language for two states. While a fetch is in flight
-          (initial load or a "Search this area" requery) it shows an animated
-          spinner so the empty/updating map never reads as frozen; otherwise it
-          offers the requery call-to-action once the map has drifted. */}
-      {center && selectedId == null && (busy || canRequery) ? (
+      {/* Full-map overlay while fountain fetch is in flight — covers initial load
+          and "Search this area" requeries so the map never reads as frozen. */}
+      {center && busy ? (
+        <View
+          pointerEvents="none"
+          className="absolute inset-0 z-10 items-center justify-center bg-black/25"
+        >
+          <View
+            className="bg-base flex-row items-center gap-3 rounded-full px-6 py-3 shadow-xl"
+            accessibilityRole="progressbar"
+            accessibilityLabel="Finding fountains nearby"
+          >
+            <ActivityIndicator size="small" color="#f7f2e8" />
+            <Text className="text-surface text-sm font-semibold">Finding fountains nearby…</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Top pill: once the map has drifted from the last search, offer a requery. */}
+      {center && selectedId == null && canRequery ? (
         <SafeArea edges={["top"]} className="absolute top-0 right-0 left-0 items-center p-3">
-          {busy ? (
-            <View
-              className="bg-base flex-row items-center gap-2 rounded-full px-5 py-2.5 opacity-70 shadow-lg"
-              accessibilityRole="progressbar"
-              accessibilityLabel="Finding fountains nearby"
-            >
-              <ActivityIndicator size="small" color="#f7f2e8" />
-              <Text className="text-surface font-semibold">Finding fountains nearby…</Text>
-            </View>
-          ) : (
-            <Pressable
-              onPress={requery}
-              className="bg-base flex-row items-center gap-2 rounded-full px-5 py-2.5 shadow-lg"
-              accessibilityRole="button"
-            >
-              <Text className="text-surface font-semibold">Search this area</Text>
-            </Pressable>
-          )}
+          <Pressable
+            onPress={requery}
+            className="bg-link flex-row items-center gap-2 rounded-full px-5 py-2.5 shadow-lg"
+            accessibilityRole="button"
+          >
+            <Text className="font-semibold text-white">Search this area</Text>
+          </Pressable>
         </SafeArea>
       ) : null}
 

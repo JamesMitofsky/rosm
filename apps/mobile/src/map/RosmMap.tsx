@@ -1,6 +1,14 @@
-import { useMemo } from "react";
-import { StyleSheet, type ViewStyle, type NativeSyntheticEvent } from "react-native";
-import { Camera, GeoJSONSource, Layer, Map, UserLocation } from "@maplibre/maplibre-react-native";
+import { useRef, useMemo } from "react";
+import { Pressable, StyleSheet, type ViewStyle, type NativeSyntheticEvent } from "react-native";
+import {
+  Camera,
+  type CameraRef,
+  GeoJSONSource,
+  Layer,
+  Map,
+  UserLocation,
+} from "@maplibre/maplibre-react-native";
+import { CrosshairSimpleIcon } from "phosphor-react-native";
 import type { Feature, FeatureCollection, Point } from "geojson";
 import { OSM_STYLE_JSON } from "./style";
 
@@ -54,6 +62,7 @@ type Props = {
   initialOnly?: boolean;
   recenterKey?: string;
   fitPoints?: [number, number][]; // [lat, lon][]
+  showLocationButton?: boolean;
   style?: ViewStyle;
 };
 
@@ -104,9 +113,11 @@ export function RosmMap({
   onRegionChange,
   initialOnly,
   recenterKey,
+  showLocationButton,
   fitPoints,
   style,
 }: Props) {
+  const cameraRef = useRef<CameraRef>(null);
   const view = resolveView(center, zoom, fitPoints);
 
   // Build the native GeoJSON sources once per data change, not once per render.
@@ -148,71 +159,104 @@ export function RosmMap({
   };
 
   return (
-    <Map
-      style={[StyleSheet.absoluteFill, style]}
-      mapStyle={OSM_STYLE_JSON}
-      logo={false} // OSM credit stays in the attribution (ⓘ) button; drop the duplicate MapLibre wordmark
-      touchRotate // two-finger rotate; required for the compass to ever appear
-      compass // native compass button; shows when bearing != 0, tap resets to north
-      compassHiddenFacingNorth // hide it once already north-up
-      onPress={onMapPress ? onMapTap : undefined}
-      onRegionDidChange={onRegionChange ? onRegion : undefined}
-    >
-      {initialOnly ? (
-        // Keying the Camera on recenterKey remounts just the camera (not the map,
-        // so no tile flash) whenever the caller asks for a programmatic recenter,
-        // while leaving pan/zoom under the user's finger between recenters.
-        <Camera key={recenterKey} initialViewState={{ center: view.center, zoom: view.zoom }} />
-      ) : (
-        <Camera center={view.center} zoom={view.zoom} />
-      )}
+    <>
+      <Map
+        style={[StyleSheet.absoluteFill, style]}
+        mapStyle={OSM_STYLE_JSON}
+        logo={false} // OSM credit stays in the attribution (ⓘ) button; drop the duplicate MapLibre wordmark
+        touchRotate // two-finger rotate; required for the compass to ever appear
+        compass // native compass button; shows when bearing != 0, tap resets to north
+        compassHiddenFacingNorth // hide it once already north-up
+        onPress={onMapPress ? onMapTap : undefined}
+        onRegionDidChange={onRegionChange ? onRegion : undefined}
+      >
+        {initialOnly ? (
+          <Camera
+            ref={cameraRef}
+            key={recenterKey}
+            initialViewState={{ center: view.center, zoom: view.zoom }}
+          />
+        ) : (
+          <Camera ref={cameraRef} center={view.center} zoom={view.zoom} />
+        )}
 
-      {lineData ? (
-        <GeoJSONSource id="route" data={lineData}>
+        {lineData ? (
+          <GeoJSONSource id="route" data={lineData}>
+            <Layer
+              id="route-line"
+              type="line"
+              beforeId={MARKER_LAYER}
+              paint={{ "line-color": "#2563eb", "line-width": 4, "line-opacity": 0.85 }}
+            />
+          </GeoJSONSource>
+        ) : null}
+
+        <GeoJSONSource
+          id="markers"
+          data={markerData}
+          onPress={onMarkerPress ? onMarkerHit : undefined}
+        >
           <Layer
-            id="route-line"
-            type="line"
-            beforeId={MARKER_LAYER}
-            paint={{ "line-color": "#2563eb", "line-width": 4, "line-opacity": 0.85 }}
+            id={MARKER_LAYER}
+            type="circle"
+            paint={{
+              "circle-color": ["get", "color"],
+              "circle-radius": 9,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2,
+              "circle-opacity": ["case", ["==", ["get", "dimmed"], 1], 0.4, ["get", "opacity"]],
+            }}
+          />
+          <Layer
+            id="marker-labels"
+            type="symbol"
+            layout={{
+              "text-field": ["get", "label"],
+              "text-size": 11,
+              "text-allow-overlap": true,
+              "text-ignore-placement": true,
+            }}
+            paint={{ "text-color": "#ffffff" }}
           />
         </GeoJSONSource>
-      ) : null}
 
-      <GeoJSONSource
-        id="markers"
-        data={markerData}
-        onPress={onMarkerPress ? onMarkerHit : undefined}
-      >
-        <Layer
-          id={MARKER_LAYER}
-          type="circle"
-          paint={{
-            "circle-color": ["get", "color"],
-            "circle-radius": 9,
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-width": 2,
-            "circle-opacity": ["case", ["==", ["get", "dimmed"], 1], 0.4, ["get", "opacity"]],
-          }}
-        />
-        <Layer
-          id="marker-labels"
-          type="symbol"
-          layout={{
-            "text-field": ["get", "label"],
-            "text-size": 11,
-            "text-allow-overlap": true,
-            "text-ignore-placement": true,
-          }}
-          paint={{ "text-color": "#ffffff" }}
-        />
-      </GeoJSONSource>
-
-      {/* Native location puck: MapLibre tracks GPS itself (off the JS thread) and
+        {/* Native location puck: MapLibre tracks GPS itself (off the JS thread) and
           draws the blue dot + heading arrow, instead of us re-feeding a GeoJSON
           point every render. `userPos` presence gates it so planning/history
           views (which don't pass it) stay dotless. minDisplacement throttles
           updates to ~5m of movement. */}
-      {userPos ? <UserLocation animated heading accuracy minDisplacement={1} /> : null}
-    </Map>
+        {userPos ? <UserLocation animated heading accuracy minDisplacement={1} /> : null}
+      </Map>
+
+      {showLocationButton && userPos ? (
+        <Pressable
+          onPress={() => cameraRef.current?.flyTo({ center: [userPos[1], userPos[0]], zoom: 16 })}
+          accessibilityRole="button"
+          accessibilityLabel="Go to my location"
+          style={styles.locationButton}
+        >
+          <CrosshairSimpleIcon size={22} color="#1d1d1f" weight="bold" />
+        </Pressable>
+      ) : null}
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  locationButton: {
+    position: "absolute",
+    top: 60,
+    right: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+});
