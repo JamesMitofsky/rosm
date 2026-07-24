@@ -54,13 +54,24 @@ const mobileBottomWave = [
 const mobileTornPath = `${waveThrough(mobileTopWave)} L ${r(mobileBottomWave[0].x)} ${r(mobileBottomWave[0].y)} ${waveThrough(mobileBottomWave).slice(1)} Z`;
 
 
-// Decorative topographic contour paths: a single family that fades to nothing
-// as it descends. Retains the total row count of the previous two families.
+// Faint topographic contour lines in the hero foreshadow The Problem below:
+// every line traces the same crest/trough silhouette as the manifesto plate's
+// torn top edge (`topWave`), stacked and fading in as they descend toward it.
 const contourRows = 16;
+const waveTopY = 90; // y of the highest contour line, in the 0..600 viewBox
+const waveGap = 30; // vertical spacing between stacked lines
+const waveAmp = 24; // px crest height (topWave dips reach 0.03 of its box)
+const topWaveMax = Math.max(...topWave.map((p) => p.y));
 const contourLines = Array.from({ length: contourRows }, (_, i) => {
-  const o = i * 30;
+  const baseY = waveTopY + i * waveGap;
+  // Reuse topWave's shape: x spread past both edges so the line bleeds under the
+  // slice crop; y offset by the normalized crest so it echoes the torn edge.
+  const pts = topWave.map((p) => ({
+    x: r(-50 + p.x * 1300),
+    y: r(baseY + (p.y / topWaveMax) * waveAmp),
+  }));
   return {
-    d: `M-50 ${100 + o} C 200 ${40 + o}, 360 ${200 + o}, 560 ${160 + o} S 920 ${40 + o}, 1260 ${140 + o}`,
+    d: waveThrough(pts),
     opacity: 0.16 * (i / (contourRows - 1)),
   };
 });
