@@ -1,7 +1,7 @@
 <script lang="ts">
   import { List, X, Drop } from "phosphor-svelte";
 
-  // Mobile-only nav. The desktop header renders the "Find Water Now" link and the
+  // Mobile-only nav. The desktop header renders the "Find Water" link and the
   // BetaCta button inline; below `sm` those are hidden and this hamburger takes over.
   // "Test the App" reuses the existing beta modal (rendered by BetaCta in the header)
   // by dispatching the same `open-beta-modal` window event its $effect listens for —
@@ -61,7 +61,7 @@
         class="inline-flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-blue transition hover:bg-blue/5"
       >
         <Drop class="h-5 w-5" weight="fill" />
-        Find Water Now
+        Find Water
       </a>
       <button
         type="button"

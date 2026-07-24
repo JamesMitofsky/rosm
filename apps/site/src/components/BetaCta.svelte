@@ -82,10 +82,10 @@
   onclick={() => dialogEl?.showModal()}
   class={[
     "inline-flex items-center rounded-xl font-bold transition",
-    inverted ? "bg-white text-blue hover:bg-white/90" : "bg-blue text-white hover:bg-[#0a6fa3]",
+    inverted ? "bg-white text-blue hover:bg-white/90 border border-transparent" : "bg-blue text-white hover:bg-[#0a6fa3] border border-transparent",
     size === "sm"
       ? "gap-2 px-4 py-2 text-sm self-start"
-      : "gap-2.5 px-6 py-3 text-lg self-end md:self-start",
+      : "gap-2.5 px-4 py-3 text-lg self-start",
   ].join(" ")}
 >
   <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" class={size === "sm" ? "h-4 w-4" : "h-6 w-6"}>
