@@ -184,7 +184,7 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
           <p class="mt-6 text-lg leading-relaxed text-white/85">
             If you're anywhere other than the National Mall, it's hard to know where the public drinking fountains are. Or maybe you've found a map some folks made together, but when you arrive at the fountain, it's either out of order or <em>even removed</em>!
             This unreliable access to free water—no less in a place with some crazy summer heat—is bad for everyone, especially people who
-            spend more time outdoors—think runners, tourists, and the homeless.
+            spend more time outdoors—think runners and tourists.
           </p>
           <p class="mt-4 text-lg leading-relaxed text-white/85">
             ROSM tackles this problem by making information about each fountain detailed. Things like: is the fountain still here? is it out of order? when was it last checked? who checked it?
@@ -206,7 +206,24 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
       </section>
     </div>
 
-    {/* THE STATE OF THE FOUNTAINS — leaderboard + live coverage map */}
+    {/* TOP CONTRIBUTORS */}
+    <section>
+      <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
+        <h2
+          class="reveal font-hero text-hero text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+        >
+          Top Contributors
+        </h2>
+        <p class="reveal text-muted mt-4 max-w-2xl text-lg leading-relaxed" style="transition-delay: 0.1s">
+          The people keeping this map accurate.
+        </p>
+        <div class="reveal mt-6" style="transition-delay: 0.14s">
+          <FountainLeaderboard client:visible />
+        </div>
+      </div>
+    </section>
+
+    {/* THE STATE OF THE FOUNTAINS — live coverage map */}
     <section>
       <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
         <h2
@@ -217,14 +234,6 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
         <p class="reveal text-muted mt-4 max-w-2xl text-lg leading-relaxed" style="transition-delay: 0.1s">
           Here's a live coverage map of the fountains in DC.
         </p>
-
-        {/* Contributor leaderboard — self-hides when there's no attributed edit data yet. */}
-        <div class="reveal mt-6" style="transition-delay: 0.14s">
-          <span class="font-mono text-[0.65rem] font-medium tracking-[0.22em] uppercase" style="color: #F38300">
-            Top contributors
-          </span>
-          <FountainLeaderboard client:visible class="mt-6" />
-        </div>
 
         <div
           class="reveal mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"

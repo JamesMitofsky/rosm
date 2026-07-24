@@ -64,15 +64,15 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="twitter:image" content={ogImage} />
   </head>
   <body class="min-h-full">
-    <header class="flex items-center justify-between px-5 py-4 bg-blue mb-4">
+    <header class="flex items-center justify-between px-5 py-4 bg-blue sm:bg-transparent mb-4">
       <a href="/" class="flex items-center gap-2.5 w-fit">
-        <Logo width={32} height={40} role="img" aria-label="ROSM" class="h-10 w-auto drop-shadow-[0_0_1px_white]" />
-        <span class="font-hero text-[2.125rem] leading-none tracking-tight translate-y-1 text-white">ROSM</span>
+        <Logo width={32} height={40} role="img" aria-label="ROSM" class="h-10 w-auto drop-shadow-[0_0_1px_white] sm:drop-shadow-none" />
+        <span class="font-hero text-[2.125rem] leading-none tracking-tight translate-y-1 text-white sm:text-blue">ROSM</span>
       </a>
       <nav class="hidden sm:flex items-center gap-6">
         <a
           href="/dc-drinking-fountains"
-          class="inline-flex items-center gap-2 text-sm font-semibold text-white/80 transition hover:text-white"
+          class="inline-flex items-center gap-2 text-sm font-semibold text-base/70 transition hover:text-base"
         >
           <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" class="h-4 w-4">
             <path
@@ -81,7 +81,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           </svg>
           Find Water
         </a>
-        <BetaCta client:load size="sm" inverted />
+        <BetaCta client:load size="sm" />
       </nav>
       <div class="sm:hidden">
         <MobileNav client:load inverted />
