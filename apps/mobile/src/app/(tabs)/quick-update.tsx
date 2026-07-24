@@ -59,7 +59,6 @@ export default function QuickUpdate() {
     for (const it of outboxItems) {
       m[it.nodeId] = {
         status: it.action,
-        summary: it.summary,
         syncState: it.syncState,
         changesetUrl: it.changesetUrl,
         extras: it.extras,

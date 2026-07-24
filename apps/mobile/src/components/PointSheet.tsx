@@ -16,7 +16,6 @@ export type SurveyAction = EditAction | "broken";
 
 export type PointEdit = {
   status: SurveyAction;
-  summary: string;
   syncState: SyncState;
   changesetUrl?: string;
   extras?: EditExtras;
@@ -137,7 +136,6 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
       {edit ? (
         <View className="border-border bg-surface-deep gap-1.5 rounded-xl border p-4">
           <Text className="text-base font-bold">{STATUS_LABEL[edit.status]}</Text>
-          <Text className="text-base text-sm font-semibold">{edit.summary}</Text>
           {edit.extras?.seasonal ? (
             <View className="flex-row items-center gap-1">
               <SnowflakeIcon size={14} color="#0369a1" />

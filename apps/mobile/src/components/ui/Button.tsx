@@ -2,9 +2,12 @@ import { ActivityIndicator, Pressable, Text, type PressableProps } from "react-n
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "blue" | "ghost-dark";
 
+type Size = "md" | "lg";
+
 type Props = Omit<PressableProps, "children"> & {
   title: string;
   variant?: Variant;
+  size?: Size;
   loading?: boolean;
   icon?: React.ReactNode;
 };
@@ -27,12 +30,30 @@ const LABEL: Record<Variant, string> = {
   "ghost-dark": "text-light",
 };
 
-export function Button({ title, variant = "primary", loading, disabled, icon, ...rest }: Props) {
+const SIZE_BOX: Record<Size, string> = {
+  md: "px-5 py-3",
+  lg: "px-5 py-6",
+};
+
+const SIZE_LABEL: Record<Size, string> = {
+  md: "text-base",
+  lg: "text-xl",
+};
+
+export function Button({
+  title,
+  variant = "primary",
+  size = "md",
+  loading,
+  disabled,
+  icon,
+  ...rest
+}: Props) {
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled || loading}
-      className={`flex-row items-center justify-center gap-2 rounded-xl px-5 py-3 ${BOX[variant]} ${
+      className={`flex-row items-center justify-center gap-2 rounded-xl ${SIZE_BOX[size]} ${BOX[variant]} ${
         disabled || loading ? "opacity-50" : ""
       }`}
       {...rest}
@@ -42,7 +63,7 @@ export function Button({ title, variant = "primary", loading, disabled, icon, ..
       ) : (
         (icon ?? null)
       )}
-      <Text className={`text-base font-bold ${LABEL[variant]}`}>{title}</Text>
+      <Text className={`font-bold ${SIZE_LABEL[size]} ${LABEL[variant]}`}>{title}</Text>
     </Pressable>
   );
 }

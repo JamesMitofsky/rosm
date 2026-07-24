@@ -4,7 +4,6 @@ import { useOutbox } from "@rosm/core/stores/outbox";
 import { runGuidance, ARRIVAL_RADIUS_M, PROXIMITY_RADIUS_M } from "@rosm/core/guidance";
 import { compass, routeHeadingAt, fmtDist, type Pt } from "@rosm/core/geo";
 import { ptLabel } from "@rosm/core/pointTypes";
-import { editSummary, todayLocal } from "@rosm/core/editSummary";
 import { STATUS_COLOR } from "@rosm/core/editStatus";
 import { archiveRoute, getArchivedRoutes } from "@rosm/core/routeArchive";
 import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
@@ -24,6 +23,14 @@ import {
 } from "../ports/notify";
 import type { RosmMarker } from "../map/RosmMap";
 
+// Human-facing confirmation shown after a save. No raw OSM tags reach the UI.
+const SAVED_LABEL: Record<SurveyAction, string> = {
+  confirm: "Working",
+  broken: "Broken",
+  out_of_order: "Out of order",
+  removed: "Removed",
+};
+
 // The Expo run session: live GPS, the shared guidance derived from it, the OSM
 // recording actions, and marker DATA for RosmMap. Mirrors the web useRunSession
 // but returns markers as plain data (the screen owns the bottom sheet).
@@ -36,7 +43,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(() => enabled && !useRun.getState().hasPlan);
-  const [lastSaved, setLastSaved] = useState<{ nodeId: number; summary: string } | null>(null);
+  const [lastSaved, setLastSaved] = useState<{ nodeId: number; label: string } | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [closed, setClosed] = useState<{ changesetUrl?: string } | null>(null);
 
@@ -169,7 +176,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       run.setStatus(node.id, action as RunStop["status"]);
       celebratePoint();
       hapticSuccess();
-      setLastSaved({ nodeId: node.id, summary: editSummary(action, tagKey, todayLocal(), extras) });
+      setLastSaved({ nodeId: node.id, label: SAVED_LABEL[action] });
       if (isCurrent) {
         persist(index + 1);
         advance();
@@ -235,7 +242,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
         run.addNode({ id: j.nodeId, lat: j.lat, lon: j.lon, tags: j.tags });
         celebratePoint();
         hapticSuccess();
-        setLastSaved({ nodeId: j.nodeId, summary: j.summary });
+        setLastSaved({ nodeId: j.nodeId, label: "Added" });
         persist(index, j.changesetId);
       } catch (e) {
         setErr((e as Error).message);
@@ -258,7 +265,9 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     await addAt(pos);
   }, [osm, pos, addAt]);
 
-  const finish = useCallback(async () => {
+  // Close the OSM changeset and mark the run done. Returns true on success so
+  // the screen can navigate to the run summary only when the run really ended.
+  const finish = useCallback(async (): Promise<boolean> => {
     setFinishing(true);
     try {
       const changesetId = useOutbox.getState().changesetId;
@@ -276,8 +285,10 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       } else {
         setClosed({});
       }
+      return true;
     } catch (e) {
       setErr((e as Error).message);
+      return false;
     } finally {
       setFinishing(false);
     }
@@ -361,6 +372,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     fitPoints,
     hydrating,
     done,
+    routeId: run.routeId,
     stops,
     index,
     target,
