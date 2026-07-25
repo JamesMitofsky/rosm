@@ -57,27 +57,34 @@ const mobileTornPath = `${waveThrough(mobileTopWave)} L ${r(mobileBottomWave[0].
 
 // Faint topographic contour lines in the hero foreshadow The Problem below:
 // every line traces the same crest/trough silhouette as the manifesto plate's
-// torn top edge (`topWave`), stacked and fading in as they descend toward it.
+// torn top edge, stacked and fading in as they descend toward it. The plate
+// swaps to a simpler `mobileTopWave` under 768px (see the clip-path media query),
+// so the hero builds a matching contour set from each wave and CSS shows the one
+// that lines up at the current breakpoint.
 const contourRows = 16;
 const waveTopY = 90; // y of the highest contour line, in the 0..600 viewBox
 const waveGap = 30; // vertical spacing between stacked lines
-const waveAmp = 24; // px crest height (topWave dips reach 0.03 of its box)
-const topWaveMax = Math.max(...topWave.map((p) => p.y));
-const contourLines = Array.from({ length: contourRows }, (_, i) => {
-  const baseY = waveTopY + i * waveGap;
-  // Reuse topWave's exact shape: x maps straight to width fractions (viewBox is
-  // 1200 wide, drawn with preserveAspectRatio="none" so 0..1200 = 0..width),
-  // so each crest sits at the same x as the manifesto torn edge below; y offset
-  // by the normalized crest depth so the line echoes that edge in proportion.
-  const pts = topWave.map((p) => ({
-    x: r(p.x * 1200),
-    y: r(baseY + (p.y / topWaveMax) * waveAmp),
-  }));
-  return {
-    d: waveThrough(pts),
-    opacity: 0.16 * (i / (contourRows - 1)),
-  };
-});
+const waveAmp = 24; // px crest height (wave dips reach 0.03 of its box)
+// Build stacked contour lines that echo a given torn-edge wave. x maps straight
+// to width fractions (viewBox is 1200 wide, drawn with preserveAspectRatio="none"
+// so 0..1200 = 0..width), so each crest sits at the same x as the manifesto torn
+// edge below; y offset by the normalized crest depth so the line echoes it.
+const contoursFor = (wave: { x: number; y: number }[]) => {
+  const waveMax = Math.max(...wave.map((p) => p.y));
+  return Array.from({ length: contourRows }, (_, i) => {
+    const baseY = waveTopY + i * waveGap;
+    const pts = wave.map((p) => ({
+      x: r(p.x * 1200),
+      y: r(baseY + (p.y / waveMax) * waveAmp),
+    }));
+    return {
+      d: waveThrough(pts),
+      opacity: 0.16 * (i / (contourRows - 1)),
+    };
+  });
+};
+const contourLines = contoursFor(topWave);
+const mobileContourLines = contoursFor(mobileTopWave);
 ---
 
 <Layout>
@@ -91,9 +98,16 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
         preserveAspectRatio="none"
         aria-hidden="true"
       >
-        {contourLines.map((l) => (
-          <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
-        ))}
+        <g class="contours-desktop">
+          {contourLines.map((l) => (
+            <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
+          ))}
+        </g>
+        <g class="contours-mobile">
+          {mobileContourLines.map((l) => (
+            <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
+          ))}
+        </g>
       </svg>
 
       <div class="relative mx-auto max-w-6xl px-5 pt-8 pb-16 md:pt-12 md:pb-24">
@@ -320,9 +334,21 @@ const contourLines = Array.from({ length: contourRows }, (_, i) => {
   .manifesto-torn {
     clip-path: url(#manifesto-wave);
   }
+  /* Hero contours mirror the manifesto torn edge; show the set matching the
+     wave the plate uses at this breakpoint (swap point must match the clip-path
+     media query below). */
+  .contours-mobile {
+    display: none;
+  }
   @media (max-width: 767px) {
     .manifesto-torn {
       clip-path: url(#manifesto-wave-mobile);
+    }
+    .contours-desktop {
+      display: none;
+    }
+    .contours-mobile {
+      display: inline;
     }
   }
 </style>
