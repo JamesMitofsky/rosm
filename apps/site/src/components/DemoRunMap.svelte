@@ -82,6 +82,7 @@
     line={DC_ROUTE}
     {markers}
     centerOnSelect
+    hidePlaceLabels
     {markerPopup}
   />
 </div>

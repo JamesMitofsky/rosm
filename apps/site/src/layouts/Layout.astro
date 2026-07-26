@@ -63,9 +63,9 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="twitter:image" content={ogImage} />
   </head>
   <body class="min-h-full">
-    <header class="flex items-center justify-between px-5 py-4 bg-blue sm:bg-transparent mb-4">
+    <header class="flex items-center justify-between px-5 py-4">
       <a href="/" class="flex items-center gap-2.5 w-fit">
-        <span class="font-hero text-[2.125rem] leading-none tracking-tight translate-y-1 text-white sm:text-blue">ROSM</span>
+        <span class="font-hero text-hero text-[1.5rem] leading-none tracking-tight translate-y-1 text-blue sm:text-[1.75rem]">ROSM</span>
       </a>
       <nav class="hidden sm:flex items-center gap-6">
         <a
@@ -82,7 +82,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         <BetaCta client:load size="sm" />
       </nav>
       <div class="sm:hidden">
-        <MobileNav client:load inverted />
+        <MobileNav client:load />
       </div>
     </header>
     <slot />

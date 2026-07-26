@@ -113,6 +113,9 @@
     fitOptions?: { padding?: [number, number]; maxZoom?: number };
     centerOnSelect?: boolean;
     class?: string;
+    // Hide the basemap's place-name labels (city/town/suburb/etc). Demo map
+    // opts in so the fixed DC region doesn't read as a real, named place.
+    hidePlaceLabels?: boolean;
     // Fired on a fatal (pre-load) map failure so callers can stop their own
     // loaders and let the error surface.
     onError?: (err: unknown) => void;
@@ -140,6 +143,7 @@
     fitOptions,
     centerOnSelect = false,
     class: className,
+    hidePlaceLabels = false,
     onError,
     markerPopup,
   }: Props = $props();
@@ -313,6 +317,13 @@
     emitView(false);
     const attrEl = map?.getContainer().querySelector('.maplibregl-ctrl-attrib');
     attrEl?.classList.remove('maplibregl-compact-show');
+    if (hidePlaceLabels && map) {
+      for (const layer of map.getStyle().layers) {
+        if (layer.type === "symbol" && "source-layer" in layer && layer["source-layer"] === "place") {
+          map.setLayoutProperty(layer.id, "visibility", "none");
+        }
+      }
+    }
   }
 
   function handleClick(ev: maplibregl.MapMouseEvent) {

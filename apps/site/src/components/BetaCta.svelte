@@ -85,10 +85,10 @@
     inverted ? "bg-white text-blue hover:bg-white/90 border border-transparent" : "bg-blue text-white hover:bg-[#0a6fa3] border border-transparent",
     size === "sm"
       ? "gap-2 px-4 py-2 text-sm self-start"
-      : "gap-2.5 px-4 py-3 text-lg self-start",
+      : "gap-2 px-4 py-2.5 text-base md:gap-2.5 md:px-4 md:py-3 md:text-lg self-start",
   ].join(" ")}
 >
-  <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" class={size === "sm" ? "h-4 w-4" : "h-6 w-6"}>
+  <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"}>
     <path
       d="M29.1,60.6L11.7,87.9c-1.8,2.9-1,6.7,1.9,8.6c1,0.7,2.2,1,3.3,1c2,0,4.1-1,5.2-2.9l17.1-26.8l-4.6-2.2C32.2,64.5,30.3,62.8,29.1,60.6z"
     ></path>
