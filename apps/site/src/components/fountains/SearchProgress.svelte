@@ -39,6 +39,7 @@
 
 <script lang="ts">
   import { fade, fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
 
   // Self-narrating loader for a fountain fetch. `overlay` frosts a map plate
   // behind glass — the map stays faintly visible through it, never fully hidden;
@@ -156,12 +157,12 @@
       <div bind:this={fillEl} class="bg-link h-full rounded-full" style="width:0"></div>
     </div>
   </div>
-  <div class="flex min-h-[4rem] max-w-md items-start justify-center">
+  <div class="relative flex min-h-[4rem] w-full max-w-md items-start justify-center">
     {#key stepIdx}
       <p
-        in:fly={{ y: 8, duration: 250 }}
-        out:fly={{ y: -8, duration: 250 }}
-        class="text-muted font-mono text-sm leading-relaxed tracking-tight"
+        in:fly={{ y: 10, duration: 320, delay: 90, easing: cubicOut }}
+        out:fly={{ y: -10, duration: 260, easing: cubicOut }}
+        class="text-muted absolute inset-x-0 top-0 font-mono text-sm leading-relaxed tracking-tight"
       >
         {step.text}
       </p>
