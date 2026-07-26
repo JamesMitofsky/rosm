@@ -8,7 +8,16 @@ import { kv } from "./storage";
 // fall back to the shared appConfig default rather than emitting a relative URL —
 // on device a relative URL has no origin and crashes native modules (e.g. the OSM
 // auth session). Override via EXPO_PUBLIC_API_BASE when pointing at a preview backend.
-const API_BASE = (process.env.EXPO_PUBLIC_API_BASE || cfg.apiBase || "").replace(/\/$/, "");
+//
+// Dev-only override: EXPO_PUBLIC_DEV_API_BASE (loaded from apps/mobile/.env.local)
+// wins when __DEV__ is true, so Metro-served bundles route through a locally-run
+// apps/site pointed at the OSM sandbox instead of writing to production.
+const RAW_BASE =
+  (__DEV__ && process.env.EXPO_PUBLIC_DEV_API_BASE) ||
+  process.env.EXPO_PUBLIC_API_BASE ||
+  cfg.apiBase ||
+  "";
+export const API_BASE = RAW_BASE.replace(/\/$/, "");
 
 export function apiUrl(path: string): string {
   if (/^https?:\/\//.test(path)) return path;

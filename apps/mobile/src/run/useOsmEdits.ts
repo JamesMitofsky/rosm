@@ -13,7 +13,6 @@ export function useOsmEdits({ tagKey }: { tagKey: string }) {
     for (const it of outboxItems) {
       m[it.nodeId] = {
         status: it.action,
-        summary: it.summary,
         syncState: it.syncState,
         changesetUrl: it.changesetUrl,
         extras: it.extras,
