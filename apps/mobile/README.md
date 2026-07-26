@@ -16,15 +16,15 @@ From the repo root, after `pnpm install`:
 
 ```bash
 # Build + install the dev client on a booted iOS simulator, then start Metro:
-pnpm --filter @rosm/mobile ios
+pnpm --filter @rosm/mobile ios:simulator:dev-server
 # Android:
-pnpm --filter @rosm/mobile android
+pnpm --filter @rosm/mobile android:simulator:dev-server
 
 # Metro only (once a dev build is installed):
-pnpm --filter @rosm/mobile start
+pnpm --filter @rosm/mobile dev-server
 ```
 
-`ios` / `android` run `expo run:*`, which prebuilds the native project and compiles the
+`ios:simulator:dev-server` / `android:simulator:dev-server` run `expo run:*`, which prebuilds the native project and compiles the
 dev client. For a physical device, use an [EAS](https://docs.expo.dev/build/introduction/)
 `development` build (below).
 

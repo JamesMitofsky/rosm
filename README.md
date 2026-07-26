@@ -54,7 +54,7 @@ directly â€” each app injects its own adapters (storage, geolocation, network, â
 pnpm install            # once, at the repo root (never inside a package)
 
 pnpm dev                # start the web app (http://localhost:3000)
-pnpm --filter @rosm/mobile start   # start the mobile dev server
+pnpm --filter @rosm/mobile dev-server   # start the mobile dev server
 ```
 
 Workspace-wide tasks run through Turborepo (cached, only re-run what changed):
