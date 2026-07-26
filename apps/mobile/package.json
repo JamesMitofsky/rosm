@@ -7,6 +7,8 @@
     "dev-server": "expo start --dev-client",
     "android:simulator:dev-server": "expo run:android",
     "ios:simulator:dev-server": "expo run:ios",
+    "ios:device:dev-server": "expo run:ios --device",
+    "ios:device:release-build": "expo run:ios --device --configuration Release --no-bundler",
     "ios:preview-build:local": "eas build --profile preview --platform ios --local",
     "ios:prod-build:testflight": "eas build --profile production --platform ios --local --output ./build/rosm.ipa",
     "ios:testflight:submit": "./scripts/submit-testflight.sh",
