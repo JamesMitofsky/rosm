@@ -11,14 +11,6 @@
     "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "expo:dev-server": "pnpm --filter @rosm/mobile dev-server",
-    "expo:ios:simulator:dev-server": "pnpm --filter @rosm/mobile ios:simulator:dev-server",
-    "expo:ios:device:dev-server": "pnpm --filter @rosm/mobile ios:device:dev-server",
-    "expo:android:simulator:dev-server": "pnpm --filter @rosm/mobile android:simulator:dev-server",
-    "expo:ios:device:release-build": "pnpm --filter @rosm/mobile ios:device:release-build",
-    "astro:dev-server": "pnpm --filter @rosm/site dev",
-    "astro:build": "pnpm --filter @rosm/site build",
-    "astro:preview": "pnpm --filter @rosm/site preview",
     "prepare": "husky"
   },
   "devDependencies": {
