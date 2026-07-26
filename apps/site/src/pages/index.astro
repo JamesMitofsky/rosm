@@ -131,16 +131,6 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
             <p class="text-muted max-w-xl text-xl leading-relaxed">
               A runner-sourced map of DC's drinking fountains
             </p>
-            <div class="flex w-full items-center justify-end gap-3 md:w-auto md:justify-start">
-              <a
-                href="/dc-drinking-fountains"
-                class="inline-flex items-center gap-2 rounded-xl bg-transparent px-4 py-2.5 text-base font-bold text-blue transition hover:bg-blue/5 md:gap-2.5 md:px-4 md:py-3 md:text-lg"
-              >
-                <Drop class="h-5 w-5 md:h-6 md:w-6" weight="fill" />
-                Find Water
-              </a>
-              <BetaCta client:load />
-            </div>
           </div>
 
           {/* Interactive demo of the run + edit flow, framed like a print plate. */}
@@ -213,26 +203,19 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
               <span class="font-medium">Long-term,</span> 311 can be more tightly looped in to when repairs are necessary
             </li>
           </ul>
+          <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/dc-drinking-fountains"
+              class="inline-flex items-center gap-2 rounded-xl bg-transparent px-4 py-2.5 text-base font-bold text-white transition hover:bg-white/10 md:gap-2.5 md:px-4 md:py-3 md:text-lg"
+            >
+              <Drop class="h-5 w-5 md:h-6 md:w-6" weight="fill" />
+              Find Water
+            </a>
+            <BetaCta client:load inverted />
+          </div>
         </div>
       </section>
     </div>
-
-    {/* TOP CONTRIBUTORS */}
-    <section>
-      <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
-        <h2
-          class="reveal font-hero text-hero text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
-        >
-          Top Contributors
-        </h2>
-        <p class="reveal text-muted mt-4 max-w-2xl text-lg leading-relaxed" style="transition-delay: 0.1s">
-          The people keeping this map accurate.
-        </p>
-        <div class="reveal mt-6" style="transition-delay: 0.14s">
-          <FountainLeaderboard client:visible />
-        </div>
-      </div>
-    </section>
 
     {/* THE STATE OF THE FOUNTAINS — live coverage map */}
     <section>
@@ -262,6 +245,23 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
           <div class="relative isolate z-0 h-[clamp(340px,48vw,560px)] w-full">
             <LiveFountainMap client:only="svelte" />
           </div>
+        </div>
+      </div>
+    </section>
+
+    {/* TOP CONTRIBUTORS */}
+    <section>
+      <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
+        <h2
+          class="reveal font-hero text-hero text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+        >
+          Top Contributors
+        </h2>
+        <p class="reveal text-muted mt-4 max-w-2xl text-lg leading-relaxed" style="transition-delay: 0.1s">
+          The people keeping this map accurate.
+        </p>
+        <div class="reveal mt-6" style="transition-delay: 0.14s">
+          <FountainLeaderboard client:visible />
         </div>
       </div>
     </section>
