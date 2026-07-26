@@ -62,30 +62,43 @@ const mobileTornPath = `${waveThrough(mobileTopWave)} L ${r(mobileBottomWave[0].
 // so the hero builds a matching contour set from each wave and CSS shows the one
 // that lines up at the current breakpoint.
 const contourRows = 16;
-const mobileContourRows = 26; // more stacked waves on mobile than desktop
+const mobileContourRows = 14; // stops the same 60-unit buffer short of the blue edge as desktop
 const waveTopY = 90; // y of the highest contour line, in the 0..600 viewBox
+const mobileWaveTopY = 150; // push wave stack down so the very top of the hero stays clear
 const waveGap = 30; // vertical spacing between stacked lines
 const waveAmp = 24; // px crest height (wave dips reach 0.03 of its box)
 // Build stacked contour lines that echo a given torn-edge wave. x maps straight
 // to width fractions (viewBox is 1200 wide, drawn with preserveAspectRatio="none"
 // so 0..1200 = 0..width), so each crest sits at the same x as the manifesto torn
 // edge below; y offset by the normalized crest depth so the line echoes it.
-const contoursFor = (wave: { x: number; y: number }[], rows: number) => {
+// The opacity fade is keyed off each line's actual y position within the visible
+// viewBox (not its row index) — otherwise rows that fall past viewBoxHeight and
+// get clipped off-screen still count toward the fade's denominator, leaving the
+// last VISIBLE line short of maxOpacity instead of landing on it.
+const viewBoxHeight = 600;
+const contoursFor = (
+  wave: { x: number; y: number }[],
+  rows: number,
+  topY: number,
+  minOpacity: number,
+  maxOpacity: number,
+) => {
   const waveMax = Math.max(...wave.map((p) => p.y));
   return Array.from({ length: rows }, (_, i) => {
-    const baseY = waveTopY + i * waveGap;
+    const baseY = topY + i * waveGap;
     const pts = wave.map((p) => ({
       x: r(p.x * 1200),
       y: r(baseY + (p.y / waveMax) * waveAmp),
     }));
+    const fade = Math.min(Math.max(baseY / viewBoxHeight, 0), 1);
     return {
       d: waveThrough(pts),
-      opacity: 0.16 * (i / (rows - 1)),
+      opacity: minOpacity + (maxOpacity - minOpacity) * fade,
     };
   });
 };
-const contourLines = contoursFor(topWave, contourRows);
-const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
+const contourLines = contoursFor(topWave, contourRows, waveTopY, 0.02, 0.16);
+const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows, mobileWaveTopY, 0.01, 0.2);
 ---
 
 <Layout>
@@ -128,8 +141,8 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
             class="reveal mb-8 flex flex-col items-start gap-7 md:mb-0 md:col-start-2 md:row-start-2 md:self-start"
             style="transition-delay: 0.16s"
           >
-            <p class="text-muted max-w-xl text-xl leading-relaxed">
-              A runner-sourced map of DC's drinking fountains
+            <p class="text-muted max-w-xl text-lg leading-relaxed">
+              Runs mapped to verify DC's public drinking fountains
             </p>
           </div>
 
@@ -180,7 +193,7 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
       </svg>
       <section class="bg-blue manifesto-torn">
         <div class="reveal mx-auto max-w-3xl px-5 py-20 md:py-28">
-          <h2 class="font-hero text-[clamp(2rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight text-light">
+          <h2 class="font-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight text-light">
             The Problem
           </h2>
           <p class="mt-6 text-lg leading-relaxed text-white/85">
@@ -203,31 +216,29 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
               <span class="font-medium">Long-term,</span> 311 can be more tightly looped in to when repairs are necessary
             </li>
           </ul>
-          <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <a
-              href="/dc-drinking-fountains"
-              class="inline-flex items-center gap-2 rounded-xl bg-transparent px-4 py-2.5 text-base font-bold text-white transition hover:bg-white/10 md:gap-2.5 md:px-4 md:py-3 md:text-lg"
-            >
-              <Drop class="h-5 w-5 md:h-6 md:w-6" weight="fill" />
-              Find Water
-            </a>
-            <BetaCta client:load inverted />
-          </div>
         </div>
       </section>
     </div>
 
-    {/* THE STATE OF THE FOUNTAINS — live coverage map */}
+    <div class="reveal mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-3 px-5 pt-20 pb-2">
+      <a
+        href="/dc-drinking-fountains"
+        class="inline-flex items-center gap-2 rounded-xl bg-transparent px-4 py-2.5 text-base font-bold text-blue transition hover:bg-blue/5 md:gap-2.5 md:px-4 md:py-3 md:text-lg"
+      >
+        <Drop class="h-5 w-5 md:h-6 md:w-6" weight="fill" />
+        Find Water
+      </a>
+      <BetaCta client:load />
+    </div>
+
+    {/* LIVE MAP */}
     <section>
       <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
         <h2
-          class="reveal font-hero text-hero text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+          class="reveal font-hero text-hero text-[clamp(2.5rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
         >
-          The State of the Fountains
+          Live Map
         </h2>
-        <p class="reveal text-muted mt-4 max-w-2xl text-lg leading-relaxed" style="transition-delay: 0.1s">
-          Here's a live coverage map of the fountains in DC.
-        </p>
 
         <div
           class="reveal mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
@@ -249,17 +260,14 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
       </div>
     </section>
 
-    {/* TOP CONTRIBUTORS */}
+    {/* RANKINGS */}
     <section>
       <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
         <h2
-          class="reveal font-hero text-hero text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+          class="reveal font-hero text-hero text-[clamp(2.5rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
         >
-          Top Contributors
+          Rankings
         </h2>
-        <p class="reveal text-muted mt-4 max-w-2xl text-lg leading-relaxed" style="transition-delay: 0.1s">
-          The people keeping this map accurate.
-        </p>
         <div class="reveal mt-6" style="transition-delay: 0.14s">
           <FountainLeaderboard client:visible />
         </div>
@@ -270,7 +278,7 @@ const mobileContourLines = contoursFor(mobileTopWave, mobileContourRows);
     <section>
       <div class="reveal mx-auto flex max-w-6xl flex-col items-center gap-6 px-5 py-12 md:py-16">
         <h2
-          class="font-hero text-hero text-center text-[clamp(2rem,5vw,3.4rem)] leading-tight font-bold tracking-tight"
+          class="font-hero text-hero text-center text-[clamp(2.5rem,5vw,3.4rem)] leading-tight font-bold tracking-tight"
         >
           Help map the map!
         </h2>
