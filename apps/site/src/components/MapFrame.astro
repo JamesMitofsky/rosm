@@ -248,9 +248,15 @@ const aspectCss = [
     position: absolute;
     inset: 0;
     /* The one blur knob. Raise it for more frost, lower it to show more of the
-       route; the picture underneath is unchanged either way. */
-    backdrop-filter: blur(8px);
+       route; the picture underneath is unchanged either way.
+
+       Prefixed first, standard last, and not by convention alone: the release
+       minifier reads the two as one property and keeps whichever it sees last,
+       so the order here decides which of them survives the build. Standard
+       last means Firefox — which has never spoken `-webkit-` — gets the frost.
+       Safari has understood the unprefixed property since 18. */
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     /* A wash of the basemap's own paper over the frost, so the frame reads as
        one surface rather than as a blurred photograph. Heavier than the blur
        alone needs: a wide gaussian spreads the route's blue and the pins'
