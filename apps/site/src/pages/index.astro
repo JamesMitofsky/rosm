@@ -167,14 +167,14 @@ const mobileContourLines = contoursFor(
               loading frame for exactly the window the frame exists to fill. Its
               dissolve is the entrance. */}
           <div
-            class="bg-info relative w-full overflow-hidden rounded-xl shadow-lg md:col-start-1 md:row-span-2 md:self-center"
+            class="relative w-full overflow-hidden rounded-xl shadow-lg md:col-start-1 md:row-span-2 md:self-center"
           >
             {/* The loading state is `MapFrame`'s, not the island's: a picture of
                 this exact opening view, server-rendered and inline, so it is up
                 in the first paint rather than after the island hydrates. */}
             <MapFrame
               frame="demo-run"
-              class="hero-map z-0 h-[clamp(180px,55vw,260px)] w-full md:h-[clamp(300px,40vw,460px)]"
+              class="hero-map z-0 w-full"
             >
               <DemoRoutePlaceholder slot="placeholder" />
               <DemoRunMap client:only="svelte" />
@@ -245,17 +245,14 @@ const mobileContourLines = contoursFor(
         </h2>
 
         <div
-          class="reveal mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
+          class="reveal mt-6 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 px-1 pb-2"
           style="transition-delay: 0.18s"
         >
-          <span class="font-mono text-[0.65rem] font-medium tracking-[0.22em] uppercase" style="color: #F38300">
-            Live
-          </span>
           <FreshnessLegend client:visible />
         </div>
         {/* No `.reveal` here either — see the hero map. */}
-        <div class="border-base/10 bg-info relative overflow-hidden rounded-xl border">
-          <MapFrame frame="live-fountains-home" class="z-0 h-[clamp(340px,48vw,560px)] w-full">
+        <div class="relative overflow-hidden rounded-xl">
+          <MapFrame frame="live-fountains-home" class="z-0 w-full">
             <LiveFountainMap client:only="svelte" />
           </MapFrame>
         </div>

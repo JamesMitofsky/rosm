@@ -1,6 +1,6 @@
 ---
 import { MAP_PLACEHOLDERS } from "@/lib/basemap/placeholders.generated";
-import { BASEMAP_BACKGROUND, type MapFrameId } from "@/lib/basemap/frames";
+import { BASEMAP_BACKGROUND, MAP_FRAMES, type MapFrameId } from "@/lib/basemap/frames";
 
 /**
  * The box every MapLibre map on the site renders inside: a server-rendered
@@ -9,7 +9,7 @@ import { BASEMAP_BACKGROUND, type MapFrameId } from "@/lib/basemap/frames";
  *
  * The frame owns the sizing, not the island, so the loading state and the map
  * occupy exactly the same rectangle and nothing reflows when one replaces the
- * other. Callers pass their own height through `class`.
+ * other. Callers give it a width; its height comes from the frame spec.
  *
  * What makes this worth building rather than leaving a spinner on a blank
  * panel: the maps are
@@ -47,7 +47,38 @@ const { frame, radius = "0.75rem", class: className = "" } = Astro.props;
 const shots = MAP_PLACEHOLDERS[frame];
 const sources = shots.filter((s) => s.media !== null);
 const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
+
+// The frame's own aspect ratio, taken from the same variant specs the
+// thumbnails were rendered at.
+//
+// This is what keeps the picture and the live map showing the same ground.
+// A thumbnail is `object-fit: cover`d, so it always shows *its* view scaled to
+// whatever box it lands in; a map at a fixed zoom shows a fixed amount of
+// ground and lets the box crop it. Give the two different shapes and they
+// disagree on one axis by however much the shapes differ — which is what the
+// dissolve was showing.
+//
+// Deriving it here rather than letting callers state a height is the point:
+// a height in the caller and a reference size in `frames.ts` are two numbers
+// free to drift apart, and nothing catches it when they do.
+const variants = MAP_FRAMES[frame].variants;
+const base = variants.find((v) => v.media === null) ?? variants[variants.length - 1];
+const ratio = (v: (typeof variants)[number]) => `${v.frame.width}/${v.frame.height}`;
+const selector = `[data-map-frame="${frame}"]`;
+// Base rule first, `max-width` queries after it, so the narrow variants win at
+// the widths they name — the same order `<picture>` resolves the sources in.
+const aspectCss = [
+  `${selector}{aspect-ratio:${ratio(base)}}`,
+  ...variants
+    .filter((v) => v.media !== null)
+    .map((v) => `@media ${v.media}{${selector}{aspect-ratio:${ratio(v)}}}`),
+].join("");
 ---
+
+{/* Global on purpose: the selector is the frame id, so it can only ever match
+    frames of this kind, and Astro dedupes the identical block emitted by a
+    second map of the same kind on the page. */}
+<style is:global set:html={aspectCss}></style>
 
 {/* The basemap's paper colour reaches the stylesheet as one custom property on
     the root rather than through `define:vars`, which stamps the declaration onto
@@ -55,7 +86,7 @@ const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
 <div
   class:list={["map-frame", className]}
   style={`--basemap-background: ${BASEMAP_BACKGROUND}; --map-frame-radius: ${radius}`}
-  data-map-frame
+  data-map-frame={frame}
 >
   {/* The overlay never changes its own opacity — every layer inside fades
       separately. That is not a style preference: it keeps the container from

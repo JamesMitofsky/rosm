@@ -39,14 +39,22 @@ export type MapFrameVariant = {
   /**
    * The frame's CSS pixel size at a representative viewport of this variant.
    *
-   * Not a promise about every screen — the frames are `clamp()`-sized, so their
-   * real dimensions slide with the viewport. It fixes how much *ground* the
-   * pre-rendered image covers, which is what makes a CSS pixel of image line up
-   * with a CSS pixel of live map at the reference size, and drift gently either
-   * side of it. `MapFrame.astro` `object-fit: cover`s the image, so the axis
-   * that constrains stays exact and the other crops rather than letterboxing —
-   * and the whole thing is seen through the frame's glass, which is why
-   * "gently" is good enough here.
+   * Two jobs. It fixes how much *ground* the pre-rendered image covers — the
+   * generator renders exactly this box at {@link zoom} — and its **ratio is the
+   * frame's aspect ratio**: `MapFrame.astro` emits `aspect-ratio` from these
+   * numbers, so a caller gives the frame a width and this decides its height.
+   *
+   * The shape has to come from here rather than from the caller because the
+   * image and the map answer a change in shape differently: the thumbnail is
+   * `object-fit: cover`d, so it always shows *this* view and crops whichever
+   * axis has room to spare, while the map holds a fixed zoom and simply reveals
+   * more ground on that axis. Any disagreement between the box and these
+   * numbers shows up as the dissolve moving the map under you.
+   *
+   * The width is still only representative: at a wider viewport the frame is
+   * the same shape but bigger, so the image scales up while the map stays at
+   * {@link zoom} and shows more ground. That residual is uniform across both
+   * axes, and it is seen through the frame's glass.
    */
   frame: { width: number; height: number };
 };
@@ -80,16 +88,14 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
         media: "(max-width: 767px)",
         center: DEMO_CENTER,
         zoom: 11,
-        // Full-bleed in the stacked mobile layout; `h-[clamp(180px,55vw,260px)]`
-        // at a 390px-wide phone lands mid-clamp at 55vw.
+        // Full-bleed in the stacked mobile layout, at a 390px-wide phone.
         frame: { width: columnWidth(390), height: 215 },
       },
       {
         media: null,
         center: DEMO_CENTER,
         zoom: 12,
-        // `md:grid-cols-[46%_1fr]` gives the map 46% of the column, and
-        // `md:h-[clamp(300px,40vw,460px)]` is at its 460px ceiling by 1150px wide.
+        // `md:grid-cols-[46%_1fr]` gives the map 46% of the column.
         frame: { width: Math.round(columnWidth(1280) * 0.46), height: 460 },
       },
     ],
@@ -103,7 +109,7 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
         media: "(max-width: 640px)",
         center: LIVE_CENTER,
         zoom: 7.8,
-        // `h-[clamp(340px,48vw,560px)]` is pinned to its 340px floor on a phone.
+        // Full-bleed on a 390px-wide phone.
         frame: { width: columnWidth(390), height: 340 },
       },
       {
@@ -121,14 +127,15 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
         media: "(max-width: 640px)",
         center: LIVE_CENTER,
         zoom: 7.8,
-        // `h-[clamp(420px,72vh,760px)]` — 72vh of a 844px-tall phone viewport.
+        // Roughly 72vh of a 844px-tall phone viewport, which is what this map
+        // filled before the frame's shape became its own.
         frame: { width: columnWidth(390), height: 607 },
       },
       {
         media: null,
         center: LIVE_CENTER,
         zoom: 11.3,
-        // 72vh of a common 800px-tall desktop window.
+        // Roughly 72vh of a common 800px-tall desktop window.
         frame: { width: columnWidth(1280), height: 576 },
       },
     ],

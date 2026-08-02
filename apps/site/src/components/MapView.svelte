@@ -245,6 +245,37 @@
     );
   }
 
+  // Keep the canvas the same size as the box it sits in.
+  //
+  // MapLibre already watches the container, but not in a way this layout can
+  // rely on (`Map._setupResizeObserver`): it *discards its observer's first
+  // callback* — so any size the box settles into between construction and that
+  // first delivery is never applied — and throttles the rest to 50ms, which the
+  // canvas spends overhanging the frame's rounded corners mid-drag. Both show up
+  // as a map drawn at the wrong size for its card.
+  //
+  // Every map on this site is sized in `vw`/percentage units by its caller, so
+  // the box moves under the canvas constantly. `resize()` only reads the
+  // container rect and re-sizes the drawing buffer; running it per animation
+  // frame is cheaper than being wrong for three of them.
+  $effect(() => {
+    const el = root;
+    const m = map;
+    if (!el || !m) return;
+
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => m.resize());
+    });
+    observer.observe(el);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  });
+
   // Hard ceiling: MapLibre can sit forever if the tile source (via /api/tiles →
   // OpenFreeMap) stalls without ever firing `load` or `error`. Give up at 20s so
   // the loader can't spin indefinitely — surface the fallback instead.
