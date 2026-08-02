@@ -46,7 +46,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="format-detection" content="telephone=no" />
 
     <!-- Performance Resource Hints -->
-    <link rel="preload" href="/fonts/OrangeJuice.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Jua-Latin.woff2" as="font" type="font/woff2" crossorigin />
 
     <!-- Per-page head additions. Map pages pass `MapAssets` here, which is what
          warms the tile host and pulls the engine download forward; pages
@@ -67,11 +67,26 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="twitter:image" content={ogImage} />
   </head>
   <body class="min-h-full">
-    <header class="flex items-center justify-between px-5 py-4">
-      <a href="/" class="flex items-center gap-2.5 w-fit">
+    <header class="flex items-center justify-end px-5 py-4 sm:justify-between">
+      {/* Wordmark is desktop-only; on mobile the hero headline carries the
+          branding and the bar is just the nav trigger. */}
+      <a href="/" class="hidden items-center gap-2.5 w-fit sm:flex">
         <span class="font-hero text-hero text-[1.5rem] leading-none tracking-tight translate-y-1 text-blue sm:text-[1.75rem]">ROSM</span>
       </a>
       <nav class="hidden sm:flex items-center gap-6">
+        <a
+          href="/"
+          class="inline-flex items-center gap-2 text-sm font-bold text-blue transition hover:opacity-70"
+        >
+          {/* Phosphor "house", inline for the same reason as the drop below:
+              the header is on every page and shouldn't carry an icon island. */}
+          <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" class="h-4 w-4">
+            <path
+              d="M218.83,103.77l-80-75.48a1.14,1.14,0,0,1-.11-.11,16,16,0,0,0-21.53,0l-.11.11L37.17,103.77A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77ZM208,208H160V160a16,16,0,0,0-16-16H112a16,16,0,0,0-16,16v48H48V115.55l.11-.1L128,40l79.9,75.43.11.1Z"
+            ></path>
+          </svg>
+          Home
+        </a>
         <a
           href="/dc-drinking-fountains"
           class="inline-flex items-center gap-2 text-sm font-bold text-blue transition hover:opacity-70"
