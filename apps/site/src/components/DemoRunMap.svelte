@@ -5,6 +5,7 @@
   import type { StopStatus } from "@rosm/core/stores/run";
   import { editSummary, todayLocal } from "@rosm/core/editSummary";
   import { celebratePoint } from "@/lib/confetti";
+  import { zoomForViewport } from "@/lib/basemap/frames";
   import {
     DC_CENTER,
     DC_FOUNTAINS,
@@ -18,9 +19,11 @@
   // sent to OSM, queued in the outbox, or persisted anywhere.
   let { class: className = "" }: { class?: string } = $props();
 
-  // Zoom is initial-only, so pick it once at mount (same breakpoint as the
-  // hero-map zoom-control CSS, md/768px).
-  const zoom = window.matchMedia("(max-width: 767px)").matches ? 11 : 12;
+  // Zoom is initial-only, so pick it once at mount. Read from the frame spec
+  // rather than restated here: this map dissolves out of a picture rendered at
+  // that exact zoom, and two copies of the number are two things to keep in
+  // step.
+  const zoom = zoomForViewport("demo-run");
 
   function seedEdits(): Record<number, PointEdit> {
     const today = todayLocal();
@@ -77,7 +80,7 @@
     class="hero-map"
     center={DC_CENTER}
     {zoom}
-    minZoom={8}
+    lockToOpeningView
     maxZoom={18}
     line={DC_ROUTE}
     {markers}
