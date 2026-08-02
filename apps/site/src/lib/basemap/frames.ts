@@ -79,27 +79,45 @@ const LIVE_CENTER: [number, number] = [38.8972, -77.0369];
  */
 const columnWidth = (viewportWidth: number) => Math.min(viewportWidth, 1152) - 40;
 
+/**
+ * The hero frame, square at both breakpoints. `md:grid-cols-[46%_1fr]` gives
+ * the map 46% of the column on desktop; on mobile it is full-bleed in the
+ * stacked layout, measured at a 390px phone.
+ */
+const DEMO_WIDE_SIZE = Math.round(columnWidth(1280) * 0.46);
+const DEMO_NARROW_SIZE = columnWidth(390);
+const DEMO_WIDE_ZOOM = 12;
+/**
+ * The narrow zoom, derived rather than chosen.
+ *
+ * Both hero variants are the same *shape* now, so the only thing left between
+ * them is pixel size — and a map answers a smaller box by showing less ground,
+ * not by drawing the same view smaller. Left as two independent numbers the two
+ * variants framed the route differently: at zoom 11 the phone showed about 37%
+ * more ground than the desktop did, which read as the route sitting small in a
+ * lot of empty margin.
+ *
+ * Zoom is log2 of scale, so the size difference *is* a zoom offset: half a
+ * level covers 350 vs 512. Both variants now show exactly the same ground.
+ */
+const DEMO_NARROW_ZOOM =
+  Math.round((DEMO_WIDE_ZOOM + Math.log2(DEMO_NARROW_SIZE / DEMO_WIDE_SIZE)) * 100) / 100;
+
 export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
   "demo-run": {
     description: "DemoRunMap in the landing hero (index.astro)",
     variants: [
       {
-        // `DemoRunMap` reads this exact query to choose its zoom.
         media: "(max-width: 767px)",
         center: DEMO_CENTER,
-        zoom: 11,
-        // Square. Full-bleed in the stacked mobile layout, at a 390px phone.
-        frame: { width: columnWidth(390), height: columnWidth(390) },
+        zoom: DEMO_NARROW_ZOOM,
+        frame: { width: DEMO_NARROW_SIZE, height: DEMO_NARROW_SIZE },
       },
       {
         media: null,
         center: DEMO_CENTER,
-        zoom: 12,
-        // Square. `md:grid-cols-[46%_1fr]` gives the map 46% of the column.
-        frame: {
-          width: Math.round(columnWidth(1280) * 0.46),
-          height: Math.round(columnWidth(1280) * 0.46),
-        },
+        zoom: DEMO_WIDE_ZOOM,
+        frame: { width: DEMO_WIDE_SIZE, height: DEMO_WIDE_SIZE },
       },
     ],
   },
@@ -176,6 +194,22 @@ export function placeholderSize(variant: MapFrameVariant) {
     width: PLACEHOLDER_WIDTH,
     height: Math.round((PLACEHOLDER_WIDTH * variant.frame.height) / variant.frame.width),
   };
+}
+
+/**
+ * The zoom the named frame opens at, for the viewport the browser is showing.
+ *
+ * The runtime half of the resolution `MapFrame` hands to the HTML parser: the
+ * `<picture>` picks the thumbnail by the same media strings this walks. A
+ * component calling this cannot open at a different zoom from the picture it
+ * dissolves out of, which is exactly what happens when it restates the
+ * breakpoint itself. Browser-only — it reads `matchMedia`.
+ */
+export function zoomForViewport(id: MapFrameId): number {
+  const { variants } = MAP_FRAMES[id];
+  const matched = variants.find((v) => v.media !== null && window.matchMedia(v.media).matches);
+  const fallback = variants.find((v) => v.media === null) ?? variants[variants.length - 1];
+  return (matched ?? fallback).zoom;
 }
 
 /** MapLibre's vector tile size. Zoom is defined against it: world = SIZE * 2^zoom. */

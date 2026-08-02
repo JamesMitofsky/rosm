@@ -54,6 +54,49 @@
     ];
   }
 
+  // Web Mercator, matching MapLibre's own projection (512px tiles, north-up, no
+  // pitch — every map here disables rotation and pitch). This exists so a view
+  // can be measured *without* flying the camera there and reading `getBounds()`
+  // back: the opening view has to stay the reference even after the visitor has
+  // panned and zoomed away from it.
+  const WORLD_TILE_PX = 512;
+  const lonToX = (lon: number) => (lon + 180) / 360;
+  const latToY = (lat: number) => {
+    const rad = (lat * Math.PI) / 180;
+    return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2;
+  };
+  const xToLon = (x: number) => x * 360 - 180;
+  const yToLat = (y: number) => (Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180) / Math.PI;
+
+  /**
+   * The ground a `width`×`height` box covers when centred on `center` at `zoom`,
+   * optionally grown by `slack` — a fraction of the box added to every side.
+   *
+   * Returned as MapLibre's `[[west, south], [east, north]]`.
+   *
+   * The 1px on each axis is not cosmetic: MapLibre's camera constraint responds
+   * to a viewport *larger* than its `maxBounds` by zooming in to fit, so bounds
+   * computed to land exactly on the viewport edge can tip over that line on a
+   * rounding error and quietly nudge the opening zoom.
+   */
+  function viewportBounds(
+    center: [number, number],
+    zoom: number,
+    width: number,
+    height: number,
+    slack = 0,
+  ): [[number, number], [number, number]] {
+    const worldPx = WORLD_TILE_PX * 2 ** zoom;
+    const dx = (width * (0.5 + slack) + 1) / worldPx;
+    const dy = (height * (0.5 + slack) + 1) / worldPx;
+    const x = lonToX(center[1]);
+    const y = latToY(center[0]);
+    return [
+      [xToLon(x - dx), yToLat(Math.min(1, y + dy))],
+      [xToLon(x + dx), yToLat(Math.max(0, y - dy))],
+    ];
+  }
+
   // Overshoot easing so dots pop past full size then settle — matches the label
   // keyframe in globals.css.
   function easeOutBack(t: number): number {
@@ -86,6 +129,11 @@
     zoom?: number;
     minZoom?: number;
     maxZoom?: number;
+    // Pen the camera into the view the map opened on: it can zoom in and pan
+    // around inside that view, but never pull back past the opening zoom, and
+    // never drag more than a margin past the ground the first frame showed (see
+    // `LOCK_SLACK`). Overrides `minZoom`.
+    lockToOpeningView?: boolean;
     interactive?: boolean;
     scrollWheelZoom?: boolean;
     // Add MapLibre's GeolocateControl: a "locate me" button that drops a blue
@@ -127,6 +175,7 @@
     zoom = 14,
     minZoom,
     maxZoom,
+    lockToOpeningView = false,
     interactive = true,
     scrollWheelZoom = interactive,
     showLocate = false,
@@ -208,6 +257,63 @@
     untrack(doRecenter);
   });
 
+  // Confine the camera to the opening view (see `lockToOpeningView`).
+  //
+  // The floor is the opening zoom, and it goes in as a plain prop so MapLibre is
+  // built with it — there is no first moment where the map can be pulled back
+  // past its own opening frame.
+  const zoomFloor = $derived(lockToOpeningView ? zoom : minZoom);
+
+  // The pen is the ground the opening view covers, which needs the container's
+  // pixel size, so it can only be measured once the box exists. Held as state
+  // and handed to `<MapLibre>` as a prop rather than pushed onto the map by
+  // hand: the component already owns `maxBounds` and would overwrite an
+  // imperative `setMaxBounds` the next time the prop changed.
+  //
+  // Measured from the `center`/`zoom` this map was *configured* with — the same
+  // pair `frames.ts` pre-rendered the loading frame at — never from where the
+  // camera currently sits. That is what makes it safe to re-measure after a
+  // resize: reading the live camera instead would pen the visitor into whatever
+  // they had panned to at the moment they resized.
+  let openingBounds = $state<[[number, number], [number, number]] | undefined>();
+
+  /**
+   * How far past the opening view the pen reaches, as a fraction of the box on
+   * every side.
+   *
+   * Not zero, because a pen drawn exactly on the opening view pins the camera
+   * completely at the opening zoom — and this map moves the camera itself:
+   * `centerOnSelect` brings a tapped marker in so its popup has somewhere to go.
+   * With no margin that move is clamped to nothing and a popup on an edge marker
+   * opens half outside the frame.
+   *
+   * Sized so an edge marker's popup lands *within* the frame with air around it,
+   * rather than with one side flush against it: centring a marker that started
+   * on the edge costs about half the box, and the popup standing above it wants
+   * a bit more. Short of the 0.5 that would let the route itself be panned
+   * entirely out of view.
+   */
+  const LOCK_SLACK = 0.4;
+
+  function applyViewLock() {
+    if (!lockToOpeningView || !map) {
+      openingBounds = undefined;
+      return;
+    }
+    const { clientWidth: w, clientHeight: h } = map.getContainer();
+    // A container mid-layout reports 0, which would make a degenerate pen.
+    if (!w || !h) return;
+    openingBounds = viewportBounds(center, zoom, w, h, LOCK_SLACK);
+  }
+
+  $effect(() => {
+    lockToOpeningView;
+    center;
+    zoom;
+    if (!isLoaded) return;
+    untrack(applyViewLock);
+  });
+
   // `isLoaded` tracks the real map `load` event only. It is never forced true
   // on a timer — a blank/hung map must not masquerade as loaded, or the loader
   // hides over nothing and later errors get swallowed by the post-load gate.
@@ -266,7 +372,13 @@
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => m.resize());
+      frame = requestAnimationFrame(() => {
+        m.resize();
+        // The box just changed how much ground it covers, so the opening-view
+        // pen no longer matches it. Re-measure rather than leave a map that has
+        // to zoom in to satisfy stale bounds.
+        applyViewLock();
+      });
     });
     observer.observe(el);
 
@@ -341,7 +453,43 @@
     return () => cancelAnimationFrame(raf);
   });
 
-  // Center the open popup in the viewport (demo maps opt in via `centerOnSelect`).
+  /**
+   * The nearest centre to `[lat, lon]` that keeps the whole viewport inside the
+   * pen, at the zoom the map is currently on.
+   *
+   * Without this, a move toward a centre the pen forbids is corrected by
+   * MapLibre *during* the animation — `maxBounds` is enforced every time the
+   * transform's centre is set, so the camera travels out toward the requested
+   * point and is dragged back frame by frame. Clamping the destination up front
+   * gives the animation a centre it can actually reach, so the motion is one
+   * continuous move instead of an overshoot and a recovery.
+   *
+   * A no-op when there is no pen.
+   */
+  function clampToPen(lat: number, lon: number): [number, number] {
+    if (!map || !openingBounds) return [lat, lon];
+    const { clientWidth: w, clientHeight: h } = map.getContainer();
+    const worldPx = WORLD_TILE_PX * 2 ** map.getZoom();
+    const halfW = w / 2 / worldPx;
+    const halfH = h / 2 / worldPx;
+    const [[west, south], [east, north]] = openingBounds;
+    // A viewport wider than the pen has no valid range on that axis — the
+    // midpoint is the only sensible answer, and it is what MapLibre settles on.
+    const clamp = (v: number, lo: number, hi: number) =>
+      lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v));
+    return [
+      yToLat(clamp(latToY(lat), latToY(north) + halfH, latToY(south) - halfH)),
+      xToLon(clamp(lonToX(lon), lonToX(west) + halfW, lonToX(east) - halfW)),
+    ];
+  }
+
+  // Bring a tapped marker into the frame so its popup has room (demo maps opt in
+  // via `centerOnSelect`).
+  //
+  // `easeTo`, not `flyTo`: flyTo flies an arc that pulls the camera back and in
+  // again, which over a couple of hundred pixels is mostly swoop — and under a
+  // `minZoom` floor it cannot even perform the pull-back, so it fights its own
+  // curve. easeTo just moves.
   $effect(() => {
     selected; // track
     if (!centerOnSelect || !map) return;
@@ -353,10 +501,17 @@
         .getContainer()
         .querySelector(".maplibregl-popup") as HTMLElement | null;
       const offsetY = popupEl ? 14 + popupEl.offsetHeight / 2 : 0;
-      mapInst.flyTo({
-        center: [m.lon, m.lat],
-        offset: [0, offsetY],
-        duration: 600,
+      // Sit the camera north of the marker by that much, so the marker lands low
+      // in the frame and the popup standing above it has headroom. Worked out
+      // here rather than handed to `easeTo` as `offset` because the destination
+      // has to be a real centre before it can be clamped against the pen.
+      const worldPx = WORLD_TILE_PX * 2 ** mapInst.getZoom();
+      const [lat, lon] = untrack(() =>
+        clampToPen(yToLat(latToY(m.lat) - offsetY / worldPx), m.lon),
+      );
+      mapInst.easeTo({
+        center: [lon, lat],
+        duration: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 600,
         essential: true,
       });
     });
@@ -387,6 +542,9 @@
     isLoaded = true;
     map?.touchZoomRotate.disableRotation();
     doRecenter();
+    // After `doRecenter`, so the pen is measured around the view the map
+    // actually settled on.
+    applyViewLock();
     emitView(false);
     const attrEl = map?.getContainer().querySelector('.maplibregl-ctrl-attrib');
     attrEl?.classList.remove('maplibregl-compact-show');
@@ -458,7 +616,8 @@
     attributionControl={false}
     center={[center[1], center[0]]}
     {zoom}
-    {minZoom}
+    minZoom={zoomFloor}
+    maxBounds={openingBounds}
     {maxZoom}
     dragPan={interactive}
     dragRotate={false}

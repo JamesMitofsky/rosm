@@ -173,12 +173,17 @@ const aspectCss = [
     clip-path: inset(0 round var(--map-frame-radius));
   }
 
+  /* Same doubled rounding as the frame, one level closer to the canvas. The
+     compositor clip that matters is whichever one it actually applies to the
+     island's layer, and this is the last element on the way down that is ours —
+     everything below is `<astro-island>` and the map component's own markup. */
   .map-frame__map {
     position: absolute;
     inset: 0;
     z-index: 0;
     border-radius: var(--map-frame-radius);
     overflow: hidden;
+    clip-path: inset(0 round var(--map-frame-radius));
   }
 
   .map-frame__overlay {
