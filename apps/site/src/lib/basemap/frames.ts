@@ -45,8 +45,8 @@ export type MapFrameVariant = {
    * with a CSS pixel of live map at the reference size, and drift gently either
    * side of it. `MapFrame.astro` `object-fit: cover`s the image, so the axis
    * that constrains stays exact and the other crops rather than letterboxing —
-   * and the whole thing is seen through an 8px blur, which is why "gently" is
-   * good enough here.
+   * and the whole thing is seen through the frame's glass, which is why
+   * "gently" is good enough here.
    */
   frame: { width: number; height: number };
 };
@@ -138,20 +138,26 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
 /**
  * Width, in pixels, of the pre-rendered frame — a thumbnail, not a picture.
  *
- * The image is only ever seen through the frame's blur, so anything finer than
- * the blur passes is bytes spent on nothing: at this size the road network is
- * already gone and what survives is the shape of the city — the river, the Mall,
- * the density gradient — which is what the blur would have reduced a sharp image
- * to anyway.
+ * This is the frame's real blur control. The image is stretched to the width of
+ * the box it fills, so the ratio between the two *is* the softening: at 96px,
+ * where this started, a phone frame magnified every source pixel about 3.6x and
+ * a desktop live map over 11x, which dissolved the road network entirely and
+ * left only the shape of the city — river, Mall, density gradient. The `filter`
+ * in `MapFrame.astro` barely registered next to it.
  *
- * Small enough to inline, which is the point. At a few hundred bytes each these
- * ship as base64 data URIs inside the HTML, so the loading frame costs no
- * request at all — and a request is exactly what it could not afford, since it
- * would queue against the ~1MB engine chunk it exists to cover for.
+ * At 160 the same frames magnify ~2.2x and ~7x, so arterial roads and the park
+ * edges survive and the picture reads as the map it is about to become rather
+ * than as fog. Raise it further to sharpen; the cost is quadratic in bytes and
+ * every one of them is in the HTML.
+ *
+ * Small enough to inline is the constraint that bounds it. At a few kilobytes
+ * each these ship as base64 data URIs inside the HTML, so the loading frame
+ * costs no request at all — and a request is exactly what it could not afford,
+ * since it would queue against the ~1MB engine chunk it exists to cover for.
  */
-export const PLACEHOLDER_WIDTH = 96;
+export const PLACEHOLDER_WIDTH = 160;
 
-/** Quality the thumbnail is encoded at. Generous — 96px of anything is cheap. */
+/** Quality the thumbnail is encoded at. Generous — a 160px image is cheap. */
 export const PLACEHOLDER_QUALITY = 75;
 
 /** The thumbnail's pixel size for a variant: {@link PLACEHOLDER_WIDTH} at the frame's aspect. */
@@ -160,6 +166,46 @@ export function placeholderSize(variant: MapFrameVariant) {
     width: PLACEHOLDER_WIDTH,
     height: Math.round((PLACEHOLDER_WIDTH * variant.frame.height) / variant.frame.width),
   };
+}
+
+/** MapLibre's vector tile size. Zoom is defined against it: world = SIZE * 2^zoom. */
+export const TILE_SIZE = 512;
+
+/**
+ * Web Mercator projection into the unit square, north-west origin.
+ *
+ * Exported because the placeholder generator crops its raster mosaic with the
+ * same projection: if the two ever disagreed the picture would be offset from
+ * the map it dissolves into, which is the one failure this module exists to
+ * prevent.
+ */
+export function projectMercator(lon: number, lat: number): [number, number] {
+  return [
+    (180 + lon) / 360,
+    (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))) / 360,
+  ];
+}
+
+/**
+ * Where a point sits relative to a variant's centre, in that variant's frame
+ * pixels — positive x east, positive y south.
+ *
+ * This is what lets the loading frame draw the real route and its stops without
+ * MapLibre: the opening view is fixed at build time and the picture is centred
+ * in the frame, so a point's offset from the frame's centre is knowable without
+ * measuring anything and without an engine. The result is in the same
+ * coordinate space as {@link MapFrameVariant.frame}, which is the space the
+ * placeholder SVG's `viewBox` uses — so the overlay and the thumbnail are
+ * scaled and cropped by one and the same rule.
+ */
+export function offsetFromCenter(
+  point: { lat: number; lon: number },
+  variant: MapFrameVariant,
+): { x: number; y: number } {
+  const world = TILE_SIZE * 2 ** variant.zoom;
+  const p = projectMercator(point.lon, point.lat);
+  const c = projectMercator(variant.center[1], variant.center[0]);
+  return { x: (p[0] - c[0]) * world, y: (p[1] - c[1]) * world };
 }
 
 /**

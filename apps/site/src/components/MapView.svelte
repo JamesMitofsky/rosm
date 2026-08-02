@@ -389,7 +389,11 @@
   }
 </script>
 
-<div bind:this={root} class={className} style="position: relative; height: 100%; width: 100%;">
+<div
+  bind:this={root}
+  class="map-view-root {className}"
+  style="position: relative; height: 100%; width: 100%;"
+>
   {#if showError}
     <div
       style="position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.5rem; text-align: center; background: #0E85C6; color: #fff;"
@@ -512,3 +516,26 @@
     {/if}
   </MapLibre>
 </div>
+
+<style>
+  /* Rounds the map to the corner of the frame it sits in.
+     `MapFrame` clips its own layers, but a WebGL canvas is composited on its own
+     layer and an ancestor's rounded corner does not clip it — the canvas keeps
+     painting square corners, which only becomes visible once the loading
+     overlay that was covering them is removed. The radius has to land on the
+     canvas element itself, where it clips that element's own painting.
+     `--map-frame-radius` is a custom property, so unlike `border-radius:
+     inherit` it survives the trip through `<astro-island>` into this component.
+     The fallback keeps a map used outside a frame square. */
+  .map-view-root {
+    border-radius: var(--map-frame-radius, 0);
+    overflow: hidden;
+  }
+
+  /* Each step inherits from the one above, down to the canvas. */
+  .map-view-root :global(.maplibregl-map),
+  .map-view-root :global(.maplibregl-canvas-container),
+  .map-view-root :global(.maplibregl-canvas) {
+    border-radius: inherit;
+  }
+</style>

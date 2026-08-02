@@ -11,7 +11,8 @@ import { BASEMAP_BACKGROUND, type MapFrameId } from "@/lib/basemap/frames";
  * occupy exactly the same rectangle and nothing reflows when one replaces the
  * other. Callers pass their own height through `class`.
  *
- * What makes this worth building rather than keeping a spinner: the maps are
+ * What makes this worth building rather than leaving a spinner on a blank
+ * panel: the maps are
  * `client:only` islands, so *nothing* of them exists in the served HTML. Until
  * the island chunk downloads, hydrates, pulls ~1MB of MapLibre and paints a
  * tile, the frame is dead space — and none of that can be raced by anything
@@ -25,10 +26,19 @@ import { BASEMAP_BACKGROUND, type MapFrameId } from "@/lib/basemap/frames";
 interface Props {
   /** Which map, in which position — see `lib/basemap/frames.ts`. */
   frame: MapFrameId;
+  /**
+   * Corner radius of the card this sits in, as a CSS length.
+   *
+   * Stated rather than inherited, because inheriting it does not survive the
+   * trip: Astro renders the island inside an `<astro-island>` element, and
+   * `border-radius: inherit` resolves against *that*, which has none. Defaults
+   * to `rounded-xl`, which is what every card holding a map on this site uses.
+   */
+  radius?: string;
   class?: string;
 }
 
-const { frame, class: className = "" } = Astro.props;
+const { frame, radius = "0.75rem", class: className = "" } = Astro.props;
 
 // Mobile-first, matching how `<picture>` resolves: the first `<source>` whose
 // media matches wins, and the bare `<img>` is the fallback. Each map picks its
@@ -44,7 +54,7 @@ const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
     every element the component renders. */}
 <div
   class:list={["map-frame", className]}
-  style={`--basemap-background: ${BASEMAP_BACKGROUND}`}
+  style={`--basemap-background: ${BASEMAP_BACKGROUND}; --map-frame-radius: ${radius}`}
   data-map-frame
 >
   {/* The overlay never changes its own opacity — every layer inside fades
@@ -62,33 +72,42 @@ const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
       {sources.map((s) => <source media={s.media!} srcset={s.src} type="image/webp" />)}
       {/* Decoded on the main thread on purpose: this image exists to be in the
           first paint, and `decoding="async"` lets the browser paint a frame
-          without it. It is under a kilobyte and 96px wide, so there is nothing
+          without it. It is a few kilobytes and 160px wide, so there is nothing
           to gain by deferring it. */}
       <img class="map-frame__shot" src={fallback.src} alt="" aria-hidden="true" decoding="sync" />
     </picture>
 
-    {/* The veil. Together with the ~10x upscale of a 96px thumbnail — which is
-        where the blur actually comes from — this reads as frosted glass over
-        the city rather than as a photo of it, so the loading state never looks
-        like a finished map that ignores taps.
+    {/* The map's own content as it will appear at the opening view — the route
+        and its stops, for a map that can position them without the engine. It
+        turns the loading state from a picture of a city into the map itself,
+        minus interactivity. Optional: a map whose points are only known at
+        runtime simply leaves this empty. */}
+    <div class="map-frame__content"><slot name="placeholder" /></div>
 
-        Deliberately *not* `backdrop-filter`. A backdrop blur re-samples the
-        whole frame every frame the map paints beneath it, on the same GPU that
-        is rasterising the first batch of vector tiles; the image is already
-        blurred by its own upscale, so the expensive version would buy nothing.
-        The small `filter` on the thumbnail smooths the webp blocking, and being
-        a static layer the compositor caches it once. */}
-    <div class="map-frame__veil" aria-hidden="true"></div>
+    {/* Frosts the frame, its route and its pins, and nothing below. This is the
+        blur — it is applied *over* the map, not baked into it, so what is
+        underneath stays a normal picture and a normal set of shapes, and the
+        frost is a single layer whose opacity is the only thing that animates.
 
-    {/* Three dots riding a wave — the one moving thing on the frame, so the
-        state reads as loading rather than as loaded. Negative delays start each
-        dot mid-cycle, so the wave is already travelling on the first frame
-        instead of starting from flat. */}
-    <div class="map-frame__dots" aria-hidden="true">
-      <span style="animation-delay: -0.24s"></span>
-      <span style="animation-delay: -0.12s"></span>
-      <span style="animation-delay: 0s"></span>
-    </div>
+        A blur radius that winds down over the reveal is the one thing a
+        compositor cannot cache: every frame would re-run a full-frame gaussian
+        on the same GPU rasterising the first batch of vector tiles. Opacity it
+        can animate without repainting anything, and fading a frosted pane out
+        looks the same as thinning it. */}
+    <div class="map-frame__glass" aria-hidden="true"></div>
+
+    {/* The one moving thing on the frame, so the state reads as loading rather
+        than as a map that ignores taps. Same arc-on-a-ring the site used before
+        this frame existed, in the brand blue rather than white — it now sits on
+        frosted paper instead of a solid blue panel. */}
+    <svg class="map-frame__spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25" />
+      <path
+        fill="currentColor"
+        opacity="0.75"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
   </div>
 
   {/* `z-index: 0` makes this a stacking context, which walls the island's own
@@ -100,21 +119,35 @@ const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
 
 <style>
   /* How long the overlay takes to dissolve once the map reports its first
-     paint. Slow enough to read as the frame clearing rather than as a cut, and
-     it costs nothing to wait: the map underneath is already drawn and already
-     interactive, since the overlay stops taking pointer events the moment
-     `data-map-ready` lands. */
+     paint. Long enough to read as the frame clearing rather than as a cut, and
+     no longer: the map underneath is already drawn and already interactive by
+     this point, since the overlay stops taking pointer events the moment
+     `data-map-ready` lands, so every extra millisecond is a finished map behind
+     frosted glass. Kept in step with REVEAL_MS in the script below. */
   .map-frame {
-    --map-reveal-ms: 550ms;
+    --map-reveal-ms: 280ms;
     position: relative;
     overflow: hidden;
     isolation: isolate;
+    /* The map is a WebGL canvas on its own compositing layer, and a composited
+       child is not clipped by an ancestor's rounded corner — `overflow: hidden`
+       plus `border-radius` rounds the *box* and lets the canvas square off all
+       four corners of the card anyway. `clip-path` is applied by the compositor
+       itself, so it is the one that actually holds, and it clips every layer in
+       here — canvas, glass and thumbnail alike.
+
+       `border-radius` stays for the painted layers below (paper, glass), which
+       are ordinary content and round on their own. */
+    border-radius: var(--map-frame-radius);
+    clip-path: inset(0 round var(--map-frame-radius));
   }
 
   .map-frame__map {
     position: absolute;
     inset: 0;
     z-index: 0;
+    border-radius: var(--map-frame-radius);
+    overflow: hidden;
   }
 
   .map-frame__overlay {
@@ -130,17 +163,24 @@ const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
     pointer-events: none;
   }
 
+  /* Every layer fades on its own rather than the overlay fading as a group.
+     That is not cosmetic: an element at opacity < 1 is a backdrop root, so
+     fading the container would cut the glass off from the map behind it and the
+     frost would vanish in one frame instead of clearing. Nothing above ever
+     leaves opacity 1; only these do. */
   .map-frame__paper,
-  .map-frame__veil,
+  .map-frame__glass,
   .map-frame__shot,
-  .map-frame__dots {
+  .map-frame__content,
+  .map-frame__spinner {
     transition: opacity var(--map-reveal-ms) ease-in-out;
   }
 
   .map-frame[data-map-ready] .map-frame__paper,
-  .map-frame[data-map-ready] .map-frame__veil,
+  .map-frame[data-map-ready] .map-frame__glass,
   .map-frame[data-map-ready] .map-frame__shot,
-  .map-frame[data-map-ready] .map-frame__dots {
+  .map-frame[data-map-ready] .map-frame__content,
+  .map-frame[data-map-ready] .map-frame__spinner {
     opacity: 0;
   }
 
@@ -160,47 +200,51 @@ const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
        shear the city. Cover keeps the ground scale exact on whichever axis
        constrains and crops the other. */
     object-fit: cover;
-    /* Scaled slightly past the box so the blur has pixels to sample at the
-       edges instead of fading into the paper behind it. */
-    transform: scale(1.06);
-    filter: blur(6px);
     max-width: none;
   }
 
-  .map-frame__veil {
+  .map-frame__content {
     position: absolute;
     inset: 0;
-    background: color-mix(in srgb, var(--basemap-background) 55%, transparent);
   }
 
-  .map-frame__dots {
+  .map-frame__glass {
+    position: absolute;
+    inset: 0;
+    /* The one blur knob. Raise it for more frost, lower it to show more of the
+       route; the picture underneath is unchanged either way. */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    /* A wash of the basemap's own paper over the frost, so the frame reads as
+       one surface rather than as a blurred photograph. Heavier than the blur
+       alone needs: a wide gaussian spreads the route's blue and the pins'
+       colour across the whole frame, and the wash is what keeps that reading as
+       frosted paper instead of as a stain. */
+    background: color-mix(in srgb, var(--basemap-background) 48%, transparent);
+  }
+
+  .map-frame__spinner {
     position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
+    width: 2rem;
+    height: 2rem;
+    color: var(--color-blue);
+    /* Named locally rather than reusing the global `spin`: Astro only rewrites
+       animation names for keyframes declared in this scoped block, so borrowing
+       the global one would work by coincidence of naming. */
+    animation: map-frame-spin 1s linear infinite;
   }
 
-  .map-frame__dots span {
-    width: 0.625rem;
-    height: 0.625rem;
-    border-radius: 9999px;
-    background: var(--color-blue);
-    animation: map-loading-dot 1.2s ease-in-out infinite;
-  }
-
-  @keyframes map-loading-dot {
-    0%,
-    100% {
-      transform: translateY(-0.3rem);
-    }
-    50% {
-      transform: translateY(0.3rem);
+  @keyframes map-frame-spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 
+  /* A spinner that does not spin reads as frozen rather than as calm, so this
+     slows the rotation instead of stopping it. */
   @media (prefers-reduced-motion: reduce) {
-    .map-frame__dots span {
-      animation: none;
+    .map-frame__spinner {
+      animation-duration: 3s;
     }
   }
 </style>
@@ -217,7 +261,7 @@ const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
    * sync between an Astro page and a Svelte component, and any number of maps
    * on a page each clear their own frame.
    */
-  const REVEAL_MS = 550;
+  const REVEAL_MS = 280;
   /**
    * Backstop for the unmount only. The overlay normally leaves the tree when its
    * fade actually finishes — see the `transitionend` handler — and this covers

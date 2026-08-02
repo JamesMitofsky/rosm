@@ -23,8 +23,8 @@
  * Source is CARTO's raster Voyager, the raster twin of the Voyager-derived
  * vector style the live map renders, so the two agree on palette and land/water
  * shape. Both are OpenStreetMap data; the map's own AttributionControl carries
- * the OSM credit, and the thumbnails are 96px wide and blurred, so nothing
- * legible survives into the page.
+ * the OSM credit, and the thumbnails are 160px wide, upscaled and softened, so
+ * no labels survive into the page.
  */
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -35,7 +35,9 @@ import {
   BASEMAP_BACKGROUND,
   MAP_FRAMES,
   PLACEHOLDER_QUALITY,
+  TILE_SIZE,
   placeholderSize,
+  projectMercator,
   type MapFrameId,
   type MapFrameVariant,
 } from "../src/lib/basemap/frames";
@@ -43,8 +45,6 @@ import {
 const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outFile = resolve(siteRoot, "src/lib/basemap/placeholders.generated.ts");
 
-/** MapLibre's vector tile size. Zoom is defined against it: world = SIZE * 2^zoom. */
-const VECTOR_TILE = 512;
 /** CARTO's raster tiles are the classic 256px scheme. */
 const RASTER_TILE = 256;
 const RASTER_URL = (z: number, x: number, y: number) =>
@@ -62,19 +62,43 @@ const RASTER_URL = (z: number, x: number, y: number) =>
  */
 const OVERSAMPLE_BITS = 4;
 
-/** Web Mercator projection into the unit square, north-west origin. */
-function project(lng: number, lat: number): [number, number] {
-  return [
-    (180 + lng) / 360,
-    (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))) / 360,
-  ];
-}
+/**
+ * How many tile requests may be in flight at once.
+ *
+ * The tile count grows with the square of PLACEHOLDER_WIDTH, so a frame is
+ * hundreds of requests at any useful resolution. Firing them all at once does
+ * not go faster — it exhausts the connection pool and CARTO starts timing out
+ * the tail, which fails the whole build. Eight keeps the pipe full.
+ */
+const FETCH_CONCURRENCY = 8;
+const FETCH_ATTEMPTS = 3;
 
 async function fetchTile(z: number, x: number, y: number): Promise<Buffer> {
   const url = RASTER_URL(z, x, y);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+  // A CDN dropping one request out of several hundred is ordinary; failing a
+  // build over it is not. Backs off so a retry storm does not recreate the
+  // congestion that caused the drop.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    } catch (error) {
+      if (attempt >= FETCH_ATTEMPTS) throw error;
+      await new Promise((r) => setTimeout(r, 250 * 2 ** (attempt - 1)));
+    }
+  }
+}
+
+/** Runs `worker` over `items`, at most {@link FETCH_CONCURRENCY} at a time. */
+async function mapPooled<T>(items: T[], worker: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(FETCH_CONCURRENCY, items.length) }, async () => {
+    while (next < items.length) {
+      await worker(items[next++]);
+    }
+  });
+  await Promise.all(runners);
 }
 
 async function renderVariant(variant: MapFrameVariant) {
@@ -83,20 +107,20 @@ async function renderVariant(variant: MapFrameVariant) {
   /** Scale from frame CSS pixels down to thumbnail pixels. */
   const scale = out.width / variant.frame.width;
 
-  // The output's world is VECTOR_TILE * scale * 2^zoom pixels around. The
+  // The output's world is TILE_SIZE * scale * 2^zoom pixels around. The
   // smallest raster zoom whose own world covers that is where the final resize
   // stops having to upscale — written out rather than hardcoded because it moves
   // with `scale`. Then OVERSAMPLE_BITS more, for the crop precision above.
-  const outputWorld = VECTOR_TILE * scale * 2 ** variant.zoom;
+  const outputWorld = TILE_SIZE * scale * 2 ** variant.zoom;
   const rasterZoom =
-    Math.ceil(variant.zoom + Math.log2((VECTOR_TILE * scale) / RASTER_TILE)) + OVERSAMPLE_BITS;
+    Math.ceil(variant.zoom + Math.log2((TILE_SIZE * scale) / RASTER_TILE)) + OVERSAMPLE_BITS;
   const rasterWorld = RASTER_TILE * 2 ** rasterZoom;
   const shrink = outputWorld / rasterWorld;
 
   // The region to cut from the raster world, in raster pixels.
   const regionW = out.width / shrink;
   const regionH = out.height / shrink;
-  const [cx, cy] = project(lon, lat);
+  const [cx, cy] = projectMercator(lon, lat);
   const left = cx * rasterWorld - regionW / 2;
   const top = cy * rasterWorld - regionH / 2;
 
@@ -105,22 +129,16 @@ async function renderVariant(variant: MapFrameVariant) {
   const y0 = Math.floor(top / RASTER_TILE);
   const y1 = Math.floor((top + regionH) / RASTER_TILE);
 
-  const tiles: { input: Buffer; left: number; top: number }[] = [];
-  const jobs: Promise<void>[] = [];
+  const coords: { x: number; y: number }[] = [];
   for (let x = x0; x <= x1; x++) {
-    for (let y = y0; y <= y1; y++) {
-      jobs.push(
-        fetchTile(rasterZoom, x, y).then((input) => {
-          tiles.push({
-            input,
-            left: (x - x0) * RASTER_TILE,
-            top: (y - y0) * RASTER_TILE,
-          });
-        }),
-      );
-    }
+    for (let y = y0; y <= y1; y++) coords.push({ x, y });
   }
-  await Promise.all(jobs);
+
+  const tiles: { input: Buffer; left: number; top: number }[] = [];
+  await mapPooled(coords, async ({ x, y }) => {
+    const input = await fetchTile(rasterZoom, x, y);
+    tiles.push({ input, left: (x - x0) * RASTER_TILE, top: (y - y0) * RASTER_TILE });
+  });
 
   const mosaic = sharp({
     create: {
@@ -191,8 +209,8 @@ import type { MapFrameId } from "./frames";
  * data URI it arrives inside the HTML that references it, so there is no
  * request, no connection, and nothing to lose the race to.
  *
- * They are 96px-wide thumbnails, seen only through a blur, which is why that is
- * affordable — see PLACEHOLDER_WIDTH in ./frames.
+ * They are 160px-wide thumbnails, magnified into the frame, which is why that
+ * is affordable — see PLACEHOLDER_WIDTH in ./frames.
  */
 export const MAP_PLACEHOLDERS: Record<MapFrameId, { media: string | null; src: string }[]> = {
 ${[...byId]

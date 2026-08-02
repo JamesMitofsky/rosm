@@ -5,6 +5,7 @@ import DemoRunMap from "@/components/DemoRunMap.svelte";
 import LiveFountainMap from "@/components/LiveFountainMap.svelte";
 import FountainLeaderboard from "@/components/FountainLeaderboard.svelte";
 import FreshnessLegend from "@/components/FreshnessLegend.svelte";
+import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
 import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
 import { Drop } from "phosphor-svelte";
@@ -143,10 +144,12 @@ const mobileContourLines = contoursFor(
           class="flex flex-col items-start gap-2 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-2"
         >
           <h1
-            class="reveal font-hero text-hero max-w-5xl text-[25vw] leading-[0.9] font-bold tracking-tight md:col-start-2 md:row-start-1 md:self-end md:text-[clamp(3.2rem,14vw,5.8rem)]"
+            class="reveal font-hero text-hero max-w-5xl text-[clamp(3rem,25vw,5.5rem)] leading-[0.9] font-bold tracking-tight md:col-start-2 md:row-start-1 md:self-end md:text-[clamp(3.2rem,14vw,5.8rem)]"
             style="transition-delay: 0.1s"
           >
-            Run & Verify
+            {/* One term per line: the plus signs are the list, not punctuation
+                to read across. */}
+            Hydration<br />+running<br />+maps
           </h1>
 
           <div
@@ -154,14 +157,17 @@ const mobileContourLines = contoursFor(
             style="transition-delay: 0.16s"
           >
             <p class="text-muted max-w-xl text-lg leading-relaxed">
-              Runs mapped to verify DC's public drinking fountains
+              Routes made to find DC's drinking fountains
             </p>
           </div>
 
-          {/* Interactive demo of the run + edit flow, framed like a print plate. */}
+          {/* Interactive demo of the run + edit flow, framed like a print plate.
+              Deliberately not a `.reveal` block: that starts at opacity 0 and
+              waits for the scroll observer, which would hide the map's own
+              loading frame for exactly the window the frame exists to fill. Its
+              dissolve is the entrance. */}
           <div
-            class="reveal bg-info relative w-full overflow-hidden rounded-xl shadow-lg md:col-start-1 md:row-span-2 md:self-center"
-            style="transition-delay: 0.05s"
+            class="bg-info relative w-full overflow-hidden rounded-xl shadow-lg md:col-start-1 md:row-span-2 md:self-center"
           >
             {/* The loading state is `MapFrame`'s, not the island's: a picture of
                 this exact opening view, server-rendered and inline, so it is up
@@ -170,6 +176,7 @@ const mobileContourLines = contoursFor(
               frame="demo-run"
               class="hero-map z-0 h-[clamp(180px,55vw,260px)] w-full md:h-[clamp(300px,40vw,460px)]"
             >
+              <DemoRoutePlaceholder slot="placeholder" />
               <DemoRunMap client:only="svelte" />
             </MapFrame>
           </div>
@@ -246,10 +253,8 @@ const mobileContourLines = contoursFor(
           </span>
           <FreshnessLegend client:visible />
         </div>
-        <div
-          class="reveal border-base/10 bg-info relative overflow-hidden rounded-xl border"
-          style="transition-delay: 0.22s"
-        >
+        {/* No `.reveal` here either — see the hero map. */}
+        <div class="border-base/10 bg-info relative overflow-hidden rounded-xl border">
           <MapFrame frame="live-fountains-home" class="z-0 h-[clamp(340px,48vw,560px)] w-full">
             <LiveFountainMap client:only="svelte" />
           </MapFrame>
