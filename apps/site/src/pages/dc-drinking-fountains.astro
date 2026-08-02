@@ -17,21 +17,15 @@ export const prerender = true;
     <section>
       <div class="mx-auto max-w-6xl px-5 pt-4 pb-12 md:pb-20">
         <h1
-          class="font-hero text-hero text-[clamp(2rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+          class="font-hero text-hero text-[clamp(2rem,5.5vw,3.6rem)] leading-tight tracking-tight"
         >
           DC Drinking Fountains
         </h1>
-        <div class="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2">
-          <span
-            class="font-mono text-[0.65rem] font-medium tracking-[0.22em] uppercase"
-            style="color: #F38300"
-          >
-            Live
-          </span>
+        <div class="mt-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 px-1 pb-2">
           <FreshnessLegend client:visible />
         </div>
 
-        <div class="border-base/10 bg-info relative overflow-hidden rounded-xl border">
+        <div class="bg-info relative overflow-hidden rounded-xl shadow-lg">
           <MapFrame frame="live-fountains-dc" class="z-0 w-full">
             <LiveFountainMap client:only="svelte" />
           </MapFrame>
