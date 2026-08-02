@@ -550,23 +550,35 @@
 
 <style>
   /* Rounds the map to the corner of the frame it sits in.
-     `MapFrame` clips its own layers, but a WebGL canvas is composited on its own
-     layer and an ancestor's rounded corner does not clip it — the canvas keeps
-     painting square corners, which only becomes visible once the loading
-     overlay that was covering them is removed. The radius has to land on the
-     canvas element itself, where it clips that element's own painting.
-     `--map-frame-radius` is a custom property, so unlike `border-radius:
-     inherit` it survives the trip through `<astro-island>` into this component.
-     The fallback keeps a map used outside a frame square. */
+     The symptom this exists for: the frame's corners look right for the first
+     couple of seconds and then square off. That is not the corner changing —
+     it is `MapFrame` removing its loading overlay. The overlay's paper and
+     glass are ordinary painted content, they round on their own, and while
+     they are up they cover the canvas. What is underneath was never rounded.
+
+     A WebGL canvas is composited on its own layer, and a layer is not clipped
+     by an ancestor's `border-radius` + `overflow` — the compositor needs a
+     clip it can apply itself. So the rounding is stated twice, on purpose:
+
+     - `clip-path` on this element, which the compositor applies to the whole
+       subtree, canvas included. This is the one that does the work.
+     - `border-radius` directly on the canvas and its container, as the
+       fallback for anything that ignores the first.
+
+     Both read `--map-frame-radius` straight rather than chaining through
+     `border-radius: inherit`. A custom property crosses `<astro-island>` and
+     any wrapper between here and the canvas; an `inherit` chain silently
+     resolves to 0 the moment one link doesn't opt in. The fallback value keeps
+     a map used outside a frame square. */
   .map-view-root {
     border-radius: var(--map-frame-radius, 0);
     overflow: hidden;
+    clip-path: inset(0 round var(--map-frame-radius, 0));
   }
 
-  /* Each step inherits from the one above, down to the canvas. */
   .map-view-root :global(.maplibregl-map),
   .map-view-root :global(.maplibregl-canvas-container),
   .map-view-root :global(.maplibregl-canvas) {
-    border-radius: inherit;
+    border-radius: var(--map-frame-radius, 0);
   }
 </style>

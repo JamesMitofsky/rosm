@@ -88,15 +88,18 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
         media: "(max-width: 767px)",
         center: DEMO_CENTER,
         zoom: 11,
-        // Full-bleed in the stacked mobile layout, at a 390px-wide phone.
-        frame: { width: columnWidth(390), height: 215 },
+        // Square. Full-bleed in the stacked mobile layout, at a 390px phone.
+        frame: { width: columnWidth(390), height: columnWidth(390) },
       },
       {
         media: null,
         center: DEMO_CENTER,
         zoom: 12,
-        // `md:grid-cols-[46%_1fr]` gives the map 46% of the column.
-        frame: { width: Math.round(columnWidth(1280) * 0.46), height: 460 },
+        // Square. `md:grid-cols-[46%_1fr]` gives the map 46% of the column.
+        frame: {
+          width: Math.round(columnWidth(1280) * 0.46),
+          height: Math.round(columnWidth(1280) * 0.46),
+        },
       },
     ],
   },
