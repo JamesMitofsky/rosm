@@ -189,6 +189,58 @@ body {
   }
 }
 
+/* Header nav links. The underline wipes in from the left and the icon leads it
+   by a hair, so hover reads as a move rather than a state flip. Lives here, not
+   in the layout, because the header ships on every page. */
+.nav-link {
+  position: relative;
+  transition: color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  /* Clears the icon so the rule sits under the label only. */
+  left: 1.5rem;
+  right: 0;
+  bottom: -0.25rem;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link:hover::after,
+.nav-link:focus-visible::after {
+  transform: scaleX(1);
+}
+.nav-link svg {
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link:hover svg {
+  transform: translateY(-2px);
+}
+
+/* Wordmark settles back under the pointer. */
+.nav-brand span {
+  display: inline-block;
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* Scale only — the wordmark's baseline nudge rides Tailwind v4's separate
+   `translate` property, so this composes with it instead of replacing it. */
+.nav-brand:hover span {
+  transform: scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link,
+  .nav-link::after,
+  .nav-link svg,
+  .nav-brand span {
+    transition: none;
+  }
+}
+
 /* Fine film grain over dark hero sections. */
 .grain::before {
   content: "";
