@@ -12,5 +12,14 @@ export default defineConfig({
   integrations: [svelte()],
   vite: {
     plugins: [tailwindcss()],
+    // Without a stated floor the release minifier reads a prefixed property
+    // and its standard twin as one declaration and keeps only the last —
+    // which silently dropped `backdrop-filter` from the map frames' frosted
+    // glass in every build, so Firefox rendered them unblurred. Given targets
+    // it keeps both, and adds prefixes the floor needs but the source omits.
+    // Safari 15 is the floor because the iOS app ships through Capacitor.
+    build: {
+      cssTarget: ["chrome110", "firefox115", "safari15", "edge110"],
+    },
   },
 });
