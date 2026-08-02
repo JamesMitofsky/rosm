@@ -118,7 +118,7 @@
     <X class="h-5 w-5" weight="bold" />
   </button>
 
-  <h2 id="join-beta-title" class="font-hero text-hero text-3xl font-bold tracking-tight">Contribute</h2>
+  <h2 id="join-beta-title" class="font-hero text-hero text-3xl tracking-tight">Contribute</h2>
 
   {#if status === "success"}
     <p class="text-muted mt-4 text-lg leading-relaxed">

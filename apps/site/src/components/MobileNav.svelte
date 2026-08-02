@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { List, X, Drop } from "phosphor-svelte";
+  import { List, X, Drop, House } from "phosphor-svelte";
 
   // Mobile-only nav. The desktop header renders the "Find Water" link and the
   // BetaCta button inline; below `sm` those are hidden and this hamburger takes over.
@@ -55,6 +55,16 @@
     <div
       class="absolute right-0 top-full z-50 mt-2 flex w-56 flex-col gap-1 rounded-xl border border-base/10 bg-surface p-2 shadow-xl"
     >
+      <!-- The wordmark that used to be the way home is desktop-only now, so this
+           menu is the only route back on mobile. -->
+      <a
+        href="/"
+        onclick={() => (open = false)}
+        class="inline-flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-blue transition hover:bg-blue/5"
+      >
+        <House class="h-5 w-5" weight="fill" />
+        Home
+      </a>
       <a
         href="/dc-drinking-fountains"
         onclick={() => (open = false)}

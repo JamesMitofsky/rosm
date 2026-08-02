@@ -1,0 +1,124 @@
+---
+import { MAP_FRAMES, offsetFromCenter } from "@/lib/basemap/frames";
+import { DC_FOUNTAINS, DC_ROUTE, SEED_STATUSES, STATUS_COLOR } from "@/lib/demoRoute";
+
+/**
+ * The hero run — its route and its numbered stops — drawn into `MapFrame`'s
+ * loading state, in the positions the live map is about to put them.
+ *
+ * This is the difference between a loading frame that shows a city and one that
+ * shows *this map*: the same line, the same eleven dots in the same colours, at
+ * the same places, under the frost. When MapLibre finishes and the overlay
+ * dissolves, the shapes underneath are already where the eye left them.
+ *
+ * None of it needs the engine. The opening view is fixed at build time, so a
+ * point's offset from the frame's centre is a pure function of its coordinates
+ * — see `offsetFromCenter`. This runs at build time and ships as markup.
+ *
+ * Alignment with the thumbnail is exact rather than approximate, and that is
+ * what the `viewBox`/`slice` pairing buys: the SVG's user space *is* the
+ * variant's frame in CSS pixels, and `xMidYMid slice` is the same
+ * centre-anchored cover-crop `object-fit: cover` applies to the image. The two
+ * have the same aspect by construction, so whatever the real frame turns out to
+ * be, both are scaled and cropped identically.
+ */
+
+const variants = MAP_FRAMES["demo-run"].variants;
+
+/** Trim coordinates to a tenth of a pixel — past that it is bytes in the HTML. */
+const r = (n: number) => Math.round(n * 10) / 10;
+
+const shots = variants.map((variant, index) => {
+  const cx = variant.frame.width / 2;
+  const cy = variant.frame.height / 2;
+  const at = (point: { lat: number; lon: number }) => {
+    const offset = offsetFromCenter(point, variant);
+    return { x: r(cx + offset.x), y: r(cy + offset.y) };
+  };
+
+  return {
+    id: `demo-run-${index}`,
+    media: variant.media,
+    viewBox: `0 0 ${variant.frame.width} ${variant.frame.height}`,
+    route: DC_ROUTE.map(([lat, lon]) => at({ lat, lon }))
+      .map(({ x, y }) => `${x},${y}`)
+      .join(" "),
+    stops: DC_FOUNTAINS.map((fountain, i) => ({
+      ...at(fountain),
+      label: String(i + 1),
+      // Mirrors what `DemoRunMap` hands `MapView` for the same fountain: the
+      // seeded status if it has one, "pending" grey otherwise.
+      color: STATUS_COLOR[SEED_STATUSES[fountain.id] ?? "pending"],
+    })),
+  };
+});
+
+// Which shot is shown is the same breakpoint question `<picture>` answers for
+// the thumbnail, but SVG has no `<source>`, so it is answered in CSS instead.
+// Generated from the variants rather than written out, so the query lives in
+// `frames.ts` only — a breakpoint that drifted would show the route for one
+// zoom over a picture rendered at the other.
+const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
+const mediaCss = shots
+  .filter((s) => s.media !== null)
+  .map(
+    (s) =>
+      `@media ${s.media}{[data-map-shot="${fallback.id}"]{display:none}` +
+      `[data-map-shot="${s.id}"]{display:block}}`,
+  )
+  .join("");
+const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{display:block}${mediaCss}`;
+---
+
+{
+  shots.map((shot) => (
+    <svg
+      class="demo-route"
+      data-map-shot={shot.id}
+      viewBox={shot.viewBox}
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      {/* Same blue, width and joins the live `LineLayer` draws. */}
+      <polyline
+        points={shot.route}
+        fill="none"
+        stroke="#2563eb"
+        stroke-width="5"
+        stroke-opacity="0.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      {shot.stops.map((stop) => (
+        <g>
+          {/* `markerRadius` 9 with a 2px white ring — `MapView`'s defaults, which
+              the hero map does not override. */}
+          <circle cx={stop.x} cy={stop.y} r="9" fill={stop.color} stroke="#fff" stroke-width="2" />
+          <text x={stop.x} y={stop.y} class="demo-route__label">
+            {stop.label}
+          </text>
+        </g>
+      ))}
+    </svg>
+  ))
+}
+
+<style>
+  .demo-route {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .demo-route__label {
+    fill: #fff;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+</style>
+
+<style is:inline set:html={css}></style>

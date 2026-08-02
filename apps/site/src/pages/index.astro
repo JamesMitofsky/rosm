@@ -5,17 +5,22 @@ import DemoRunMap from "@/components/DemoRunMap.svelte";
 import LiveFountainMap from "@/components/LiveFountainMap.svelte";
 import FountainLeaderboard from "@/components/FountainLeaderboard.svelte";
 import FreshnessLegend from "@/components/FreshnessLegend.svelte";
+import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
+import MapAssets from "@/components/MapAssets.astro";
+import MapFrame from "@/components/MapFrame.astro";
 import { Drop } from "phosphor-svelte";
 
 export const prerender = true;
 
 // Wave-cut silhouette for the manifesto plate. The top and bottom edges roll as
 // smooth waves at uneven intervals; the left/right sides stay straight for the
-// full-bleed section. Coordinates are objectBoundingBox units (0–1) so the clip
-// scales with the element and stays responsive; cubic beziers give true curves,
-// which polygon() cannot. Offsets are hardcoded — not random.
-// clip-path and the raising drop-shadow live on separate elements: on one element
-// the clip runs after the filter and would clip the shadow away to nothing.
+// full-bleed section. Wave x offsets are fractions of the width (0–1) so the
+// silhouette stays responsive; cubic beziers give true curves, which polygon()
+// cannot. Offsets are hardcoded — not random.
+// The edges are rendered as their own fixed-height bands rather than clipped out
+// of the plate — see `bandPath` below for why.
+// The bands and the raising drop-shadow live on separate elements: the shadow
+// has to trace all three pieces of the plate as one silhouette.
 const tornShadow =
   "filter: drop-shadow(0 2px 3px rgba(60, 48, 24, 0.32)) drop-shadow(0 9px 18px rgba(60, 48, 24, 0.24));";
 
@@ -43,8 +48,6 @@ const bottomWave = [
   { x: 0.55, y: 0.975 }, { x: 0.48, y: 1 }, { x: 0.34, y: 0.978 }, { x: 0.27, y: 0.996 },
   { x: 0.15, y: 0.97 }, { x: 0.09, y: 0.995 }, { x: 0, y: 0.98 },
 ];
-const tornPath = `${waveThrough(topWave)} L ${r(bottomWave[0].x)} ${r(bottomWave[0].y)} ${waveThrough(bottomWave).slice(1)} Z`;
-
 // Simpler wave for mobile — fewer crests so narrow screens don't look too busy.
 const mobileTopWave = [
   { x: 0, y: 0.022 }, { x: 0.25, y: 0 }, { x: 0.5, y: 0.03 }, { x: 0.78, y: 0.005 }, { x: 1, y: 0.02 },
@@ -52,7 +55,41 @@ const mobileTopWave = [
 const mobileBottomWave = [
   { x: 1, y: 0.978 }, { x: 0.72, y: 1 }, { x: 0.48, y: 0.972 }, { x: 0.22, y: 0.997 }, { x: 0, y: 0.98 },
 ];
-const mobileTornPath = `${waveThrough(mobileTopWave)} L ${r(mobileBottomWave[0].x)} ${r(mobileBottomWave[0].y)} ${waveThrough(mobileBottomWave).slice(1)} Z`;
+
+// Each wave edge is its own band: a full-width SVG of fixed CSS height that
+// hangs off the top or bottom of the blue block and paints the crests.
+//
+// The plate used to be `clip-path: url(#…)` with `clipPathUnits="objectBound
+// ingBox"`, which made crest depth a *fraction of the section's height*. That
+// height is set by the copy inside, so anything that reflows the copy after
+// first paint — a body web font landing (they are `font-display: swap`), a
+// wording edit — rescaled the wave and moved the edge, and it visibly resettled
+// once loaded. A band decouples the two axes: x stays in fractions of the width
+// (the band stretches via `preserveAspectRatio="none"`, so the crests stay put
+// at any viewport width), while y is pinned to the band's own px height. The
+// silhouette is then identical whatever the section's height turns out to be.
+const BAND_W = 1000; // band viewBox width; stretched across the plate
+const BAND_H = 100; // band viewBox height; CSS gives the band its real px height
+const bandPath = (pts: { x: number; y: number }[], edge: "top" | "bottom") => {
+  const ys = pts.map((p) => p.y);
+  const min = Math.min(...ys);
+  const span = Math.max(...ys) - min || 1;
+  // Trace left-to-right whichever way the wave was written, and normalise y so
+  // the wave uses the full band: its deepest point reaches the far side.
+  const ordered = pts[0].x <= pts[pts.length - 1].x ? pts : [...pts].reverse();
+  const curve = waveThrough(
+    ordered.map((p) => ({ x: r(p.x * BAND_W), y: r(((p.y - min) / span) * BAND_H) })),
+  );
+  // Top band is plate colour below the curve (crests reach up out of the
+  // plate); bottom band is plate colour above it.
+  return edge === "top"
+    ? `${curve} L ${BAND_W} ${BAND_H} L 0 ${BAND_H} Z`
+    : `${curve} L ${BAND_W} 0 L 0 0 Z`;
+};
+const topBand = bandPath(topWave, "top");
+const bottomBand = bandPath(bottomWave, "bottom");
+const mobileTopBand = bandPath(mobileTopWave, "top");
+const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
 
 
 // Faint topographic contour lines in the hero foreshadow The Problem below:
@@ -111,6 +148,7 @@ const mobileContourLines = contoursFor(
 ---
 
 <Layout>
+  <MapAssets slot="head" />
   <main class="bg-surface font-body text-base relative">
     {/* HERO */}
     <section class="relative overflow-hidden">
@@ -134,102 +172,140 @@ const mobileContourLines = contoursFor(
       </svg>
 
       <div class="relative mx-auto max-w-6xl px-5 pt-8 pb-16 md:pt-12 md:pb-24">
-        {/* Mobile: title -> subtitle -> map (flex column). Desktop: map spans the
-            left column, title + subtitle stack in the right column (grid). */}
+        {/* Mobile: map -> title -> subtitle (flex column, map pulled to the top
+            by `order-first`). Desktop: map spans the left column, title +
+            subtitle stack in the right column (grid), where the explicit
+            col/row placement makes source order irrelevant. */}
         <div
           class="flex flex-col items-start gap-2 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-2"
         >
           <h1
-            class="reveal font-hero text-hero max-w-5xl text-[25vw] leading-[0.9] font-bold tracking-tight md:col-start-2 md:row-start-1 md:self-end md:text-[clamp(3.2rem,14vw,5.8rem)]"
+            class="reveal font-hero text-hero max-w-5xl text-[clamp(2.75rem,22vw,5rem)] leading-[0.9] tracking-tight md:col-start-2 md:row-start-1 md:self-end md:text-[clamp(3.8rem,16vw,7rem)]"
             style="transition-delay: 0.1s"
           >
-            Run & Verify
+            Map DC's Fountains
           </h1>
 
           <div
-            class="reveal mb-8 flex flex-col items-start gap-7 md:mb-0 md:col-start-2 md:row-start-2 md:self-start"
+            class="reveal flex flex-col items-start gap-7 md:col-start-2 md:row-start-2 md:self-start"
             style="transition-delay: 0.16s"
           >
             <p class="text-muted max-w-xl text-lg leading-relaxed">
-              Runs mapped to verify DC's public drinking fountains
+              Use your runs for a little civic service, and we'll route you to
+              public amenities that need their status verified.
             </p>
           </div>
 
-          {/* Interactive demo of the run + edit flow, framed like a print plate. */}
+          {/* Interactive demo of the run + edit flow, framed like a print plate.
+              Deliberately not a `.reveal` block: that starts at opacity 0 and
+              waits for the scroll observer, which would hide the map's own
+              loading frame for exactly the window the frame exists to fill. Its
+              dissolve is the entrance. */}
           <div
-            class="reveal bg-info relative w-full overflow-hidden rounded-xl shadow-lg md:col-start-1 md:row-span-2 md:self-center"
-            style="transition-delay: 0.05s"
+            class="relative order-first mb-8 w-full overflow-hidden rounded-xl shadow-lg md:order-none md:mb-0 md:col-start-1 md:row-span-2 md:self-center"
           >
-            <div class="hero-map relative isolate z-0 h-[clamp(180px,55vw,260px)] w-full md:h-[clamp(300px,40vw,460px)]">
-              <DemoRunMap client:only="svelte">
-                {/* Server-rendered spinner: visible instantly, before the Svelte
-                    island's JS downloads and hydrates. Replaced on hydration. */}
-                <div
-                  slot="fallback"
-                  style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0E85C6;"
-                >
-                  <svg
-                    style="width: 2rem; height: 2rem; color: #fff; animation: spin 1s linear infinite;"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path
-                      style="opacity: 0.75;"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                </div>
-              </DemoRunMap>
-            </div>
+            {/* The loading state is `MapFrame`'s, not the island's: a picture of
+                this exact opening view, server-rendered and inline, so it is up
+                in the first paint rather than after the island hydrates. */}
+            <MapFrame
+              frame="demo-run"
+              class="hero-map z-0 w-full"
+            >
+              <DemoRoutePlaceholder slot="placeholder" />
+              <DemoRunMap client:only="svelte" />
+            </MapFrame>
           </div>
         </div>
       </div>
     </section>
 
     {/* MANIFESTO SPLIT — a raised, hand-torn surface strip over the page.
-        Wrapper casts the shadow; inner section carries the torn clip. */}
+        Wrapper casts the shadow; the plate is a plain blue block with a wave
+        band hanging off each edge. `drop-shadow` reads the alpha of the whole
+        subtree, so one filter on the wrapper traces all three as one silhouette
+        — which is also why it can't live on the plate itself. */}
     <div class="relative z-10 -my-6" style={tornShadow}>
-      <svg width="0" height="0" class="absolute" aria-hidden="true">
-        <clipPath id="manifesto-wave" clipPathUnits="objectBoundingBox">
-          <path d={tornPath} />
-        </clipPath>
-        <clipPath id="manifesto-wave-mobile" clipPathUnits="objectBoundingBox">
-          <path d={mobileTornPath} />
-        </clipPath>
-      </svg>
-      <section class="bg-blue manifesto-torn">
-        <div class="reveal mx-auto max-w-3xl px-5 py-20 md:py-28">
-          <h2 class="font-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] font-bold tracking-tight text-light">
-            The Problem
-          </h2>
-          <p class="mt-6 text-lg leading-relaxed text-white/85">
-            If you're anywhere other than the National Mall, it's hard to know where the public drinking fountains are. Or maybe you've found a map some folks made together, but when you arrive at the fountain, it's either out of order or <em>even removed</em>!
-            This unreliability delivers an experience similar to not even having public fountains in the first place, and that's no good for anyone.
-          </p>
-          <p class="mt-4 text-lg leading-relaxed text-white/85">
-            ROSM tackles this problem by making information about each fountain detailed. Things like: is the fountain still here? is it out of order? when was it last checked? who checked it?
-            With no expertise in municipal planning, in seems to me that installing the fountain should be the hardest part, not finding it.
-          </p>
-          <p class="mt-4 text-lg leading-relaxed text-white/85">
-            This stands to promote both immediate and long-term benefits:
-          </p>
-          <ul class="mt-4 list-disc space-y-1 pl-6 text-lg leading-relaxed text-white/85">
-            <li>
-              <span class="font-medium">Immediately,</span> anyone can reliably locate the nearest
-              working fountain
-            </li>
-            <li>
-              <span class="font-medium">Long-term,</span> 311 can be more tightly looped in to when repairs are necessary
-            </li>
-          </ul>
-        </div>
-      </section>
+      {/* `currentColor` on the bands is the plate's own blue, so the edges and
+          the block can never drift apart. */}
+      <div class="manifesto-plate text-blue">
+        <svg
+          class="manifesto-edge manifesto-edge--top edge-desktop"
+          viewBox={`0 0 ${BAND_W} ${BAND_H}`}
+          preserveAspectRatio="none"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d={topBand} />
+        </svg>
+        <svg
+          class="manifesto-edge manifesto-edge--top edge-mobile"
+          viewBox={`0 0 ${BAND_W} ${BAND_H}`}
+          preserveAspectRatio="none"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d={mobileTopBand} />
+        </svg>
+        <section class="bg-blue">
+          <div class="reveal manifesto-body mx-auto max-w-3xl px-5">
+            <h2 class="font-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight text-light">
+              The Problem
+            </h2>
+            <p class="mt-6 text-lg leading-relaxed text-white/85">
+              If you're anywhere other than the National Mall, it's hard to know where the public drinking fountains are. Or maybe you've found a map some folks made together, but when you arrive at the fountain, it's either out of order or <em>even removed</em>!
+              This unreliability delivers an experience similar to not even having public fountains in the first place, and that's no good for anyone.
+            </p>
+          </div>
+        </section>
+        <svg
+          class="manifesto-edge manifesto-edge--bottom edge-desktop"
+          viewBox={`0 0 ${BAND_W} ${BAND_H}`}
+          preserveAspectRatio="none"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d={bottomBand} />
+        </svg>
+        <svg
+          class="manifesto-edge manifesto-edge--bottom edge-mobile"
+          viewBox={`0 0 ${BAND_W} ${BAND_H}`}
+          preserveAspectRatio="none"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d={mobileBottomBand} />
+        </svg>
+      </div>
     </div>
 
-    <div class="reveal mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-3 px-5 pt-20 pb-2">
+    {/* THE SOLUTION */}
+    <section>
+      <div class="reveal mx-auto max-w-3xl px-5 pt-20 pb-2 md:pt-28">
+        <h2
+          class="font-hero text-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight"
+        >
+          The Solution
+        </h2>
+        <p class="text-muted mt-6 text-lg leading-relaxed">
+          ROSM tackles this problem by making information about each fountain detailed. Things like: is the fountain still here? is it out of order? when was it last checked? who checked it?
+          With no expertise in municipal planning, in seems to me that installing the fountain should be the hardest part, not finding it.
+        </p>
+        <p class="text-muted mt-4 text-lg leading-relaxed">
+          This stands to promote both immediate and long-term benefits:
+        </p>
+        <ul class="text-muted mt-4 list-disc space-y-1 pl-6 text-lg leading-relaxed">
+          <li>
+            <span class="font-medium">Immediately,</span> anyone can reliably locate the nearest
+            working fountain
+          </li>
+          <li>
+            <span class="font-medium">Long-term,</span> 311 can be more tightly looped in to when repairs are necessary
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="reveal mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-3 px-5 pt-10 pb-2">
       <a
         href="/dc-drinking-fountains"
         class="inline-flex items-center gap-2 rounded-xl bg-transparent px-4 py-2.5 text-base font-bold text-blue transition hover:bg-blue/5 md:gap-2.5 md:px-4 md:py-3 md:text-lg"
@@ -244,27 +320,22 @@ const mobileContourLines = contoursFor(
     <section>
       <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
         <h2
-          class="reveal font-hero text-hero text-[clamp(2.5rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+          class="reveal font-hero text-hero text-[clamp(2.5rem,5.5vw,3.6rem)] leading-tight tracking-tight"
         >
           Live Map
         </h2>
 
         <div
-          class="reveal mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 pb-2"
+          class="reveal mt-6 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 px-1 pb-2"
           style="transition-delay: 0.18s"
         >
-          <span class="font-mono text-[0.65rem] font-medium tracking-[0.22em] uppercase" style="color: #F38300">
-            Live
-          </span>
           <FreshnessLegend client:visible />
         </div>
-        <div
-          class="reveal border-base/10 bg-info relative overflow-hidden rounded-xl border"
-          style="transition-delay: 0.22s"
-        >
-          <div class="relative isolate z-0 h-[clamp(340px,48vw,560px)] w-full">
+        {/* No `.reveal` here either — see the hero map. */}
+        <div class="relative overflow-hidden rounded-xl shadow-lg">
+          <MapFrame frame="live-fountains-home" class="z-0 w-full">
             <LiveFountainMap client:only="svelte" />
-          </div>
+          </MapFrame>
         </div>
       </div>
     </section>
@@ -273,33 +344,12 @@ const mobileContourLines = contoursFor(
     <section>
       <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
         <h2
-          class="reveal font-hero text-hero text-[clamp(2.5rem,5.5vw,3.6rem)] leading-tight font-bold tracking-tight uppercase"
+          class="reveal font-hero text-hero text-[clamp(2.5rem,5.5vw,3.6rem)] leading-tight tracking-tight"
         >
           Rankings
         </h2>
         <div class="reveal mt-6" style="transition-delay: 0.14s">
           <FountainLeaderboard client:visible />
-        </div>
-      </div>
-    </section>
-
-    {/* BOTTOM CTA */}
-    <section>
-      <div class="reveal mx-auto flex max-w-6xl flex-col items-center gap-6 px-5 py-12 md:py-16">
-        <h2
-          class="font-hero text-hero text-center text-[clamp(2.5rem,5vw,3.4rem)] leading-tight font-bold tracking-tight"
-        >
-          Help map the map!
-        </h2>
-        <div class="flex flex-wrap items-center justify-center gap-3">
-          <a
-            href="/dc-drinking-fountains"
-            class="inline-flex items-center gap-2.5 rounded-xl bg-transparent px-4 py-3 text-lg font-bold text-blue transition hover:bg-blue/5"
-          >
-            <Drop class="h-6 w-6" weight="fill" />
-            Find Water
-          </a>
-          <BetaCta client:load />
         </div>
       </div>
     </section>
@@ -349,18 +399,53 @@ const mobileContourLines = contoursFor(
     els.forEach((el) => io.observe(el));
   </script>
 <style>
-  .manifesto-torn {
-    clip-path: url(#manifesto-wave);
+  /* Crest depth, in px. A px value is the whole point of the bands: it is what
+     the old objectBoundingBox clip could not express (see `bandPath`). Set to
+     roughly the depth the fractional wave used to resolve to at this section's
+     usual height, so the plate looks the same — it just stops moving. */
+  .manifesto-plate {
+    --edge: 14px;
+    position: relative;
   }
-  /* Hero contours mirror the manifesto torn edge; show the set matching the
-     wave the plate uses at this breakpoint (swap point must match the clip-path
-     media query below). */
+  .manifesto-edge {
+    position: absolute;
+    left: 0;
+    display: block;
+    width: 100%;
+    /* One extra px, overlapped into the plate below, so no hairline of page
+       shows through the seam on fractional device pixel ratios. */
+    height: calc(var(--edge) + 1px);
+  }
+  .manifesto-edge--top {
+    bottom: calc(100% - 1px);
+  }
+  .manifesto-edge--bottom {
+    top: calc(100% - 1px);
+  }
+  /* The bands add their height outside the block, where the clip used to take
+     it from inside. Pull the copy in by the same amount and the plate keeps the
+     breathing room it had. */
+  .manifesto-body {
+    padding-block: calc(5rem - var(--edge));
+  }
+  @media (min-width: 768px) {
+    .manifesto-body {
+      padding-block: calc(7rem - var(--edge));
+    }
+  }
+  /* Hero contours mirror the manifesto top edge; show the set matching the wave
+     the plate uses at this breakpoint (swap point must match the band media
+     query below). */
+  .edge-mobile,
   .contours-mobile {
     display: none;
   }
   @media (max-width: 767px) {
-    .manifesto-torn {
-      clip-path: url(#manifesto-wave-mobile);
+    .edge-desktop {
+      display: none;
+    }
+    .edge-mobile {
+      display: block;
     }
     .contours-desktop {
       display: none;
