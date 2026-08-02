@@ -46,8 +46,12 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="format-detection" content="telephone=no" />
 
     <!-- Performance Resource Hints -->
-    <link rel="preconnect" href="https://tiles.openfreemap.org" />
     <link rel="preload" href="/fonts/OrangeJuice.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Per-page head additions. Map pages pass `MapAssets` here, which is what
+         warms the tile host and pulls the engine download forward; pages
+         without a map should not open a TLS connection they never use. -->
+    <slot name="head" />
 
     <!-- Icons -->
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />

@@ -1,0 +1,43 @@
+---
+/**
+ * Everything a map page can start before hydration. Drop into `Layout`'s "head"
+ * slot; only render it on pages that actually mount a map.
+ *
+ * The maps are `client:only` islands, so by default the chain is: HTML ->
+ * island chunk -> hydrate -> mount -> MapLibre chunk -> TileJSON -> tiles. That
+ * is five serial links in front of the first pixel of basemap, and the two
+ * heaviest of them (a ~1MB engine and a round trip to our own API route) sit at
+ * the end. This starts both of those during HTML parse instead, in parallel
+ * with the island's own JS.
+ */
+---
+
+{/* The DNS + TLS handshake to the tile host runs during parse rather than after
+    hydration. `crossorigin` is required, not decorative: MapLibre fetches
+    tiles, glyphs and sprites with CORS, and a preconnect without it warms a
+    connection from the wrong pool that those requests cannot reuse. */}
+<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+
+<script>
+  // Start the engine download. Dynamic, not a static `import "maplibre-gl"`, on
+  // purpose: a static import would make this module maplibre's importer, so the
+  // browser would have to *evaluate* ~1MB of engine before running anything
+  // else on the page. The dynamic form keeps the fetch early and leaves
+  // evaluation where it already was. Vite resolves it to the same chunk the map
+  // island imports, so this is one request, not a second copy.
+  void import("maplibre-gl");
+
+  // Prime the TileJSON. `/api/tiles` is what the bundled style names as its
+  // vector source, and MapLibre cannot ask for it until it has been constructed
+  // — i.e. dead last. Fetched here it is in the HTTP cache by then.
+  //
+  // A `<link rel="preload" as="fetch">` would be the idiomatic tool and is the
+  // wrong one here: its CORS and credentials mode is fixed by the presence or
+  // absence of `crossorigin`, and a preload whose mode does not match the
+  // request MapLibre later issues is not reused — the bytes are simply spent
+  // twice. An ordinary `fetch` with the same options cannot mismatch.
+  void fetch("/api/tiles", { credentials: "same-origin" }).catch(() => {
+    // Nothing to do: this is a warm-up. The map issues its own request and
+    // surfaces its own failure.
+  });
+</script>

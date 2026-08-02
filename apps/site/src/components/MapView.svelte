@@ -67,6 +67,7 @@
   import { untrack } from "svelte";
   import type * as maplibregl from "maplibre-gl";
   import "maplibre-gl/dist/maplibre-gl.css";
+  import rawMapStyle from "@/lib/basemap/map-style.json";
   import {
     MapLibre,
     GeoJSONSource,
@@ -144,6 +145,20 @@
     markerPopup,
   }: Props = $props();
 
+  // The style document, bundled rather than fetched.
+  //
+  // It used to live in `public/` and reach MapLibre as the URL
+  // "/map-style.json", which put a 64KB round trip in front of every tile the
+  // map would ever request — and that request could not even be issued until
+  // the island had downloaded, hydrated and built a map, so it landed at the
+  // very end of the page's network graph. Bundled, it is in memory by the time
+  // `<MapLibre>` mounts and the first thing the map does is ask for tiles.
+  //
+  // Cloned per instance because MapLibre takes ownership of the object it is
+  // handed and writes to it; two maps on one page (the landing page has two)
+  // sharing this import would otherwise share those mutations.
+  const mapStyle = structuredClone(rawMapStyle) as maplibregl.StyleSpecification;
+
   let map = $state<maplibregl.Map | undefined>();
   let selected = $state<string | null>(null);
   // 0 → 1 grow factor for the pop-in.
@@ -199,6 +214,37 @@
   let isLoaded = $state(false);
   let hasError = $state(false);
 
+  // The element `MapFrame.astro`'s loading overlay listens on. The reveal
+  // travels as a bubbling DOM event, so the island and the server-rendered
+  // frame share nothing but the DOM — no ids to keep in sync across the Astro
+  // boundary, and several maps on one page each clear their own frame.
+  let root = $state<HTMLDivElement | undefined>();
+
+  // One-shot: whichever of the paths below gets there first, the frame is told
+  // exactly once.
+  //
+  // What counts as "painted" decides how long the visitor looks at a picture of
+  // a map instead of the map, so three things race for it:
+  //
+  // - `load`, once the style is parsed and the first frame is drawn. The normal
+  //   winner and the earliest honest moment — hence the `isStyleLoaded()`
+  //   guard, since `load` can fire with the style still resolving.
+  // - `idle`, once every tile in view has loaded *and* rendered. Much later,
+  //   and only the winner when `load` fired before the style settled.
+  // - failure, either an error or the load timeout below. A stale picture is
+  //   still better than a loading state that never ends, and the error card
+  //   this component renders is *underneath* the overlay.
+  let signalledReady = false;
+  function signalReady() {
+    if (signalledReady) return;
+    signalledReady = true;
+    // One frame of slack: `load` fires *before* the browser has composited that
+    // first frame, so revealing synchronously can dissolve to a blank canvas.
+    requestAnimationFrame(() =>
+      root?.dispatchEvent(new CustomEvent("rosm:map-ready", { bubbles: true })),
+    );
+  }
+
   // Hard ceiling: MapLibre can sit forever if the tile source (via /api/tiles →
   // OpenFreeMap) stalls without ever firing `load` or `error`. Give up at 20s so
   // the loader can't spin indefinitely — surface the fallback instead.
@@ -209,6 +255,7 @@
       if (!isLoaded) {
         console.error("MapLibre load timeout after", LOAD_TIMEOUT_MS, "ms");
         hasError = true;
+        signalReady();
         onError?.(new Error("Map load timed out"));
       }
     }, LOAD_TIMEOUT_MS);
@@ -236,6 +283,7 @@
     console.error("MapLibre error", ev.error);
     if (!isLoaded) {
       hasError = true;
+      signalReady();
       onError?.(ev.error);
     }
   }
@@ -318,6 +366,7 @@
         }
       }
     }
+    if (map?.isStyleLoaded()) signalReady();
   }
 
   function handleClick(ev: maplibregl.MapMouseEvent) {
@@ -340,7 +389,7 @@
   }
 </script>
 
-<div class={className} style="position: relative; height: 100%; width: 100%;">
+<div bind:this={root} class={className} style="position: relative; height: 100%; width: 100%;">
   {#if showError}
     <div
       style="position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.5rem; text-align: center; background: #0E85C6; color: #fff;"
@@ -358,29 +407,17 @@
       <p style="margin: 0; font-weight: 700; font-size: 0.95rem;">Map couldn't load</p>
       <p style="margin: 0; font-size: 0.8rem; opacity: 0.85;">Check your connection and try again.</p>
     </div>
-  {:else if !isLoaded}
-    <div
-      style="position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: #0E85C6;"
-    >
-      <svg
-        style="width: 2rem; height: 2rem; color: #fff; animation: spin 1s linear infinite;"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path
-          style="opacity: 0.75;"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        ></path>
-      </svg>
-    </div>
   {/if}
-  <div style="height: 100%; width: 100%; opacity: {isLoaded ? 1 : 0}; transition: opacity 350ms ease-out;">
+  <!-- Fully opaque throughout, and deliberately not faded in. The map used to
+       rise from opacity 0 while a loading panel sat on top of it, which is a
+       cross-fade rather than a reveal: for its whole length both layers were
+       part transparent, so the map dimmed on its way in instead of simply being
+       uncovered. Nothing is lost by leaving it solid — until `MapFrame`'s
+       overlay clears, this is hidden behind it — and it keeps a live WebGL
+       canvas out of a composited opacity animation. -->
   <MapLibre
     bind:map
-    style="/map-style.json"
+    style={mapStyle}
     inlineStyle="height: 100%; width: 100%;"
     autoloadGlobalCss={false}
     attributionControl={false}
@@ -398,6 +435,7 @@
     boxZoom={interactive}
     keyboard={interactive}
     onload={handleLoad}
+    onidle={signalReady}
     onerror={handleError}
     onclick={handleClick}
     onmoveend={(ev) => emitView(!!(ev as { originalEvent?: unknown }).originalEvent)}
@@ -473,5 +511,4 @@
       </Popup>
     {/if}
   </MapLibre>
-  </div>
 </div>

@@ -2,6 +2,8 @@
 import Layout from "@/layouts/Layout.astro";
 import LiveFountainMap from "@/components/LiveFountainMap.svelte";
 import FreshnessLegend from "@/components/FreshnessLegend.svelte";
+import MapAssets from "@/components/MapAssets.astro";
+import MapFrame from "@/components/MapFrame.astro";
 
 export const prerender = true;
 ---
@@ -10,6 +12,7 @@ export const prerender = true;
   title="DC Drinking Fountains — Live Map"
   description="A live map of public drinking fountains in Washington, DC, sourced from OpenStreetMap and graded by verification recency."
 >
+  <MapAssets slot="head" />
   <main class="bg-surface font-body text-base relative min-h-screen">
     <section>
       <div class="mx-auto max-w-6xl px-5 pt-4 pb-12 md:pb-20">
@@ -29,9 +32,9 @@ export const prerender = true;
         </div>
 
         <div class="border-base/10 bg-info relative overflow-hidden rounded-xl border">
-          <div class="relative isolate z-0 h-[clamp(420px,72vh,760px)] w-full">
+          <MapFrame frame="live-fountains-dc" class="z-0 h-[clamp(420px,72vh,760px)] w-full">
             <LiveFountainMap client:only="svelte" />
-          </div>
+          </MapFrame>
         </div>
       </div>
     </section>

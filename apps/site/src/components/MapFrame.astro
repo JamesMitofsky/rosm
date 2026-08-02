@@ -1,0 +1,266 @@
+---
+import { MAP_PLACEHOLDERS } from "@/lib/basemap/placeholders.generated";
+import { BASEMAP_BACKGROUND, type MapFrameId } from "@/lib/basemap/frames";
+
+/**
+ * The box every MapLibre map on the site renders inside: a server-rendered
+ * loading frame that holds a picture of the map's opening view until the real
+ * map reports its first paint, then dissolves off it.
+ *
+ * The frame owns the sizing, not the island, so the loading state and the map
+ * occupy exactly the same rectangle and nothing reflows when one replaces the
+ * other. Callers pass their own height through `class`.
+ *
+ * What makes this worth building rather than keeping a spinner: the maps are
+ * `client:only` islands, so *nothing* of them exists in the served HTML. Until
+ * the island chunk downloads, hydrates, pulls ~1MB of MapLibre and paints a
+ * tile, the frame is dead space — and none of that can be raced by anything
+ * that has to be fetched. A base64 image inside the HTML is subject to none of
+ * it: it is up in the first paint, and the live map slides in underneath.
+ *
+ * Everything here is static markup plus CSS. There is no JS in the loading path
+ * at all — the script below only runs to take the overlay *away*.
+ */
+
+interface Props {
+  /** Which map, in which position — see `lib/basemap/frames.ts`. */
+  frame: MapFrameId;
+  class?: string;
+}
+
+const { frame, class: className = "" } = Astro.props;
+
+// Mobile-first, matching how `<picture>` resolves: the first `<source>` whose
+// media matches wins, and the bare `<img>` is the fallback. Each map picks its
+// opening zoom off the same breakpoint, so this is the browser resolving that
+// choice in the HTML parser — before any of the island's JS exists to make it.
+const shots = MAP_PLACEHOLDERS[frame];
+const sources = shots.filter((s) => s.media !== null);
+const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
+---
+
+{/* The basemap's paper colour reaches the stylesheet as one custom property on
+    the root rather than through `define:vars`, which stamps the declaration onto
+    every element the component renders. */}
+<div
+  class:list={["map-frame", className]}
+  style={`--basemap-background: ${BASEMAP_BACKGROUND}`}
+  data-map-frame
+>
+  {/* The overlay never changes its own opacity — every layer inside fades
+      separately. That is not a style preference: it keeps the container from
+      becoming its own compositing/backdrop root mid-fade, which is what made a
+      group fade cut the frosted layer off from what it sits over. */}
+  <div class="map-frame__overlay" data-map-overlay>
+    {/* The frame's own paper, behind the thumbnail. Without it the first paint
+        is the page showing through wherever the image has not decoded yet — and
+        it is also the layer whose `transitionend` retires the overlay, since it
+        is the one layer that is always present. */}
+    <div class="map-frame__paper" data-reveal-backdrop aria-hidden="true"></div>
+
+    <picture>
+      {sources.map((s) => <source media={s.media!} srcset={s.src} type="image/webp" />)}
+      {/* Decoded on the main thread on purpose: this image exists to be in the
+          first paint, and `decoding="async"` lets the browser paint a frame
+          without it. It is under a kilobyte and 96px wide, so there is nothing
+          to gain by deferring it. */}
+      <img class="map-frame__shot" src={fallback.src} alt="" aria-hidden="true" decoding="sync" />
+    </picture>
+
+    {/* The veil. Together with the ~10x upscale of a 96px thumbnail — which is
+        where the blur actually comes from — this reads as frosted glass over
+        the city rather than as a photo of it, so the loading state never looks
+        like a finished map that ignores taps.
+
+        Deliberately *not* `backdrop-filter`. A backdrop blur re-samples the
+        whole frame every frame the map paints beneath it, on the same GPU that
+        is rasterising the first batch of vector tiles; the image is already
+        blurred by its own upscale, so the expensive version would buy nothing.
+        The small `filter` on the thumbnail smooths the webp blocking, and being
+        a static layer the compositor caches it once. */}
+    <div class="map-frame__veil" aria-hidden="true"></div>
+
+    {/* Three dots riding a wave — the one moving thing on the frame, so the
+        state reads as loading rather than as loaded. Negative delays start each
+        dot mid-cycle, so the wave is already travelling on the first frame
+        instead of starting from flat. */}
+    <div class="map-frame__dots" aria-hidden="true">
+      <span style="animation-delay: -0.24s"></span>
+      <span style="animation-delay: -0.12s"></span>
+      <span style="animation-delay: 0s"></span>
+    </div>
+  </div>
+
+  {/* `z-index: 0` makes this a stacking context, which walls the island's own
+      layering off from the frame's: inside a map are marker/popup bands in the
+      hundreds, and without the wall those numbers would sort against the
+      overlay's and paint straight through the loading state. */}
+  <div class="map-frame__map"><slot /></div>
+</div>
+
+<style>
+  /* How long the overlay takes to dissolve once the map reports its first
+     paint. Slow enough to read as the frame clearing rather than as a cut, and
+     it costs nothing to wait: the map underneath is already drawn and already
+     interactive, since the overlay stops taking pointer events the moment
+     `data-map-ready` lands. */
+  .map-frame {
+    --map-reveal-ms: 550ms;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .map-frame__map {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .map-frame__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .map-frame[data-map-ready] .map-frame__overlay {
+    pointer-events: none;
+  }
+
+  .map-frame__paper,
+  .map-frame__veil,
+  .map-frame__shot,
+  .map-frame__dots {
+    transition: opacity var(--map-reveal-ms) ease-in-out;
+  }
+
+  .map-frame[data-map-ready] .map-frame__paper,
+  .map-frame[data-map-ready] .map-frame__veil,
+  .map-frame[data-map-ready] .map-frame__shot,
+  .map-frame[data-map-ready] .map-frame__dots {
+    opacity: 0;
+  }
+
+  .map-frame__paper {
+    position: absolute;
+    inset: 0;
+    background: var(--basemap-background);
+  }
+
+  .map-frame__shot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* `cover`, not `fill`: the frames are `clamp()`-sized so their real aspect
+       slides with the viewport, and stretching each axis independently would
+       shear the city. Cover keeps the ground scale exact on whichever axis
+       constrains and crops the other. */
+    object-fit: cover;
+    /* Scaled slightly past the box so the blur has pixels to sample at the
+       edges instead of fading into the paper behind it. */
+    transform: scale(1.06);
+    filter: blur(6px);
+    max-width: none;
+  }
+
+  .map-frame__veil {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--basemap-background) 55%, transparent);
+  }
+
+  .map-frame__dots {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  .map-frame__dots span {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 9999px;
+    background: var(--color-blue);
+    animation: map-loading-dot 1.2s ease-in-out infinite;
+  }
+
+  @keyframes map-loading-dot {
+    0%,
+    100% {
+      transform: translateY(-0.3rem);
+    }
+    50% {
+      transform: translateY(0.3rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .map-frame__dots span {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  /**
+   * Takes the loading overlay away once a map underneath reports it has
+   * painted. Nothing here is involved in *showing* the loading state — that is
+   * server-rendered HTML and CSS, and it is on screen long before this module
+   * has been fetched.
+   *
+   * The signal is a bubbling DOM event from the map's own element, so the
+   * island and this frame need share nothing but the DOM: no ids to keep in
+   * sync between an Astro page and a Svelte component, and any number of maps
+   * on a page each clear their own frame.
+   */
+  const REVEAL_MS = 550;
+  /**
+   * Backstop for the unmount only. The overlay normally leaves the tree when its
+   * fade actually finishes — see the `transitionend` handler — and this covers
+   * the cases where that event never arrives: a transition the browser never
+   * started, a tab backgrounded mid-fade, `prefers-reduced-motion` collapsing
+   * the duration to zero. Generous on purpose, so it never races the real event.
+   */
+  const UNMOUNT_FALLBACK_MS = REVEAL_MS + 400;
+  /**
+   * Last resort. `MapView` reports ready on load, on idle, on error and on its
+   * own 20s load timeout, so the only way the overlay is still up past this is
+   * that the island's JS never ran at all. A stale picture of a map beats a
+   * loading state that never ends.
+   */
+  const BACKSTOP_MS = 25_000;
+
+  for (const frame of document.querySelectorAll<HTMLElement>("[data-map-frame]")) {
+    const overlay = frame.querySelector<HTMLElement>("[data-map-overlay]");
+    if (!overlay) continue;
+
+    let unmountTimer: number | undefined;
+    let revealed = false;
+
+    const backstop = window.setTimeout(() => reveal(), BACKSTOP_MS);
+
+    function reveal() {
+      if (revealed || !overlay) return;
+      revealed = true;
+      clearTimeout(backstop);
+      frame.dataset.mapReady = "";
+      unmountTimer = window.setTimeout(() => overlay.remove(), UNMOUNT_FALLBACK_MS);
+    }
+
+    // Only the paper's own fade counts. Every layer transitions over the same
+    // duration and they all bubble to this element, so retiring on the first to
+    // land would cut the others off mid-fade.
+    overlay.addEventListener("transitionend", (event) => {
+      if (event.propertyName !== "opacity") return;
+      if (!(event.target as HTMLElement).hasAttribute("data-reveal-backdrop")) return;
+      clearTimeout(unmountTimer);
+      overlay.remove();
+    });
+
+    frame.addEventListener("rosm:map-ready", () => reveal());
+  }
+</script>
