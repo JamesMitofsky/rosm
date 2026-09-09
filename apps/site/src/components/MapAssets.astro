@@ -12,10 +12,12 @@
  */
 ---
 
-{/* The DNS + TLS handshake to the tile host runs during parse rather than after
+{
+  /* The DNS + TLS handshake to the tile host runs during parse rather than after
     hydration. `crossorigin` is required, not decorative: MapLibre fetches
     tiles, glyphs and sprites with CORS, and a preconnect without it warms a
-    connection from the wrong pool that those requests cannot reuse. */}
+    connection from the wrong pool that those requests cannot reuse. */
+}
 <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
 
 <script>
