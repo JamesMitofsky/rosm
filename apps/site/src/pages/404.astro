@@ -24,14 +24,14 @@ const lines = Array.from({ length: 9 }, (_, i) => {
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
     >
-      {lines.map((l) => (
-        <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
-      ))}
+      {
+        lines.map((l) => (
+          <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
+        ))
+      }
     </svg>
 
     <div class="relative z-10 flex flex-col items-center">
-
-
       <h1 class="font-display text-4xl font-bold sm:text-5xl">Off the Map</h1>
       <p class="text-muted mt-3 max-w-xl text-balance">
         Whoops, this route isn't on any survey we know! It might have moved, or never existed.
@@ -42,12 +42,7 @@ const lines = Array.from({ length: 9 }, (_, i) => {
         class="group bg-blue text-surface mt-8 inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-bold"
       >
         Return Home
-        <svg
-          viewBox="0 0 256 256"
-          fill="currentColor"
-          class="h-[18px] w-[18px]"
-          aria-hidden="true"
-        >
+        <svg viewBox="0 0 256 256" fill="currentColor" class="h-[18px] w-[18px]" aria-hidden="true">
           <path
             d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"
           ></path>

@@ -75,47 +75,60 @@ const aspectCss = [
 ].join("");
 ---
 
-{/* Global on purpose: the selector is the frame id, so it can only ever match
+{
+  /* Global on purpose: the selector is the frame id, so it can only ever match
     frames of this kind, and Astro dedupes the identical block emitted by a
-    second map of the same kind on the page. */}
+    second map of the same kind on the page. */
+}
 <style is:global set:html={aspectCss}></style>
 
-{/* The basemap's paper colour reaches the stylesheet as one custom property on
+{
+  /* The basemap's paper colour reaches the stylesheet as one custom property on
     the root rather than through `define:vars`, which stamps the declaration onto
-    every element the component renders. */}
+    every element the component renders. */
+}
 <div
   class:list={["map-frame", className]}
   style={`--basemap-background: ${BASEMAP_BACKGROUND}; --map-frame-radius: ${radius}`}
   data-map-frame={frame}
 >
-  {/* The overlay never changes its own opacity — every layer inside fades
+  {
+    /* The overlay never changes its own opacity — every layer inside fades
       separately. That is not a style preference: it keeps the container from
       becoming its own compositing/backdrop root mid-fade, which is what made a
-      group fade cut the frosted layer off from what it sits over. */}
+      group fade cut the frosted layer off from what it sits over. */
+  }
   <div class="map-frame__overlay" data-map-overlay>
-    {/* The frame's own paper, behind the thumbnail. Without it the first paint
+    {
+      /* The frame's own paper, behind the thumbnail. Without it the first paint
         is the page showing through wherever the image has not decoded yet — and
         it is also the layer whose `transitionend` retires the overlay, since it
-        is the one layer that is always present. */}
+        is the one layer that is always present. */
+    }
     <div class="map-frame__paper" data-reveal-backdrop aria-hidden="true"></div>
 
     <picture>
       {sources.map((s) => <source media={s.media!} srcset={s.src} type="image/webp" />)}
-      {/* Decoded on the main thread on purpose: this image exists to be in the
+      {
+        /* Decoded on the main thread on purpose: this image exists to be in the
           first paint, and `decoding="async"` lets the browser paint a frame
           without it. It is a few kilobytes and 160px wide, so there is nothing
-          to gain by deferring it. */}
+          to gain by deferring it. */
+      }
       <img class="map-frame__shot" src={fallback.src} alt="" aria-hidden="true" decoding="sync" />
     </picture>
 
-    {/* The map's own content as it will appear at the opening view — the route
+    {
+      /* The map's own content as it will appear at the opening view — the route
         and its stops, for a map that can position them without the engine. It
         turns the loading state from a picture of a city into the map itself,
         minus interactivity. Optional: a map whose points are only known at
-        runtime simply leaves this empty. */}
+        runtime simply leaves this empty. */
+    }
     <div class="map-frame__content"><slot name="placeholder" /></div>
 
-    {/* Frosts the frame, its route and its pins, and nothing below. This is the
+    {
+      /* Frosts the frame, its route and its pins, and nothing below. This is the
         blur — it is applied *over* the map, not baked into it, so what is
         underneath stays a normal picture and a normal set of shapes, and the
         frost is a single layer whose opacity is the only thing that animates.
@@ -124,27 +137,32 @@ const aspectCss = [
         compositor cannot cache: every frame would re-run a full-frame gaussian
         on the same GPU rasterising the first batch of vector tiles. Opacity it
         can animate without repainting anything, and fading a frosted pane out
-        looks the same as thinning it. */}
+        looks the same as thinning it. */
+    }
     <div class="map-frame__glass" aria-hidden="true"></div>
 
-    {/* The one moving thing on the frame, so the state reads as loading rather
+    {
+      /* The one moving thing on the frame, so the state reads as loading rather
         than as a map that ignores taps. Same arc-on-a-ring the site used before
         this frame existed, in the brand blue rather than white — it now sits on
-        frosted paper instead of a solid blue panel. */}
+        frosted paper instead of a solid blue panel. */
+    }
     <svg class="map-frame__spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25" />
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"></circle>
       <path
         fill="currentColor"
         opacity="0.75"
         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
+      ></path>
     </svg>
   </div>
 
-  {/* `z-index: 0` makes this a stacking context, which walls the island's own
+  {
+    /* `z-index: 0` makes this a stacking context, which walls the island's own
       layering off from the frame's: inside a map are marker/popup bands in the
       hundreds, and without the wall those numbers would sort against the
-      overlay's and paint straight through the loading state. */}
+      overlay's and paint straight through the loading state. */
+  }
   <div class="map-frame__map"><slot /></div>
 </div>
 
