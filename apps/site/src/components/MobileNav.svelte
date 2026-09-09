@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { List, X, MapTrifold, House, UserPlus } from "phosphor-svelte";
+  import { List, X, MapTrifold, House, Bell } from "phosphor-svelte";
   import { fade, fly, scale } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { prefersReducedMotion } from "svelte/motion";
@@ -32,17 +32,17 @@
     aria-label={open ? "Close menu" : "Open menu"}
     aria-expanded={open}
     class={inverted
-      ? "trigger inline-flex items-center justify-center rounded-xl border border-white p-2 text-white transition duration-200 ease-out hover:bg-white/10 active:scale-95"
-      : "trigger inline-flex items-center justify-center rounded-xl border border-blue p-2 text-blue transition duration-200 ease-out hover:bg-blue/5 active:scale-95"}
+      ? "trigger inline-flex items-center justify-center rounded-xl p-2 text-white transition duration-200 ease-out hover:bg-white/10 active:scale-95"
+      : "trigger inline-flex items-center justify-center rounded-xl p-2 text-blue transition duration-200 ease-out hover:bg-blue/5 active:scale-95"}
   >
     <!-- Both glyphs share one grid cell so they can cross-fade and counter-rotate
          through each other rather than popping in place. -->
-    <span class="grid h-6 w-6 place-items-center">
+    <span class="grid h-8 w-8 place-items-center">
       <span class="icon" class:hidden-icon={open}>
-        <List class="h-6 w-6" weight="bold" />
+        <List class="h-8 w-8" weight="regular" />
       </span>
       <span class="icon" class:hidden-icon={!open}>
-        <X class="h-6 w-6" weight="bold" />
+        <X class="h-8 w-8" weight="regular" />
       </span>
     </span>
   </button>
@@ -69,8 +69,6 @@
       }}
       class="font-hero absolute right-0 top-full z-50 mt-2 flex w-56 origin-top-right flex-col gap-1 rounded-xl border border-base/10 bg-surface p-2 shadow-xl"
     >
-      <!-- The wordmark that used to be the way home is desktop-only now, so this
-           menu is the only route back on mobile. -->
       <!-- Rows land in reading order. Only on the way in: leaving, the panel
            scales away as one piece and per-item exits would fight that. -->
       <a
@@ -91,7 +89,7 @@
         class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-light-muted transition duration-200 ease-out hover:bg-blue/5 hover:text-blue current-page:text-blue"
       >
         <MapTrifold class="h-5 w-5" weight="fill" />
-        Check the Map
+        Map
       </a>
       <a
         href="/waitlist"
@@ -100,7 +98,7 @@
         in:fly={{ y: -6, duration: ms(220), delay: ms(140), easing: cubicOut }}
         class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-light-muted transition duration-200 ease-out hover:bg-blue/5 hover:text-blue current-page:text-blue"
       >
-        <UserPlus class="h-5 w-5" weight="fill" />
+        <Bell class="h-5 w-5" weight="fill" />
         Waitlist
       </a>
     </div>

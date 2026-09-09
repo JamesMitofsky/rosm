@@ -195,7 +195,9 @@ body {
    layout supplies `--nav-active-bg`); the splotch is padded out past the text
    and pulled back in with matching negative margins so it doesn't move the
    row. Lives here, not in the layout, because the header ships on every page,
-   and as a utility so sizing stays on the Tailwind scale. */
+   and as a utility so sizing stays on the Tailwind scale.
+   The bleed (`-mx-6`) must not exceed the header's inline padding in
+   Layout.astro, or the last item's box overhangs the viewport. */
 @utility nav-link {
   @apply text-light-muted ease-settle hover:text-blue focus-visible:text-blue inline-flex items-center gap-1 text-xl transition-colors duration-200 motion-reduce:transition-none;
   @apply -mx-6 -my-1 px-6 py-1;
