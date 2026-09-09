@@ -209,18 +209,28 @@ body {
 @utility nav-link {
   @apply text-light-muted ease-settle hover:text-blue focus-visible:text-blue inline-flex items-center gap-1 text-xl transition-colors duration-200 motion-reduce:transition-none;
   @apply -mx-6 -my-1 px-6 py-1;
+  /* Own stacking context, so the splotch's `z-index: -1` stays inside the
+     link instead of dropping behind the header. */
+  @apply relative isolate;
 
-  /* Plain selector rather than the `current-page:` variant so it outranks the
-     hover/focus color without leaning on variant order.
-     The splotch is a mask over a flat fill, not a picture: the image carries
-     only the chalk's alpha (see scripts/build-header-assets.ts), which keeps it
-     small enough for Vite to inline into this stylesheet as a data URI. So it
-     paints in the same frame the CSS applies — as a fetched `url()` it landed
-     a beat late and popped in behind the already-white text.
+  /* The splotch is its own layer, not a background on the link, so it can fade
+     on its own while the label's color transitions alongside it (a background
+     can't animate in and out; a mask can't either). Painted behind the text.
+     It is a mask over a flat fill, not a picture: the image carries only the
+     chalk's alpha (see scripts/build-header-assets.ts), which keeps it small
+     enough for Vite to inline into this stylesheet as a data URI. So it paints
+     in the same frame the CSS applies — as a fetched `url()` it landed a beat
+     late and popped in behind the already-white text.
      `-webkit-` first, standard last: the minifier keeps the later of a prefix
      pair if the cssTarget floor is ever dropped, and Safari < 15.4 needs the prefix. */
-  &[aria-current="page"] {
-    @apply bg-chalk-blue text-white;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-color: var(--color-chalk-blue);
+    opacity: 0;
+    transition: opacity var(--nav-fade) var(--ease-settle);
     -webkit-mask-image: url("../assets/nav-active-mask.webp");
     mask-image: url("../assets/nav-active-mask.webp");
     -webkit-mask-size: 100% 100%;
@@ -233,6 +243,71 @@ body {
        show the whole box. Old WebKit spelt this `-webkit-mask-source-type`. */
     -webkit-mask-source-type: luminance;
     mask-mode: luminance;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transition: none;
+    }
+  }
+
+  /* Plain selector rather than the `current-page:` variant so it outranks the
+     hover/focus color without leaning on variant order. */
+  &[aria-current="page"] {
+    @apply text-white;
+    &::before {
+      opacity: 1;
+    }
+  }
+}
+
+/* One duration for the current-page splotch's fade, whichever path runs it:
+   the `::before` transition above, the view-transition snapshots below, and
+   the click-time fallback in Layout.astro all read it. */
+:root {
+  --nav-fade: 220ms;
+}
+
+/* Cross-document view transitions, so the current-page splotch fades between
+   pages rather than cutting. Every page is its own document (see Layout), so
+   this is the MPA form of the API: the browser snapshots named elements on the
+   old page, loads the new one, and cross-fades each pair. Pure CSS.
+
+   Gecko has no cross-document transitions (Firefox 154 and every earlier
+   release), so this rule is inert there; Layout.astro ships a click-time
+   fallback that runs the same fade before the page turns. Both paths land on
+   the same rendered header, so neither shows a bare frame.
+
+   The root is opted out on purpose. Its default whole-page cross-fade is what
+   iOS Safari renders as a stalled gray veil (author CSS on the pseudo tree is
+   ignored there), and it isn't wanted anyway — page content should swap at
+   once. Only the nav links carry a name, so only they animate.
+
+   All three links are named (Layout.astro), not just the current one: each
+   then has an old and a new snapshot and cross-fades in place — gray text to
+   white-on-splotch, or back. Naming only the active link would leave the
+   incoming item with no old image, so its label would blank out and fade in
+   from nothing. Links whose state didn't change cross-fade identical images,
+   which is invisible. */
+@view-transition {
+  navigation: auto;
+}
+:root {
+  view-transition-name: none;
+}
+/* Polish only, on engines that honor pseudo styling: match the fallback's
+   timing rather than the UA's 250ms ease. Nothing depends on this. */
+::view-transition-old(nav-home),
+::view-transition-new(nav-home),
+::view-transition-old(nav-map),
+::view-transition-new(nav-map),
+::view-transition-old(nav-waitlist),
+::view-transition-new(nav-waitlist) {
+  animation-duration: var(--nav-fade);
+  animation-timing-function: var(--ease-settle);
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
   }
 }
 
