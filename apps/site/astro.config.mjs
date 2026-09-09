@@ -10,6 +10,22 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [svelte()],
+  // Prefetch every same-origin link once it scrolls into view, so the next
+  // page is already cached by the time it is tapped. `viewport` rather than
+  // the default `hover` because most visits are on phones, where hover never
+  // fires and the fetch would otherwise start only on tap. Safe here: no
+  // anchor points at an /api route, so nothing with side effects is fetched.
+  // Opt a single link out with `data-astro-prefetch="false"`.
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: "viewport",
+  },
+  // The fountain map was published as a DC page before it became the site's
+  // one map page. Permanent, so anything holding the old URL — search results,
+  // shared links — is told to update it rather than follow it every time.
+  redirects: {
+    "/dc-drinking-fountains": { status: 301, destination: "/public-drinking-fountains" },
+  },
   vite: {
     plugins: [tailwindcss()],
     // Without a stated floor the release minifier reads a prefixed property

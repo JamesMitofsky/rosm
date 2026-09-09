@@ -4,11 +4,8 @@
   import { cubicOut } from "svelte/easing";
   import { prefersReducedMotion } from "svelte/motion";
 
-  // Mobile-only nav. The desktop header renders the "Map" link and the
-  // WaitlistCta button inline; below `sm` those are hidden and this hamburger takes over.
-  // "Waitlist" reuses the existing waitlist modal (rendered by WaitlistCta in the header)
-  // by dispatching the same `open-waitlist-modal` window event its $effect listens for —
-  // no second dialog instance.
+  // Mobile-only nav. The desktop header renders its links inline; below `sm`
+  // those are hidden and this hamburger takes over.
   // `currentPath` marks the row for the page the visitor is on (see Layout).
   let { inverted = false, currentPath = "" }: { inverted?: boolean; currentPath?: string } = $props();
   let open = $state(false);
@@ -16,11 +13,6 @@
   // Svelte transitions don't consult the media query on their own, so every
   // duration below goes through this — reduced motion collapses them to a cut.
   const ms = (n: number) => (prefersReducedMotion.current ? 0 : n);
-
-  function openWaitlist() {
-    open = false;
-    window.dispatchEvent(new Event("open-waitlist-modal"));
-  }
 
   // Close on Escape and on click outside the menu.
   $effect(() => {
@@ -90,24 +82,25 @@
         Home
       </a>
       <a
-        href="/dc-drinking-fountains"
+        href="/public-drinking-fountains"
         onclick={() => (open = false)}
-        aria-current={currentPath === "/dc-drinking-fountains" ? "page" : undefined}
+        aria-current={currentPath === "/public-drinking-fountains" ? "page" : undefined}
         in:fly={{ y: -6, duration: ms(220), delay: ms(95), easing: cubicOut }}
         class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-light-muted transition duration-200 ease-out hover:bg-blue/5 hover:text-blue current-page:text-blue"
       >
         <MapTrifold class="h-5 w-5" weight="fill" />
         Map
       </a>
-      <button
-        type="button"
-        onclick={openWaitlist}
+      <a
+        href="/waitlist"
+        onclick={() => (open = false)}
+        aria-current={currentPath === "/waitlist" ? "page" : undefined}
         in:fly={{ y: -6, duration: ms(220), delay: ms(140), easing: cubicOut }}
         class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-light-muted transition duration-200 ease-out hover:bg-blue/5 hover:text-blue current-page:text-blue"
       >
         <Bell class="h-5 w-5" weight="fill" />
         Waitlist
-      </button>
+      </a>
     </div>
   {/if}
 </div>

@@ -1,6 +1,5 @@
 ---
 import "@/styles/globals.css";
-import WaitlistCta from "@/components/WaitlistCta.svelte";
 import MobileNav from "@/components/MobileNav.svelte";
 // Brand mark, inlined: every page is a fresh document, and a `public/` image
 // is re-validated on each load (`max-age=0`), so as a request it painted a
@@ -8,7 +7,7 @@ import MobileNav from "@/components/MobileNav.svelte";
 import logoSrc from "@/assets/logo-120.png?inline";
 import { APP_NAME } from "@/lib/appConfig";
 // Which nav item is the page the visitor is on. Trailing slash stripped so
-// `/dc-drinking-fountains/` and `/dc-drinking-fountains` count as the same page.
+// `/public-drinking-fountains/` and `/public-drinking-fountains` count as the same page.
 const currentPath = Astro.url.pathname.replace(/(.)\/$/, "$1");
 const isCurrent = (href: string) => (currentPath === href ? "page" : undefined);
 // Favicons live in public/icons; the OG card embeds public/icons/logo.png at build.
@@ -29,12 +28,24 @@ interface Props {
   description?: string;
   /** Keep the page out of search results. Pair with a Disallow in public/robots.txt. */
   noindex?: boolean;
+  /**
+   * Pin the page to the viewport: the body becomes a column exactly one
+   * viewport tall, the header keeps its own height, and the page's `<main>`
+   * takes the rest. Page-level scrolling is off — the page's content owns its
+   * box. For pages that are one full-bleed surface, like the live map.
+   *
+   * Sized with `h-dvh`, not `h-full`: the html element's 100% is the layout
+   * viewport, which on phones does not track the browser chrome sliding away,
+   * and a map pinned to it would leave a strip of page under the toolbar.
+   */
+  fullscreen?: boolean;
 }
 
 const {
   title = "Run Verified Fountains — Running for Open-Sourced Maps",
   description = APP_DESCRIPTION,
   noindex = false,
+  fullscreen = false,
 } = Astro.props;
 
 // Editorial social card, rendered to a static PNG at build time (Satori + resvg).
@@ -79,8 +90,8 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
   </head>
   <!-- Flex column so a page's `main` can `flex-1` to the viewport floor without
        double-counting the header (a `min-h-dvh` on `main` overflows by exactly
-       the header's height). -->
-  <body class="flex min-h-full flex-col">
+       the header's height). `fullscreen` pins that column to one viewport. -->
+  <body class:list={["flex min-h-full flex-col", fullscreen && "h-dvh overflow-hidden"]}>
     {
       /* From `sm` up, inline padding must be at least the `nav-link` splotch bleed (`-mx-6`
         in globals.css): the last nav item's box hangs that far past the nav's
@@ -88,7 +99,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         page a horizontal scrollbar. Below `sm` the nav is hidden, so the bar
         keeps the 20px the page content uses. */
     }
-    <header class="flex items-center justify-between px-5 py-4 sm:px-6">
+    <header class="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
       {
         /* Logo sits top-left at every width and is the way home. 120px source
           = 3x the 40px render so it stays crisp on high-DPI screens. Decoded
@@ -105,9 +116,8 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         />
       </a>
       {
-        /* Nav wears the section-heading face; the "Waitlist" button inside
-          inherits it (preflight sets `font: inherit` on buttons). Jua ships one
-          weight, so nothing here asks for bold — it would be synthesized. */
+        /* Nav wears the section-heading face. Jua ships one weight, so nothing
+          here asks for bold — it would be synthesized. */
       }
       <nav class="font-hero hidden sm:flex items-center gap-12">
         <a href="/" class="nav-link" aria-current={isCurrent("/")}>
@@ -130,9 +140,9 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           Home
         </a>
         <a
-          href="/dc-drinking-fountains"
+          href="/public-drinking-fountains"
           class="nav-link"
-          aria-current={isCurrent("/dc-drinking-fountains")}
+          aria-current={isCurrent("/public-drinking-fountains")}
         >
           <svg
             width="16"
@@ -148,7 +158,21 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           </svg>
           Map
         </a>
-        <WaitlistCta client:load size="sm" />
+        <a href="/waitlist" class="nav-link" aria-current={isCurrent("/waitlist")}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 256 256"
+            fill="currentColor"
+            aria-hidden="true"
+            class="h-4 w-4"
+          >
+            <path
+              d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216Z"
+            ></path>
+          </svg>
+          Waitlist
+        </a>
       </nav>
       <div class="sm:hidden">
         <MobileNav client:load {currentPath} />
