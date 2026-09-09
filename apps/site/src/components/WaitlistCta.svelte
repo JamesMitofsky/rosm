@@ -2,9 +2,9 @@
   import { X } from "phosphor-svelte";
   import ErrorNotice from "./ErrorNotice.svelte";
 
-  // Landing-page CTA: the hero "Join the Beta" button plus the beta sign-up modal it
+  // Landing-page CTA: the nav "Join the waitlist" button plus the waitlist modal it
   // opens. The modal also opens from the nav button in a separate Astro island, which
-  // dispatches an `open-beta-modal` window event that this component listens for.
+  // dispatches an `open-waitlist-modal` window event that this component listens for.
   //
   // Built on the native <dialog> element opened with showModal(): the browser renders
   // the dialog and its ::backdrop in the top layer, which composites backdrop-filter
@@ -19,7 +19,8 @@
   // Endpoint comes from a PUBLIC_ env var so it's swappable per environment.
   const FORMSPREE = import.meta.env.PUBLIC_FORMSPREE_ENDPOINT as string | undefined;
 
-  let { size = "default", inverted = false }: { size?: "sm" | "default"; inverted?: boolean } = $props();
+  let { size = "default", inverted = false }: { size?: "sm" | "default"; inverted?: boolean } =
+    $props();
 
   let dialogEl = $state<HTMLDialogElement>();
 
@@ -39,11 +40,11 @@
     errorMsg = "";
   }
 
-  // Open on the cross-island event dispatched by the nav button (SiteNav.astro).
+  // Open on the cross-island event dispatched by the mobile nav (MobileNav.svelte).
   $effect(() => {
     const onOpen = () => dialogEl?.showModal();
-    window.addEventListener("open-beta-modal", onOpen);
-    return () => window.removeEventListener("open-beta-modal", onOpen);
+    window.addEventListener("open-waitlist-modal", onOpen);
+    return () => window.removeEventListener("open-waitlist-modal", onOpen);
   });
 
   async function submit(e: SubmitEvent) {
@@ -80,19 +81,22 @@
 <button
   type="button"
   onclick={() => dialogEl?.showModal()}
-  class={
-    // The small variant is a nav item: same link treatment as its neighbours
-    // (underline rule on hover, inherited face). The default is the filled
-    // call-to-action that sits in body copy.
-    size === "sm"
-      ? "nav-link inline-flex items-center gap-1.5 text-lg text-blue"
-      : [
-          "inline-flex items-center gap-2 self-start rounded-xl border border-transparent px-4 py-2.5 text-base font-bold transition md:gap-2.5 md:px-4 md:py-3 md:text-lg",
-          inverted ? "bg-white text-blue hover:bg-white/90" : "bg-blue text-white hover:bg-[#0a6fa3]",
-        ].join(" ")
-  }
+  class={// The small variant is a nav item: same link treatment as its neighbours
+  // (blue on hover, inherited face). The default is the filled
+  // call-to-action that sits in body copy.
+  size === "sm"
+    ? "nav-link"
+    : [
+        "inline-flex items-center gap-2 self-start rounded-xl border border-transparent px-4 py-2.5 text-base font-bold transition md:gap-2.5 md:px-4 md:py-3 md:text-lg",
+        inverted ? "bg-white text-blue hover:bg-white/90" : "bg-blue text-white hover:bg-[#0a6fa3]",
+      ].join(" ")}
 >
-  <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"}>
+  <svg
+    viewBox="0 0 100 100"
+    fill="currentColor"
+    aria-hidden="true"
+    class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"}
+  >
     <path
       d="M29.1,60.6L11.7,87.9c-1.8,2.9-1,6.7,1.9,8.6c1,0.7,2.2,1,3.3,1c2,0,4.1-1,5.2-2.9l17.1-26.8l-4.6-2.2C32.2,64.5,30.3,62.8,29.1,60.6z"
     ></path>
@@ -101,7 +105,7 @@
       d="M89.1,44.2c-0.8-2.8-3.6-4.4-6.4-3.6l-7.7,2.1l-3.7-8.4c-1.1-2.5-2.9-4.6-5.2-6.1l-8.9-5.8c-2.6-1.7-5.8-2.5-8.9-2.3l-13.1,1c-1.4,0.1-2.6,0.8-3.5,1.8l-8.9,10.5c-1.9,2.2-1.6,5.4,0.6,7.3c2.2,1.9,5.4,1.6,7.3-0.6l7.5-8.8l7.8-0.6L34.7,50.9c-0.8,1.5-1,3.3-0.5,4.9c0.5,1.6,1.7,3,3.3,3.7l17.5,8.2L45.2,81c-2,2.8-1.4,6.7,1.3,8.7c1.1,0.8,2.4,1.2,3.7,1.2c1.9,0,3.8-0.9,5-2.5L69.4,69c1.1-1.5,1.5-3.4,1-5.2c-0.5-1.8-1.7-3.3-3.4-4.1L54.8,54l8.4-12.4l4.2,9.5c0.8,1.9,2.7,3.1,4.7,3.1c0.5,0,0.9-0.1,1.4-0.2l12-3.3C88.3,49.8,89.9,46.9,89.1,44.2z"
     ></path>
   </svg>
-  Contribute
+  Join the waitlist
 </button>
 
 <dialog
@@ -110,8 +114,8 @@
     if (e.target === dialogEl) close();
   }}
   onclose={reset}
-  aria-labelledby="join-beta-title"
-  class="bg-surface text-base border-base/10 m-auto w-full max-w-md rounded-xl border p-8 shadow-2xl backdrop:bg-base/40 backdrop:backdrop-blur-sm"
+  aria-labelledby="join-waitlist-title"
+  class="font-body bg-surface text-base border-base/10 m-auto w-full max-w-md rounded-xl border p-8 shadow-2xl backdrop:bg-base/40 backdrop:backdrop-blur-sm"
 >
   <button
     type="button"
@@ -122,19 +126,16 @@
     <X class="h-5 w-5" weight="bold" />
   </button>
 
-  <h2 id="join-beta-title" class="font-hero text-hero text-3xl tracking-tight">Contribute</h2>
+  <h2 id="join-waitlist-title" class="text-hero text-2xl font-semibold tracking-tight">Join the waitlist</h2>
 
   {#if status === "success"}
     <p class="text-muted mt-4 text-lg leading-relaxed">
-      You're on the list — we'll be in touch as we roll out access. Thanks for helping map and
+      You're on the waitlist — we'll be in touch as we roll out access. Thanks for helping map and
       verify fountains in your community.
     </p>
   {:else}
     <p class="text-muted mt-4 text-lg leading-relaxed">
-      The run app is working... mostly!
-    </p>
-    <p class="text-muted mt-4 text-lg leading-relaxed">
-      If you're down to share feedback, add your info and I'll send an invite!
+      We're opening access in waves. Add yourself to the waitlist and we'll send an invite when your spot comes up.
     </p>
 
     <form onsubmit={submit} class="mt-6 flex flex-col gap-4">
@@ -169,7 +170,7 @@
         disabled={status === "submitting"}
         class="mt-2 inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-blue px-6 py-3 text-lg font-bold text-white transition hover:bg-[#0a6fa3] disabled:opacity-60"
       >
-        {status === "submitting" ? "Joining…" : "Join the Beta"}
+        {status === "submitting" ? "Joining…" : "Join the waitlist"}
       </button>
     </form>
   {/if}

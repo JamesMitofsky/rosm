@@ -1,8 +1,12 @@
 ---
 import "@/styles/globals.css";
-import BetaCta from "@/components/BetaCta.svelte";
+import WaitlistCta from "@/components/WaitlistCta.svelte";
 import MobileNav from "@/components/MobileNav.svelte";
 import { APP_NAME } from "@/lib/appConfig";
+// Which nav item is the page the visitor is on. Trailing slash stripped so
+// `/dc-drinking-fountains/` and `/dc-drinking-fountains` count as the same page.
+const currentPath = Astro.url.pathname.replace(/(.)\/$/, "$1");
+const isCurrent = (href: string) => (currentPath === href ? "page" : undefined);
 // Favicons live in public/icons; the OG card embeds public/icons/logo.png at build.
 
 const APP_DESCRIPTION =
@@ -85,13 +89,14 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
       <a href="/" class="nav-brand hidden items-center w-fit sm:flex" aria-label={APP_NAME}>
         <img src="/icons/logo-120.png" alt={APP_NAME} width="120" height="120" decoding="async" class="h-10 w-10" />
       </a>
-      {/* Nav wears the section-heading face; the Contribute button inside
+      {/* Nav wears the section-heading face; the "Join the waitlist" button inside
           inherits it (preflight sets `font: inherit` on buttons). Jua ships one
           weight, so nothing here asks for bold — it would be synthesized. */}
-      <nav class="font-hero hidden sm:flex items-center gap-6">
+      <nav class="font-hero hidden sm:flex items-center gap-8">
         <a
           href="/"
-          class="nav-link inline-flex items-center gap-1.5 text-lg text-blue"
+          class="nav-link"
+          aria-current={isCurrent("/")}
         >
           {/* Phosphor "house" (fill weight, matching the mobile menu), inline for the same reason as the map below:
               the header is on every page and shouldn't carry an icon island. */}
@@ -104,7 +109,8 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         </a>
         <a
           href="/dc-drinking-fountains"
-          class="nav-link inline-flex items-center gap-1.5 text-lg text-blue"
+          class="nav-link"
+          aria-current={isCurrent("/dc-drinking-fountains")}
         >
           <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" class="h-4 w-4">
             <path
@@ -113,10 +119,10 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           </svg>
           Check the Map
         </a>
-        <BetaCta client:load size="sm" />
+        <WaitlistCta client:load size="sm" />
       </nav>
       <div class="sm:hidden">
-        <MobileNav client:load />
+        <MobileNav client:load {currentPath} />
       </div>
     </header>
     <slot />

@@ -1,7 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import DemoRunMap from "@/components/DemoRunMap.svelte";
-import FountainLeaderboard from "@/components/FountainLeaderboard.svelte";
 import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
 import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
@@ -201,9 +200,8 @@ const mobileContourLines = contoursFor(
             class="reveal flex flex-col items-start gap-7 md:col-start-2 md:row-start-2 md:self-start"
             style="transition-delay: 0.16s"
           >
-            <p class="text-muted max-w-xl text-lg leading-relaxed">
-              Use your runs for a little civic service, and we'll route you to
-              public amenities that need their status verified.
+            <p class="text-muted max-w-xl mt-5 text-lg leading-relaxed">
+              Is it civic service? Is it run-gamification? Is it a way to get more kudos on Strava? You choose!
             </p>
           </div>
 
@@ -313,20 +311,6 @@ const mobileContourLines = contoursFor(
             <span class="font-medium">Long-term,</span> 311 can be more tightly looped in to when repairs are necessary
           </li>
         </ul>
-      </div>
-    </section>
-
-    {/* RANKINGS */}
-    <section>
-      <div class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-28 md:pb-12">
-        <h2
-          class="reveal font-hero text-hero text-[clamp(2.5rem,5.5vw,3.6rem)] leading-tight tracking-tight"
-        >
-          Rankings
-        </h2>
-        <div class="reveal mt-6" style="transition-delay: 0.14s">
-          <FountainLeaderboard client:visible />
-        </div>
       </div>
     </section>
 
