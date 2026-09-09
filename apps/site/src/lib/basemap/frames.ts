@@ -136,7 +136,7 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
     ],
   },
   "live-fountains-dc": {
-    description: "LiveFountainMap filling the viewport on /dc-drinking-fountains",
+    description: "LiveFountainMap filling the viewport on /public-drinking-fountains",
     variants: [
       {
         // `LiveFountainMap`'s own breakpoint — note it is *not* the same one the

@@ -6,7 +6,7 @@ import MobileNav from "@/components/MobileNav.svelte";
 import navActiveBgSrc from "@/assets/nav-active-bg.png";
 import { APP_NAME } from "@/lib/appConfig";
 // Which nav item is the page the visitor is on. Trailing slash stripped so
-// `/dc-drinking-fountains/` and `/dc-drinking-fountains` count as the same page.
+// `/public-drinking-fountains/` and `/public-drinking-fountains` count as the same page.
 const currentPath = Astro.url.pathname.replace(/(.)\/$/, "$1");
 const isCurrent = (href: string) => (currentPath === href ? "page" : undefined);
 // Chalk splotch that sits behind the current page's nav item. Run through the
@@ -117,9 +117,9 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           Home
         </a>
         <a
-          href="/dc-drinking-fountains"
+          href="/public-drinking-fountains"
           class="nav-link"
-          aria-current={isCurrent("/dc-drinking-fountains")}
+          aria-current={isCurrent("/public-drinking-fountains")}
         >
           <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" class="h-4 w-4">
             <path
