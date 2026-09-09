@@ -27,11 +27,14 @@ const SITE_URL =
 interface Props {
   title?: string;
   description?: string;
+  /** Keep the page out of search results. Pair with a Disallow in public/robots.txt. */
+  noindex?: boolean;
 }
 
 const {
   title = "Run Verified Fountains — Running for Open-Sourced Maps",
   description = APP_DESCRIPTION,
+  noindex = false,
 } = Astro.props;
 
 // Editorial social card, rendered to a static PNG at build time (Satori + resvg).
@@ -48,6 +51,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta name="application-name" content={APP_NAME} />
     <meta name="theme-color" content="#ffffff" />
     <meta name="format-detection" content="telephone=no" />

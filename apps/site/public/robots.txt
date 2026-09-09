@@ -1,0 +1,5 @@
+# /about is unlisted: reachable by link, kept out of search results.
+# Disallow stops crawlers fetching it; the page also sends a noindex meta
+# for any crawler that reaches it anyway.
+User-agent: *
+Disallow: /about
