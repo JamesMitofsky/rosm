@@ -74,16 +74,10 @@
    theme never flashes white at the edges in the native app. */
 html {
   background: #0e85c6;
-  /* Always reserve the scrollbar gutter so locking scroll when a modal opens (rule
-     below) doesn't reflow the page wider and jolt content. */
+  /* Always reserve the scrollbar gutter so a page short enough not to scroll
+     doesn't lay out wider than one that does, jolting the header between
+     navigations. */
   scrollbar-gutter: stable;
-}
-
-/* Lock page scroll while a native <dialog> is open (showModal makes the background
-   inert to clicks but not to wheel/scroll). Pairs with scrollbar-gutter above so
-   there's no reflow. */
-html:has(dialog[open]) {
-  overflow: hidden;
 }
 
 body {
