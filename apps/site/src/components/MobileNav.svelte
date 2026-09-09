@@ -74,7 +74,7 @@
         opacity: 0,
         easing: cubicOut,
       }}
-      class="absolute right-0 top-full z-50 mt-2 flex w-56 origin-top-right flex-col gap-1 rounded-xl border border-base/10 bg-surface p-2 shadow-xl"
+      class="font-hero absolute right-0 top-full z-50 mt-2 flex w-56 origin-top-right flex-col gap-1 rounded-xl border border-base/10 bg-surface p-2 shadow-xl"
     >
       <!-- The wordmark that used to be the way home is desktop-only now, so this
            menu is the only route back on mobile. -->
@@ -84,7 +84,7 @@
         href="/"
         onclick={() => (open = false)}
         in:fly={{ y: -6, duration: ms(220), delay: ms(50), easing: cubicOut }}
-        class="row inline-flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-blue transition duration-200 ease-out hover:bg-blue/5"
+        class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-blue transition duration-200 ease-out hover:bg-blue/5"
       >
         <House class="h-5 w-5" weight="fill" />
         Home
@@ -93,7 +93,7 @@
         href="/dc-drinking-fountains"
         onclick={() => (open = false)}
         in:fly={{ y: -6, duration: ms(220), delay: ms(95), easing: cubicOut }}
-        class="row inline-flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-blue transition duration-200 ease-out hover:bg-blue/5"
+        class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-blue transition duration-200 ease-out hover:bg-blue/5"
       >
         <MapTrifold class="h-5 w-5" weight="fill" />
         Check the Map
@@ -102,7 +102,7 @@
         type="button"
         onclick={openBeta}
         in:fly={{ y: -6, duration: ms(220), delay: ms(140), easing: cubicOut }}
-        class="row inline-flex items-center gap-2.5 rounded-xl bg-blue px-3 py-2.5 text-sm font-bold text-white transition duration-200 ease-out hover:bg-[#0a6fa3] active:scale-[0.98]"
+        class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-blue transition duration-200 ease-out hover:bg-blue/5"
       >
         <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" class="h-5 w-5">
             <path d="M29.1,60.6L11.7,87.9c-1.8,2.9-1,6.7,1.9,8.6c1,0.7,2.2,1,3.3,1c2,0,4.1-1,5.2-2.9l17.1-26.8l-4.6-2.2C32.2,64.5,30.3,62.8,29.1,60.6z"></path>

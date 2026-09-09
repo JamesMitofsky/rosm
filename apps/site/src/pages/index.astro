@@ -1,6 +1,5 @@
 ---
 import Layout from "@/layouts/Layout.astro";
-import BetaCta from "@/components/BetaCta.svelte";
 import DemoRunMap from "@/components/DemoRunMap.svelte";
 import LiveFountainMap from "@/components/LiveFountainMap.svelte";
 import FountainLeaderboard from "@/components/FountainLeaderboard.svelte";
@@ -9,6 +8,8 @@ import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
 import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
 import { Drop } from "phosphor-svelte";
+import { Image } from "astro:assets";
+import heroHandwriting from "@/assets/hero-handwriting.png";
 
 export const prerender = true;
 
@@ -179,11 +180,23 @@ const mobileContourLines = contoursFor(
         <div
           class="flex flex-col items-start gap-2 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-2"
         >
+          {/* The title is a hand-lettered image; the `<h1>` stays so the page
+              still has a real heading, and `alt` carries its words for
+              readers and search engines. Widths cover the two boxes it lands in:
+              the full phone width, or the right column of the desktop grid. */}
           <h1
-            class="reveal font-hero text-hero max-w-5xl text-[clamp(2.75rem,22vw,5rem)] leading-[0.9] tracking-tight md:col-start-2 md:row-start-1 md:self-end md:text-[clamp(3.8rem,16vw,7rem)]"
+            class="reveal w-full max-w-xl md:col-start-2 md:row-start-1 md:max-w-none md:self-end"
             style="transition-delay: 0.1s"
           >
-            Map DC's Fountains
+            <Image
+              src={heroHandwriting}
+              alt="An accurate map of nearby water made possible by local runners"
+              widths={[480, 720, 960, 1280, heroHandwriting.width]}
+              sizes="(min-width: 768px) 36rem, calc(100vw - 2.5rem)"
+              loading="eager"
+              fetchpriority="high"
+              class="block h-auto w-full"
+            />
           </h1>
 
           <div
@@ -304,17 +317,6 @@ const mobileContourLines = contoursFor(
         </ul>
       </div>
     </section>
-
-    <div class="reveal mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-3 px-5 pt-10 pb-2">
-      <a
-        href="/dc-drinking-fountains"
-        class="inline-flex items-center gap-2 rounded-xl bg-transparent px-4 py-2.5 text-base font-bold text-blue transition hover:bg-blue/5 md:gap-2.5 md:px-4 md:py-3 md:text-lg"
-      >
-        <Drop class="h-5 w-5 md:h-6 md:w-6" weight="fill" />
-        Find Water
-      </a>
-      <BetaCta client:load />
-    </div>
 
     {/* LIVE MAP */}
     <section>

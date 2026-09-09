@@ -80,13 +80,17 @@
 <button
   type="button"
   onclick={() => dialogEl?.showModal()}
-  class={[
-    "inline-flex items-center rounded-xl font-bold transition",
-    inverted ? "bg-white text-blue hover:bg-white/90 border border-transparent" : "bg-blue text-white hover:bg-[#0a6fa3] border border-transparent",
+  class={
+    // The small variant is a nav item: same link treatment as its neighbours
+    // (underline rule on hover, inherited face). The default is the filled
+    // call-to-action that sits in body copy.
     size === "sm"
-      ? "gap-2 px-4 py-2 text-sm self-start"
-      : "gap-2 px-4 py-2.5 text-base md:gap-2.5 md:px-4 md:py-3 md:text-lg self-start",
-  ].join(" ")}
+      ? "nav-link inline-flex items-center gap-1.5 text-lg text-blue"
+      : [
+          "inline-flex items-center gap-2 self-start rounded-xl border border-transparent px-4 py-2.5 text-base font-bold transition md:gap-2.5 md:px-4 md:py-3 md:text-lg",
+          inverted ? "bg-white text-blue hover:bg-white/90" : "bg-blue text-white hover:bg-[#0a6fa3]",
+        ].join(" ")
+  }
 >
   <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"}>
     <path

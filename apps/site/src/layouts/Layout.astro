@@ -73,27 +73,30 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
       <a href="/" class="nav-brand hidden items-center w-fit sm:flex" aria-label={APP_NAME}>
         <img src="/icons/logo-120.png" alt={APP_NAME} width="120" height="120" decoding="async" class="h-10 w-10" />
       </a>
-      <nav class="hidden sm:flex items-center gap-6">
+      {/* Nav wears the section-heading face; the Contribute button inside
+          inherits it (preflight sets `font: inherit` on buttons). Jua ships one
+          weight, so nothing here asks for bold — it would be synthesized. */}
+      <nav class="font-hero hidden sm:flex items-center gap-6">
         <a
           href="/"
-          class="nav-link inline-flex items-center gap-2 text-sm font-bold text-blue"
+          class="nav-link inline-flex items-center gap-1.5 text-lg text-blue"
         >
-          {/* Phosphor "house", inline for the same reason as the map below:
+          {/* Phosphor "house" (fill weight, matching the mobile menu), inline for the same reason as the map below:
               the header is on every page and shouldn't carry an icon island. */}
           <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" class="h-4 w-4">
             <path
-              d="M218.83,103.77l-80-75.48a1.14,1.14,0,0,1-.11-.11,16,16,0,0,0-21.53,0l-.11.11L37.17,103.77A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77ZM208,208H160V160a16,16,0,0,0-16-16H112a16,16,0,0,0-16,16v48H48V115.55l.11-.1L128,40l79.9,75.43.11.1Z"
+              d="M224,120v96a8,8,0,0,1-8,8H160a8,8,0,0,1-8-8V164a4,4,0,0,0-4-4H108a4,4,0,0,0-4,4v52a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V120a16,16,0,0,1,4.69-11.31l80-80a16,16,0,0,1,22.62,0l80,80A16,16,0,0,1,224,120Z"
             ></path>
           </svg>
           Home
         </a>
         <a
           href="/dc-drinking-fountains"
-          class="nav-link inline-flex items-center gap-2 text-sm font-bold text-blue"
+          class="nav-link inline-flex items-center gap-1.5 text-lg text-blue"
         >
           <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" class="h-4 w-4">
             <path
-              d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-5.52-.6l-64,16A8,8,0,0,0,24,56V200a8,8,0,0,0,9.94,7.76l61.13-15.28,61.35,30.68A8.15,8.15,0,0,0,160,224a7.93,7.93,0,0,0,1.94-.24l64-16A8,8,0,0,0,232,200V56A8,8,0,0,0,228.92,49.69ZM104,52.94l48,24V203.06l-48-24ZM40,62.25l48-12V179.75l-48,12Zm176,131.5-48,12V76.25l48-12Z"
+              d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-5.52-.6l-64,16A8,8,0,0,0,24,56V200a8,8,0,0,0,9.94,7.76l61.13-15.28,61.35,30.68A8.15,8.15,0,0,0,160,224a8,8,0,0,0,1.94-.24l64-16A8,8,0,0,0,232,200V56A8,8,0,0,0,228.92,49.69ZM96,176a8,8,0,0,0-1.94.24L40,189.75V62.25L95.07,48.48l.93.46Zm120,17.75-55.07,13.77-.93-.46V80a8,8,0,0,0,1.94-.23L216,66.25Z"
             ></path>
           </svg>
           Check the Map
