@@ -48,7 +48,7 @@
   --color-link: #0e85c6;
   --color-blue: #0e85c6;
   /* Hero headline blue (Run & Verify). Shared by all display-face headings
-     except the ROSM wordmark and "The Problem" plate. */
+     except the "The Problem" plate. */
   --color-hero: #0b6fa7;
   --color-pink: #f4447a;
   --color-orange: #f38300;
@@ -221,14 +221,12 @@ body {
   transform: translateY(-2px);
 }
 
-/* Wordmark settles back under the pointer. */
-.nav-brand span {
-  display: inline-block;
+/* Logo settles back under the pointer. */
+.nav-brand img {
+  display: block;
   transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-/* Scale only — the wordmark's baseline nudge rides Tailwind v4's separate
-   `translate` property, so this composes with it instead of replacing it. */
-.nav-brand:hover span {
+.nav-brand:hover img {
   transform: scale(1.06);
 }
 
@@ -236,7 +234,7 @@ body {
   .nav-link,
   .nav-link::after,
   .nav-link svg,
-  .nav-brand span {
+  .nav-brand img {
     transition: none;
   }
 }

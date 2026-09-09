@@ -53,9 +53,9 @@ const fonts = [
   },
 ];
 
-// Transparent running-fountain mascot, embedded as an SVG data URI.
-const mascot = `data:image/svg+xml;base64,${readFileSync(
-  join(process.cwd(), "public", "icons", "icon.svg"),
+// Transparent Water Run wordmark, embedded as a PNG data URI.
+const logo = `data:image/png;base64,${readFileSync(
+  join(process.cwd(), "public", "icons", "logo.png"),
 ).toString("base64")}`;
 
 // Faint topographic contour field, echoing the landing hero.
@@ -148,7 +148,7 @@ export async function renderOgPng({ title, highlight, subtitle }: OgCopy): Promi
             width: 360,
             height: 360,
           },
-          { type: "img", props: { src: mascot, width: 292, height: 360, style: {} } },
+          { type: "img", props: { src: logo, width: 360, height: 360, style: {} } },
         ),
       ],
     ),

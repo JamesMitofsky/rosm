@@ -1,4 +1,4 @@
-# ROSM — Fountain Run Planner
+# Water Run — Fountain Run Planner
 
 Plan a running route past OpenStreetMap points (drinking fountains by default), run it
 on your phone with turn-toward-next-point guidance, and record each point's real-world

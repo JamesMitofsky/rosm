@@ -20,9 +20,9 @@ const config: ExpoConfig = {
       // Background location so a run keeps tracking with the screen locked.
       UIBackgroundModes: ["location"],
       NSLocationWhenInUseUsageDescription:
-        "ROSM shows your position on the map and guides you to each survey point.",
+        "Water Run shows your position on the map and guides you to each survey point.",
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        "During an active run ROSM keeps recording your route and guiding you even when the screen is locked. Location is never collected outside an active run.",
+        "During an active run Water Run keeps recording your route and guiding you even when the screen is locked. Location is never collected outside an active run.",
     },
   },
   android: {
@@ -36,9 +36,9 @@ const config: ExpoConfig = {
       "expo-location",
       {
         locationWhenInUsePermission:
-          "ROSM shows your position on the map and guides you to each survey point.",
+          "Water Run shows your position on the map and guides you to each survey point.",
         locationAlwaysAndWhenInUsePermission:
-          "During an active run ROSM keeps recording your route and guiding you even when the screen is locked.",
+          "During an active run Water Run keeps recording your route and guiding you even when the screen is locked.",
         isAndroidBackgroundLocationEnabled: true,
       },
     ],

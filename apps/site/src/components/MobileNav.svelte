@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { List, X, Drop, House } from "phosphor-svelte";
+  import { List, X, MapTrifold, House } from "phosphor-svelte";
   import { fade, fly, scale } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { prefersReducedMotion } from "svelte/motion";
 
-  // Mobile-only nav. The desktop header renders the "Find Water" link and the
+  // Mobile-only nav. The desktop header renders the "Check the Map" link and the
   // BetaCta button inline; below `sm` those are hidden and this hamburger takes over.
   // "Test the App" reuses the existing beta modal (rendered by BetaCta in the header)
   // by dispatching the same `open-beta-modal` window event its $effect listens for —
@@ -95,8 +95,8 @@
         in:fly={{ y: -6, duration: ms(220), delay: ms(95), easing: cubicOut }}
         class="row inline-flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-blue transition duration-200 ease-out hover:bg-blue/5"
       >
-        <Drop class="h-5 w-5" weight="fill" />
-        Find Water
+        <MapTrifold class="h-5 w-5" weight="fill" />
+        Check the Map
       </a>
       <button
         type="button"
