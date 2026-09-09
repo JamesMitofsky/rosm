@@ -86,9 +86,9 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
   </head>
-  {/* Flex column so a page's `main` can `flex-1` to the viewport floor without
-      double-counting the header (a `min-h-dvh` on `main` overflows by exactly
-      the header's height). `fullscreen` pins that column to one viewport. */}
+  <!-- Flex column so a page's `main` can `flex-1` to the viewport floor without
+       double-counting the header (a `min-h-dvh` on `main` overflows by exactly
+       the header's height). `fullscreen` pins that column to one viewport. -->
   <body class:list={["flex min-h-full flex-col", fullscreen && "h-dvh overflow-hidden"]}>
     {/* From `sm` up, inline padding must be at least the `nav-link` splotch bleed (`-mx-6`
         in globals.css): the last nav item's box hangs that far past the nav's
