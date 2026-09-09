@@ -4,7 +4,7 @@
   import { cubicOut } from "svelte/easing";
   import { prefersReducedMotion } from "svelte/motion";
 
-  // Mobile-only nav. The desktop header renders the "Check the Map" link and the
+  // Mobile-only nav. The desktop header renders the "Map" link and the
   // WaitlistCta button inline; below `sm` those are hidden and this hamburger takes over.
   // "Waitlist" reuses the existing waitlist modal (rendered by WaitlistCta in the header)
   // by dispatching the same `open-waitlist-modal` window event its $effect listens for —
@@ -99,7 +99,7 @@
         class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-light-muted transition duration-200 ease-out hover:bg-blue/5 hover:text-blue current-page:text-blue"
       >
         <MapTrifold class="h-5 w-5" weight="fill" />
-        Check the Map
+        Map
       </a>
       <button
         type="button"
