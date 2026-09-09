@@ -75,7 +75,10 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
   </head>
-  <body class="min-h-full">
+  {/* Flex column so a page's `main` can `flex-1` to the viewport floor without
+      double-counting the header (a `min-h-dvh` on `main` overflows by exactly
+      the header's height). */}
+  <body class="flex min-h-full flex-col">
     <header class="flex items-center justify-end px-5 py-4 sm:justify-between">
       {/* Logo is desktop-only; on mobile the hero headline carries the
           branding and the bar is just the nav trigger. 120px source = 3x the
