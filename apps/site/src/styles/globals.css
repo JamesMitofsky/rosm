@@ -196,12 +196,21 @@ body {
    item, so the styling hangs off the same attribute assistive tech reads. */
 @custom-variant current-page (&[aria-current="page"]);
 
-/* Header nav items (icon + label). The current page's item is blue; the rest
-   sit back in light gray and come up to blue on hover. Lives here, not in the
-   layout, because the header ships on every page, and as a utility so sizing
-   stays on the Tailwind scale. */
+/* Header nav items (icon + label). Items sit back in light gray and come up to
+   blue on hover. The current page's item goes white over a chalk splotch (the
+   layout supplies `--nav-active-bg`); the splotch is padded out past the text
+   and pulled back in with matching negative margins so it doesn't move the
+   row. Lives here, not in the layout, because the header ships on every page,
+   and as a utility so sizing stays on the Tailwind scale. */
 @utility nav-link {
-  @apply text-light-muted ease-settle hover:text-blue focus-visible:text-blue current-page:text-blue inline-flex items-center gap-1 text-xl transition-colors duration-200 motion-reduce:transition-none;
+  @apply text-light-muted ease-settle hover:text-blue focus-visible:text-blue inline-flex items-center gap-1 text-xl transition-colors duration-200 motion-reduce:transition-none;
+  @apply -mx-4 -my-1 px-4 py-1;
+
+  /* Plain selector rather than the `current-page:` variant so it outranks the
+     hover/focus color without leaning on variant order. */
+  &[aria-current="page"] {
+    @apply bg-[image:var(--nav-active-bg)] bg-[length:100%_100%] bg-center bg-no-repeat text-white;
+  }
 }
 
 /* Logo settles back under the pointer. */

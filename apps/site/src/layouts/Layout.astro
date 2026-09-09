@@ -1,12 +1,18 @@
 ---
 import "@/styles/globals.css";
+import { getImage } from "astro:assets";
 import WaitlistCta from "@/components/WaitlistCta.svelte";
 import MobileNav from "@/components/MobileNav.svelte";
+import navActiveBgSrc from "@/assets/nav-active-bg.png";
 import { APP_NAME } from "@/lib/appConfig";
 // Which nav item is the page the visitor is on. Trailing slash stripped so
 // `/dc-drinking-fountains/` and `/dc-drinking-fountains` count as the same page.
 const currentPath = Astro.url.pathname.replace(/(.)\/$/, "$1");
 const isCurrent = (href: string) => (currentPath === href ? "page" : undefined);
+// Chalk splotch that sits behind the current page's nav item. Run through the
+// image pipeline here (hashed, webp, alpha kept) and handed to the `nav-link`
+// utility as a custom property, since a CSS `url()` can't import from assets.
+const navActiveBg = await getImage({ src: navActiveBgSrc, format: "webp" });
 // Favicons live in public/icons; the OG card embeds public/icons/logo.png at build.
 
 const APP_DESCRIPTION =
@@ -77,10 +83,13 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
       <a href="/" class="nav-brand hidden items-center w-fit sm:flex" aria-label={APP_NAME}>
         <img src="/icons/logo-120.png" alt={APP_NAME} width="120" height="120" decoding="async" class="h-10 w-10" />
       </a>
-      {/* Nav wears the section-heading face; the "Join the waitlist" button inside
+      {/* Nav wears the section-heading face; the "Waitlist" button inside
           inherits it (preflight sets `font: inherit` on buttons). Jua ships one
           weight, so nothing here asks for bold — it would be synthesized. */}
-      <nav class="font-hero hidden sm:flex items-center gap-8">
+      <nav
+        class="font-hero hidden sm:flex items-center gap-8"
+        style={`--nav-active-bg: url(${navActiveBg.src})`}
+      >
         <a
           href="/"
           class="nav-link"
