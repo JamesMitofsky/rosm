@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { X } from "phosphor-svelte";
+  import { UserPlus, X } from "phosphor-svelte";
   import ErrorNotice from "./ErrorNotice.svelte";
 
-  // Landing-page CTA: the nav "Join the waitlist" button plus the waitlist modal it
+  // Landing-page CTA: the nav "Waitlist" button plus the waitlist modal it
   // opens. The modal also opens from the nav button in a separate Astro island, which
   // dispatches an `open-waitlist-modal` window event that this component listens for.
   //
@@ -91,21 +91,10 @@
         inverted ? "bg-white text-blue hover:bg-white/90" : "bg-blue text-white hover:bg-[#0a6fa3]",
       ].join(" ")}
 >
-  <svg
-    viewBox="0 0 100 100"
-    fill="currentColor"
-    aria-hidden="true"
-    class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"}
-  >
-    <path
-      d="M29.1,60.6L11.7,87.9c-1.8,2.9-1,6.7,1.9,8.6c1,0.7,2.2,1,3.3,1c2,0,4.1-1,5.2-2.9l17.1-26.8l-4.6-2.2C32.2,64.5,30.3,62.8,29.1,60.6z"
-    ></path>
-    <circle cx="70.8" cy="13.4" r="10.9"></circle>
-    <path
-      d="M89.1,44.2c-0.8-2.8-3.6-4.4-6.4-3.6l-7.7,2.1l-3.7-8.4c-1.1-2.5-2.9-4.6-5.2-6.1l-8.9-5.8c-2.6-1.7-5.8-2.5-8.9-2.3l-13.1,1c-1.4,0.1-2.6,0.8-3.5,1.8l-8.9,10.5c-1.9,2.2-1.6,5.4,0.6,7.3c2.2,1.9,5.4,1.6,7.3-0.6l7.5-8.8l7.8-0.6L34.7,50.9c-0.8,1.5-1,3.3-0.5,4.9c0.5,1.6,1.7,3,3.3,3.7l17.5,8.2L45.2,81c-2,2.8-1.4,6.7,1.3,8.7c1.1,0.8,2.4,1.2,3.7,1.2c1.9,0,3.8-0.9,5-2.5L69.4,69c1.1-1.5,1.5-3.4,1-5.2c-0.5-1.8-1.7-3.3-3.4-4.1L54.8,54l8.4-12.4l4.2,9.5c0.8,1.9,2.7,3.1,4.7,3.1c0.5,0,0.9-0.1,1.4-0.2l12-3.3C88.3,49.8,89.9,46.9,89.1,44.2z"
-    ></path>
-  </svg>
-  Join the waitlist
+  <UserPlus class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"} weight="fill" />
+  <!-- Nav item keeps to one word like its neighbours; the body-copy button
+       spells out the ask. -->
+  {size === "sm" ? "Waitlist" : "Join the waitlist"}
 </button>
 
 <dialog
