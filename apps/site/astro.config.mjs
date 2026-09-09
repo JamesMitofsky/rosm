@@ -20,6 +20,12 @@ export default defineConfig({
     // Safari 15 is the floor because the iOS app ships through Capacitor.
     build: {
       cssTarget: ["chrome110", "firefox115", "safari15", "edge110"],
+      // The header nav's current-page mask must ride inside the stylesheet as
+      // a data URI, whatever its byte size: as a separate request it paints a
+      // beat after the text it sits behind (see scripts/build-header-assets.ts).
+      // Everything else keeps Vite's default 4 KB threshold.
+      assetsInlineLimit: (filePath, content) =>
+        filePath.endsWith("nav-active-mask.webp") || content.length < 4096,
     },
   },
 });

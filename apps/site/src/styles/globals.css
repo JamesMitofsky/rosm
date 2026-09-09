@@ -47,9 +47,17 @@
   --color-info: #0e85c6;
   --color-link: #0e85c6;
   --color-blue: #0e85c6;
+  /* The header nav's current-page chalk splotch, sampled from the painted
+     source (src/assets/nav-active-bg.png). A touch dustier than `blue`. */
+  --color-chalk-blue: #3f83c2;
   /* Hero headline blue (Run & Verify). Shared by all display-face headings
      except the "The Problem" plate. */
   --color-hero: #0b6fa7;
+  /* Ink of the handwritten hero headline, sampled from the painted source
+     (src/assets/hero-handwriting.png); the mask in index.astro is filled with
+     it. Kept as its own token, not folded into `hero`, so the headline reads
+     exactly as it was painted. */
+  --color-hero-ink: #1e71bd;
   --color-pink: #f4447a;
   --color-orange: #f38300;
   --color-red: #ea4126;
@@ -197,11 +205,11 @@ body {
 @custom-variant current-page (&[aria-current="page"]);
 
 /* Header nav items (icon + label). Items sit back in light gray and come up to
-   blue on hover. The current page's item goes white over a chalk splotch (the
-   layout supplies `--nav-active-bg`); the splotch is padded out past the text
-   and pulled back in with matching negative margins so it doesn't move the
-   row. Lives here, not in the layout, because the header ships on every page,
-   and as a utility so sizing stays on the Tailwind scale.
+   blue on hover. The current page's item goes white over a chalk splotch; the
+   splotch is padded out past the text and pulled back in with matching
+   negative margins so it doesn't move the row. Lives here, not in the layout,
+   because the header ships on every page, and as a utility so sizing stays on
+   the Tailwind scale.
    The bleed (`-mx-6`) must not exceed the header's inline padding in
    Layout.astro, or the last item's box overhangs the viewport. */
 @utility nav-link {
@@ -209,9 +217,28 @@ body {
   @apply -mx-6 -my-1 px-6 py-1;
 
   /* Plain selector rather than the `current-page:` variant so it outranks the
-     hover/focus color without leaning on variant order. */
+     hover/focus color without leaning on variant order.
+     The splotch is a mask over a flat fill, not a picture: the image carries
+     only the chalk's alpha (see scripts/build-header-assets.ts), which keeps it
+     small enough for Vite to inline into this stylesheet as a data URI. So it
+     paints in the same frame the CSS applies — as a fetched `url()` it landed
+     a beat late and popped in behind the already-white text.
+     `-webkit-` first, standard last: the minifier keeps the later of a prefix
+     pair if the cssTarget floor is ever dropped, and Safari < 15.4 needs the prefix. */
   &[aria-current="page"] {
-    @apply bg-[image:var(--nav-active-bg)] bg-[length:100%_100%] bg-center bg-no-repeat text-white;
+    @apply bg-chalk-blue text-white;
+    -webkit-mask-image: url("../assets/nav-active-mask.webp");
+    mask-image: url("../assets/nav-active-mask.webp");
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    /* The file is grayscale, no alpha; the default mode reads alpha and would
+       show the whole box. Old WebKit spelt this `-webkit-mask-source-type`. */
+    -webkit-mask-source-type: luminance;
+    mask-mode: luminance;
   }
 }
 

@@ -6,8 +6,14 @@ import FreshnessLegend from "@/components/FreshnessLegend.svelte";
 import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
 import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
-import { Image } from "astro:assets";
-import heroHandwriting from "@/assets/hero-handwriting.png";
+// The handwritten headline is one flat ink over a textured alpha, so it ships
+// as an alpha-only mask (scripts/build-header-assets.ts) that CSS fills with
+// `hero-ink`. Inlined: it is the LCP element and sits inside the `.reveal`
+// entrance, and as a separate request it landed mid-animation and popped in.
+// Dimensions come from the generated module rather than an image import: a
+// bare import of the WebP makes the image pipeline emit a copy nobody requests.
+import heroMask from "@/assets/hero-handwriting-mask.webp?inline";
+import { HERO_MASK_SIZE } from "@/assets/hero-handwriting-mask.generated";
 
 export const prerender = true;
 
@@ -28,31 +34,56 @@ const tornShadow =
 // into a continuous curve rather than kinking at each point.
 const r = (n: number) => Math.round(n * 10000) / 10000;
 const waveThrough = (pts: { x: number; y: number }[]) =>
-  pts
-    .slice(1)
-    .reduce((d, p, i) => {
+  pts.slice(1).reduce(
+    (d, p, i) => {
       const prev = pts[i];
       const mx = r(prev.x + (p.x - prev.x) / 2);
       return `${d} C ${mx} ${r(prev.y)}, ${mx} ${r(p.y)}, ${r(p.x)} ${r(p.y)}`;
-    }, `M ${r(pts[0].x)} ${r(pts[0].y)}`);
+    },
+    `M ${r(pts[0].x)} ${r(pts[0].y)}`,
+  );
 
 // Uneven wave-crest positions along the width; y alternates crest (0) / trough.
 const topWave = [
-  { x: 0, y: 0.02 }, { x: 0.09, y: 0 }, { x: 0.15, y: 0.03 }, { x: 0.27, y: 0.005 },
-  { x: 0.34, y: 0.028 }, { x: 0.48, y: 0 }, { x: 0.55, y: 0.025 }, { x: 0.68, y: 0.004 },
-  { x: 0.76, y: 0.03 }, { x: 0.88, y: 0.008 }, { x: 1, y: 0.02 },
+  { x: 0, y: 0.02 },
+  { x: 0.09, y: 0 },
+  { x: 0.15, y: 0.03 },
+  { x: 0.27, y: 0.005 },
+  { x: 0.34, y: 0.028 },
+  { x: 0.48, y: 0 },
+  { x: 0.55, y: 0.025 },
+  { x: 0.68, y: 0.004 },
+  { x: 0.76, y: 0.03 },
+  { x: 0.88, y: 0.008 },
+  { x: 1, y: 0.02 },
 ];
 const bottomWave = [
-  { x: 1, y: 0.98 }, { x: 0.88, y: 1 }, { x: 0.76, y: 0.972 }, { x: 0.68, y: 0.996 },
-  { x: 0.55, y: 0.975 }, { x: 0.48, y: 1 }, { x: 0.34, y: 0.978 }, { x: 0.27, y: 0.996 },
-  { x: 0.15, y: 0.97 }, { x: 0.09, y: 0.995 }, { x: 0, y: 0.98 },
+  { x: 1, y: 0.98 },
+  { x: 0.88, y: 1 },
+  { x: 0.76, y: 0.972 },
+  { x: 0.68, y: 0.996 },
+  { x: 0.55, y: 0.975 },
+  { x: 0.48, y: 1 },
+  { x: 0.34, y: 0.978 },
+  { x: 0.27, y: 0.996 },
+  { x: 0.15, y: 0.97 },
+  { x: 0.09, y: 0.995 },
+  { x: 0, y: 0.98 },
 ];
 // Simpler wave for mobile — fewer crests so narrow screens don't look too busy.
 const mobileTopWave = [
-  { x: 0, y: 0.022 }, { x: 0.25, y: 0 }, { x: 0.5, y: 0.03 }, { x: 0.78, y: 0.005 }, { x: 1, y: 0.02 },
+  { x: 0, y: 0.022 },
+  { x: 0.25, y: 0 },
+  { x: 0.5, y: 0.03 },
+  { x: 0.78, y: 0.005 },
+  { x: 1, y: 0.02 },
 ];
 const mobileBottomWave = [
-  { x: 1, y: 0.978 }, { x: 0.72, y: 1 }, { x: 0.48, y: 0.972 }, { x: 0.22, y: 0.997 }, { x: 0, y: 0.98 },
+  { x: 1, y: 0.978 },
+  { x: 0.72, y: 1 },
+  { x: 0.48, y: 0.972 },
+  { x: 0.22, y: 0.997 },
+  { x: 0, y: 0.98 },
 ];
 
 // Each wave edge is its own band: a full-width SVG of fixed CSS height that
@@ -89,7 +120,6 @@ const topBand = bandPath(topWave, "top");
 const bottomBand = bandPath(bottomWave, "bottom");
 const mobileTopBand = bandPath(mobileTopWave, "top");
 const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
-
 
 // Faint topographic contour lines in the hero foreshadow The Problem below:
 // every line traces the same crest/trough silhouette as the manifesto plate's
@@ -152,49 +182,51 @@ const mobileContourLines = contoursFor(
     {/* HERO */}
     <section class="relative overflow-hidden">
       <svg
-        class="pointer-events-none absolute inset-0 h-full w-full" style="color: #0E85C6"
+        class="pointer-events-none absolute inset-0 h-full w-full"
+        style="color: #0E85C6"
         viewBox="0 0 1200 600"
         fill="none"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
         <g class="contours-desktop">
-          {contourLines.map((l) => (
-            <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
-          ))}
+          {
+            contourLines.map((l) => (
+              <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
+            ))
+          }
         </g>
         <g class="contours-mobile">
-          {mobileContourLines.map((l) => (
-            <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
-          ))}
+          {
+            mobileContourLines.map((l) => (
+              <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
+            ))
+          }
         </g>
       </svg>
 
       <div class="relative mx-auto max-w-6xl px-5 pt-8 pb-16 md:pt-12 md:pb-24">
-        {/* Mobile: title -> subtitle -> map, in source order (flex column).
+        {
+          /* Mobile: title -> subtitle -> map, in source order (flex column).
             Desktop: map spans the left column, title + subtitle stack in the
             right column (grid), where the explicit col/row placement makes
-            source order irrelevant. */}
+            source order irrelevant. */
+        }
         <div
           class="flex flex-col items-start gap-2 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-2"
         >
-          {/* The title is a hand-lettered image; the `<h1>` stays so the page
-              still has a real heading, and `alt` carries its words for
-              readers and search engines. Widths cover the two boxes it lands in:
-              the full phone width, or the right column of the desktop grid. */}
+          {
+            /* The title is hand-lettered ink, drawn as a mask on the `<h1>` itself
+              (see `.hero-mark` below), so the page still has a real heading;
+              `role="img"` + `aria-label` carry its words for readers and search
+              engines the way an `<img alt>` did. */
+          }
           <h1
-            class="reveal w-full max-w-xl md:col-start-2 md:row-start-1 md:max-w-none md:self-end"
-            style="transition-delay: 0.1s"
+            role="img"
+            aria-label="An accurate map of nearby drinking fountains made by your friendly neighborhood runners"
+            class="hero-mark reveal bg-hero-ink w-full max-w-xl md:col-start-2 md:row-start-1 md:max-w-none md:self-end"
+            style={`transition-delay: 0.1s; --hero-mask: url(${heroMask}); aspect-ratio: ${HERO_MASK_SIZE.width} / ${HERO_MASK_SIZE.height}`}
           >
-            <Image
-              src={heroHandwriting}
-              alt="An accurate map of nearby drinking fountains made by your friendly neighborhood runners"
-              widths={[480, 720, 960, 1280, heroHandwriting.width]}
-              sizes="(min-width: 768px) 36rem, calc(100vw - 2.5rem)"
-              loading="eager"
-              fetchpriority="high"
-              class="block h-auto w-full"
-            />
           </h1>
 
           <div
@@ -202,25 +234,27 @@ const mobileContourLines = contoursFor(
             style="transition-delay: 0.16s"
           >
             <p class="text-muted max-w-xl mt-5 text-lg leading-relaxed">
-              Is it civic service? Is it gamified running? Is it a way to get more kudos on Strava? You choose!
+              Is it civic service? Is it gamified running? Is it a way to get more kudos on Strava?
+              You choose!
             </p>
           </div>
 
-          {/* Interactive demo of the run + edit flow, framed like a print plate.
+          {
+            /* Interactive demo of the run + edit flow, framed like a print plate.
               Deliberately not a `.reveal` block: that starts at opacity 0 and
               waits for the scroll observer, which would hide the map's own
               loading frame for exactly the window the frame exists to fill. Its
-              dissolve is the entrance. */}
+              dissolve is the entrance. */
+          }
           <div
             class="relative mt-8 w-full overflow-hidden rounded-xl shadow-lg md:mt-0 md:col-start-1 md:row-span-2 md:self-center"
           >
-            {/* The loading state is `MapFrame`'s, not the island's: a picture of
+            {
+              /* The loading state is `MapFrame`'s, not the island's: a picture of
                 this exact opening view, server-rendered and inline, so it is up
-                in the first paint rather than after the island hydrates. */}
-            <MapFrame
-              frame="demo-run"
-              class="hero-map z-0 w-full"
-            >
+                in the first paint rather than after the island hydrates. */
+            }
+            <MapFrame frame="demo-run" class="hero-map z-0 w-full">
               <DemoRoutePlaceholder slot="placeholder" />
               <DemoRunMap client:only="svelte" />
             </MapFrame>
@@ -229,14 +263,18 @@ const mobileContourLines = contoursFor(
       </div>
     </section>
 
-    {/* MANIFESTO SPLIT — a raised, hand-torn surface strip over the page.
+    {
+      /* MANIFESTO SPLIT — a raised, hand-torn surface strip over the page.
         Wrapper casts the shadow; the plate is a plain blue block with a wave
         band hanging off each edge. `drop-shadow` reads the alpha of the whole
         subtree, so one filter on the wrapper traces all three as one silhouette
-        — which is also why it can't live on the plate itself. */}
+        — which is also why it can't live on the plate itself. */
+    }
     <div class="relative z-10 -my-6" style={tornShadow}>
-      {/* `currentColor` on the bands is the plate's own blue, so the edges and
-          the block can never drift apart. */}
+      {
+        /* `currentColor` on the bands is the plate's own blue, so the edges and
+          the block can never drift apart. */
+      }
       <div class="manifesto-plate text-blue">
         <svg
           class="manifesto-edge manifesto-edge--top edge-desktop"
@@ -245,7 +283,7 @@ const mobileContourLines = contoursFor(
           fill="currentColor"
           aria-hidden="true"
         >
-          <path d={topBand} />
+          <path d={topBand}></path>
         </svg>
         <svg
           class="manifesto-edge manifesto-edge--top edge-mobile"
@@ -254,17 +292,42 @@ const mobileContourLines = contoursFor(
           fill="currentColor"
           aria-hidden="true"
         >
-          <path d={mobileTopBand} />
+          <path d={mobileTopBand}></path>
         </svg>
         <section class="bg-blue">
           <div class="reveal manifesto-body mx-auto max-w-3xl px-5">
-            <h2 class="font-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight text-light">
-              The Problem
+            <h2
+              class="font-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight text-light"
+            >
+              What's the Deal?
             </h2>
             <p class="mt-6 text-lg leading-relaxed text-white/85">
-              If you're anywhere other than the National Mall, it's hard to know where the public drinking fountains are. Or maybe you've found a map some folks made together, but when you arrive at the fountain, it's either out of order or <em>even removed</em>!
-              This unreliability delivers an experience similar to not even having public fountains in the first place, and that's no good for anyone.
+              Water Run is an Open Source, community-led map of public drinking fountains.
             </p>
+            <p class="mt-6 text-lg leading-relaxed text-white/85">
+              It provides information about the location of fountains, if they're in service, if
+              they close during the winter, and what type they are (eg. bottle-filler, bubbler,
+              dog-bowl). It also records a change-history, letting seekers prefer <em>most</em> recently
+              verfied and letting verifiers prefer <em>least</em> recently verified!
+            </p>
+            <p class="mt-6 text-lg leading-relaxed text-white/85">
+              This is made possible thanks to runners who use the app's dynamic route-generation to
+              update stale fountain-data en masse!
+            </p>
+
+            <p class="mt-4 text-lg leading-relaxed text-white/85">
+              This has immediate and long-term benefits:
+            </p>
+            <ul class="mt-4 list-disc space-y-1 pl-6 text-lg leading-relaxed text-white/85">
+              <li>
+                <span class="font-medium">Immediately,</span> there is more reliable access to {" "}
+                <i>working</i> fountains
+              </li>
+              <li>
+                <span class="font-medium">Long-term,</span> Water Run automatically submits repair requests
+                to 311
+              </li>
+            </ul>
           </div>
         </section>
         <svg
@@ -274,7 +337,7 @@ const mobileContourLines = contoursFor(
           fill="currentColor"
           aria-hidden="true"
         >
-          <path d={bottomBand} />
+          <path d={bottomBand}></path>
         </svg>
         <svg
           class="manifesto-edge manifesto-edge--bottom edge-mobile"
@@ -283,7 +346,7 @@ const mobileContourLines = contoursFor(
           fill="currentColor"
           aria-hidden="true"
         >
-          <path d={mobileBottomBand} />
+          <path d={mobileBottomBand}></path>
         </svg>
       </div>
     </div>
@@ -294,22 +357,25 @@ const mobileContourLines = contoursFor(
         <h2
           class="font-hero text-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight"
         >
-          The Solution
+          Runner's Civics
         </h2>
         <p class="text-muted mt-6 text-lg leading-relaxed">
-          Water Run tackles this problem by making information about each fountain detailed. Things like: is the fountain still here? is it out of order? when was it last checked? who checked it?
-          With no expertise in municipal planning, in seems to me that installing the fountain should be the hardest part, not finding it.
+          Water Run tackles this problem by making information about each fountain detailed. Things
+          like: is the fountain still here? is it out of order? when was it last checked? who
+          checked it? With no expertise in municipal planning, in seems to me that installing the
+          fountain should be the hardest part, not finding it.
         </p>
         <p class="text-muted mt-4 text-lg leading-relaxed">
           This stands to promote both immediate and long-term benefits:
         </p>
         <ul class="text-muted mt-4 list-disc space-y-1 pl-6 text-lg leading-relaxed">
           <li>
-            <span class="font-medium">Immediately,</span> anyone can reliably locate the nearest
-            working fountain
+            <span class="font-medium">Immediately,</span> anyone can reliably locate the nearest working
+            fountain
           </li>
           <li>
-            <span class="font-medium">Long-term,</span> 311 can be more tightly looped in to when repairs are necessary
+            <span class="font-medium">Long-term,</span> 311 can be more tightly looped in to when repairs
+            are necessary
           </li>
         </ul>
       </div>
@@ -341,7 +407,9 @@ const mobileContourLines = contoursFor(
 
     {/* FOOTER */}
     <footer>
-      <div class="text-muted mx-auto flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm">
+      <div
+        class="text-muted mx-auto flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm"
+      >
         <span>
           An Open Source project created by <a
             href="https://jamesm.it/about"
@@ -370,7 +438,9 @@ const mobileContourLines = contoursFor(
             // Free GPU layer once animation is done — will-change is expensive to hold
             (entry.target as HTMLElement).addEventListener(
               "transitionend",
-              () => { (entry.target as HTMLElement).style.willChange = "auto"; },
+              () => {
+                (entry.target as HTMLElement).style.willChange = "auto";
+              },
               { once: true },
             );
           }
@@ -380,61 +450,78 @@ const mobileContourLines = contoursFor(
     );
     els.forEach((el) => io.observe(el));
   </script>
-<style>
-  /* Crest depth, in px. A px value is the whole point of the bands: it is what
+  <style>
+    /* Handwritten headline: a flat fill (`bg-hero-ink`) shown through the ink's
+     alpha. The mask stretches to the box; `aspect-ratio` inline keeps the box
+     the image's shape so nothing distorts. `-webkit-` first, standard last: the
+     minifier keeps the later of a prefix pair if the cssTarget floor is ever
+     dropped, and Safari < 15.4 needs the prefix. */
+    .hero-mark {
+      -webkit-mask-image: var(--hero-mask);
+      mask-image: var(--hero-mask);
+      -webkit-mask-size: 100% 100%;
+      mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      /* The file is grayscale, no alpha; the default mode reads alpha and would
+       show the whole box. Old WebKit spelt this `-webkit-mask-source-type`. */
+      -webkit-mask-source-type: luminance;
+      mask-mode: luminance;
+    }
+    /* Crest depth, in px. A px value is the whole point of the bands: it is what
      the old objectBoundingBox clip could not express (see `bandPath`). Set to
      roughly the depth the fractional wave used to resolve to at this section's
      usual height, so the plate looks the same — it just stops moving. */
-  .manifesto-plate {
-    --edge: 14px;
-    position: relative;
-  }
-  .manifesto-edge {
-    position: absolute;
-    left: 0;
-    display: block;
-    width: 100%;
-    /* One extra px, overlapped into the plate below, so no hairline of page
+    .manifesto-plate {
+      --edge: 14px;
+      position: relative;
+    }
+    .manifesto-edge {
+      position: absolute;
+      left: 0;
+      display: block;
+      width: 100%;
+      /* One extra px, overlapped into the plate below, so no hairline of page
        shows through the seam on fractional device pixel ratios. */
-    height: calc(var(--edge) + 1px);
-  }
-  .manifesto-edge--top {
-    bottom: calc(100% - 1px);
-  }
-  .manifesto-edge--bottom {
-    top: calc(100% - 1px);
-  }
-  /* The bands add their height outside the block, where the clip used to take
+      height: calc(var(--edge) + 1px);
+    }
+    .manifesto-edge--top {
+      bottom: calc(100% - 1px);
+    }
+    .manifesto-edge--bottom {
+      top: calc(100% - 1px);
+    }
+    /* The bands add their height outside the block, where the clip used to take
      it from inside. Pull the copy in by the same amount and the plate keeps the
      breathing room it had. */
-  .manifesto-body {
-    padding-block: calc(5rem - var(--edge));
-  }
-  @media (min-width: 768px) {
     .manifesto-body {
-      padding-block: calc(7rem - var(--edge));
+      padding-block: calc(5rem - var(--edge));
     }
-  }
-  /* Hero contours mirror the manifesto top edge; show the set matching the wave
+    @media (min-width: 768px) {
+      .manifesto-body {
+        padding-block: calc(7rem - var(--edge));
+      }
+    }
+    /* Hero contours mirror the manifesto top edge; show the set matching the wave
      the plate uses at this breakpoint (swap point must match the band media
      query below). */
-  .edge-mobile,
-  .contours-mobile {
-    display: none;
-  }
-  @media (max-width: 767px) {
-    .edge-desktop {
-      display: none;
-    }
-    .edge-mobile {
-      display: block;
-    }
-    .contours-desktop {
-      display: none;
-    }
+    .edge-mobile,
     .contours-mobile {
-      display: inline;
+      display: none;
     }
-  }
-</style>
+    @media (max-width: 767px) {
+      .edge-desktop {
+        display: none;
+      }
+      .edge-mobile {
+        display: block;
+      }
+      .contours-desktop {
+        display: none;
+      }
+      .contours-mobile {
+        display: inline;
+      }
+    }
+  </style>
 </Layout>
