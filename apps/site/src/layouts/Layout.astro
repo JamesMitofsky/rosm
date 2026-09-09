@@ -19,11 +19,23 @@ const SITE_URL =
 interface Props {
   title?: string;
   description?: string;
+  /**
+   * Pin the page to the viewport: the body becomes a column exactly one
+   * viewport tall, the header keeps its own height, and the page's `<main>`
+   * takes the rest. Page-level scrolling is off — the page's content owns its
+   * box. For pages that are one full-bleed surface, like the live map.
+   *
+   * Sized with `h-dvh`, not `h-full`: the html element's 100% is the layout
+   * viewport, which on phones does not track the browser chrome sliding away,
+   * and a map pinned to it would leave a strip of page under the toolbar.
+   */
+  fullscreen?: boolean;
 }
 
 const {
   title = "Run Verified Fountains — Running for Open-Sourced Maps",
   description = APP_DESCRIPTION,
+  fullscreen = false,
 } = Astro.props;
 
 // Editorial social card, rendered to a static PNG at build time (Satori + resvg).
@@ -65,8 +77,8 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
   </head>
-  <body class="min-h-full">
-    <header class="flex items-center justify-end px-5 py-4 sm:justify-between">
+  <body class:list={["min-h-full", fullscreen && "flex h-dvh flex-col overflow-hidden"]}>
+    <header class="flex shrink-0 items-center justify-end px-5 py-4 sm:justify-between">
       {/* Logo is desktop-only; on mobile the hero headline carries the
           branding and the bar is just the nav trigger. 120px source = 3x the
           40px render so it stays crisp on high-DPI screens. */}
