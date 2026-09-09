@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import type { z } from "zod";
+import { z } from "zod";
 import { getOsmToken } from "@/lib/osmToken";
 import { EditRequest } from "@rosm/core/schemas";
 import {
@@ -59,7 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const parsed = EditRequest.safeParse(await request.json());
   if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+    return Response.json({ error: z.flattenError(parsed.error) }, { status: 400 });
   }
   const { nodeId, action, tagKey, extras } = parsed.data;
 
