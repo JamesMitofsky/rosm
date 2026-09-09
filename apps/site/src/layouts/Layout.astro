@@ -26,6 +26,8 @@ const SITE_URL =
 interface Props {
   title?: string;
   description?: string;
+  /** Keep the page out of search results. Pair with a Disallow in public/robots.txt. */
+  noindex?: boolean;
   /**
    * Pin the page to the viewport: the body becomes a column exactly one
    * viewport tall, the header keeps its own height, and the page's `<main>`
@@ -42,6 +44,7 @@ interface Props {
 const {
   title = "Run Verified Fountains — Running for Open-Sourced Maps",
   description = APP_DESCRIPTION,
+  noindex = false,
   fullscreen = false,
 } = Astro.props;
 
@@ -59,6 +62,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta name="application-name" content={APP_NAME} />
     <meta name="theme-color" content="#ffffff" />
     <meta name="format-detection" content="telephone=no" />

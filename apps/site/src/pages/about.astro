@@ -1,0 +1,62 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { APP_NAME } from "@/lib/appConfig";
+
+export const prerender = true;
+// No `.reveal` here: that class starts at opacity 0 and only index.astro runs
+// the observer that reveals it. `manifesto-body` is likewise index-scoped
+// (it subtracts the plate's wave bands); its 5rem / 7rem rhythm is used directly.
+---
+
+<Layout title={`Backstory — ${APP_NAME}`} description={`Where ${APP_NAME} came from.`} noindex>
+  <main class="bg-surface font-body text-base relative flex flex-1 flex-col">
+    <section class="bg-blue flex-1">
+      <div class="mx-auto max-w-3xl px-5 py-20 md:py-28">
+        <h1
+          class="font-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight text-light"
+        >
+          Backstory
+        </h1>
+        {
+          /* <p class="mt-6 text-lg leading-relaxed text-white/85">
+          It's hard to know where to find public drinking fountains, and even harder to know if
+          they're working.
+        </p> */
+        }
+        <p class="mt-6 text-lg leading-relaxed text-white/85">
+          It all begins on one muggy summer day in Washington D.C. I had just moved to DC and was
+          (naively) running without a waterbottle. As the sun is getting the better of me, I see a
+          fountain in the distance. Nothing happens when I press the button, but this is fine
+          because I can actually see <em>another</em> fountain like 400 meters away! When this fountain{
+            " "
+          }
+          <i>and the next one</i> don't work though, I realize I'll need to make preparations before my
+          next run. Little did I know that <i>this</i> is what preparations would look like.
+        </p>
+
+        <p class="mt-6 text-lg leading-relaxed text-white/85">
+          DC's an especially interesting case-study because it occupies a middleground where there
+          are enough fountains that there's likely one near you but not enough that there's
+          typically redundancy protecting you from a broken fountain. If you're anywhere other than
+          the National Mall, finding a working fountain is not a likelihood you'd want to put money
+          on.
+        </p>
+        <p class="mt-6 text-lg leading-relaxed text-white/85">
+          Now some other good folks have taken a swing at this problem. In particular, there are a
+          handful of pretty decent maps on Reddit. They're a good, but they're hampered not by the
+          people but by the tooling. These citizen mappers are given little choice other than the
+          very generalized tools of Big Map—good for every use case but great for none. This leads
+          to downstream consequences: the map is hard to read because it was built with a
+          generalized tool, the pace and reliability of updates are usually bottlenecked by the
+          person who created the map, there is no node-level history of map updates, when limited
+          amount of detail that can be added to a node, bottlenecked crowd sourcing information
+          about fountainsOr maybe you've found a map some folks made together, but when you arrive
+          at the fountain, it's either out of order or <em>even removed</em>! This unreliability
+          delivers an experience similar to not even having public fountains in the first place, and
+          that's no good for anyone. It's hard to know where to find public drinking fountains. It's
+          even harder to know if they're working or—in the winter—if they're running.
+        </p>
+      </div>
+    </section>
+  </main>
+</Layout>
