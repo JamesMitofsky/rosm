@@ -82,7 +82,7 @@
   type="button"
   onclick={() => dialogEl?.showModal()}
   class={// The small variant is a nav item: same link treatment as its neighbours
-  // (underline rule on hover, inherited face). The default is the filled
+  // (blue on hover, inherited face). The default is the filled
   // call-to-action that sits in body copy.
   size === "sm"
     ? "nav-link"
