@@ -10,6 +10,12 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [svelte()],
+  // The fountain map was published as a DC page before it became the site's
+  // one map page. Permanent, so anything holding the old URL — search results,
+  // shared links — is told to update it rather than follow it every time.
+  redirects: {
+    "/dc-drinking-fountains": { status: 301, destination: "/public-drinking-fountains" },
+  },
   vite: {
     plugins: [tailwindcss()],
     // Without a stated floor the release minifier reads a prefixed property

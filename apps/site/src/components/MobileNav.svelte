@@ -84,9 +84,9 @@
         Home
       </a>
       <a
-        href="/dc-drinking-fountains"
+        href="/public-drinking-fountains"
         onclick={() => (open = false)}
-        aria-current={currentPath === "/dc-drinking-fountains" ? "page" : undefined}
+        aria-current={currentPath === "/public-drinking-fountains" ? "page" : undefined}
         in:fly={{ y: -6, duration: ms(220), delay: ms(95), easing: cubicOut }}
         class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-light-muted transition duration-200 ease-out hover:bg-blue/5 hover:text-blue current-page:text-blue"
       >
