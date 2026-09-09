@@ -84,11 +84,10 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         edge, and anything short of it pokes out of the viewport and gives the
         page a horizontal scrollbar. Below `sm` the nav is hidden, so the bar
         keeps the 20px the page content uses. */}
-    <header class="flex items-center justify-end px-5 py-4 sm:justify-between sm:px-6">
-      {/* Logo is desktop-only; on mobile the hero headline carries the
-          branding and the bar is just the nav trigger. 120px source = 3x the
-          40px render so it stays crisp on high-DPI screens. */}
-      <a href="/" class="nav-brand hidden items-center w-fit sm:flex" aria-label={APP_NAME}>
+    <header class="flex items-center justify-between px-5 py-4 sm:px-6">
+      {/* Logo sits top-left at every width and is the way home. 120px source
+          = 3x the 40px render so it stays crisp on high-DPI screens. */}
+      <a href="/" class="nav-brand flex items-center w-fit" aria-label={APP_NAME}>
         <img src="/icons/logo-120.png" alt={APP_NAME} width="120" height="120" decoding="async" class="h-10 w-10" />
       </a>
       {/* Nav wears the section-heading face; the "Waitlist" button inside

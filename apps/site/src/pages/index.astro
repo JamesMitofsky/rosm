@@ -172,10 +172,10 @@ const mobileContourLines = contoursFor(
       </svg>
 
       <div class="relative mx-auto max-w-6xl px-5 pt-8 pb-16 md:pt-12 md:pb-24">
-        {/* Mobile: map -> title -> subtitle (flex column, map pulled to the top
-            by `order-first`). Desktop: map spans the left column, title +
-            subtitle stack in the right column (grid), where the explicit
-            col/row placement makes source order irrelevant. */}
+        {/* Mobile: title -> subtitle -> map, in source order (flex column).
+            Desktop: map spans the left column, title + subtitle stack in the
+            right column (grid), where the explicit col/row placement makes
+            source order irrelevant. */}
         <div
           class="flex flex-col items-start gap-2 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-2"
         >
@@ -213,7 +213,7 @@ const mobileContourLines = contoursFor(
               loading frame for exactly the window the frame exists to fill. Its
               dissolve is the entrance. */}
           <div
-            class="relative order-first mb-8 w-full overflow-hidden rounded-xl shadow-lg md:order-none md:mb-0 md:col-start-1 md:row-span-2 md:self-center"
+            class="relative mt-8 w-full overflow-hidden rounded-xl shadow-lg md:mt-0 md:col-start-1 md:row-span-2 md:self-center"
           >
             {/* The loading state is `MapFrame`'s, not the island's: a picture of
                 this exact opening view, server-rendered and inline, so it is up
