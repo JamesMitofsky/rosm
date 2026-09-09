@@ -204,7 +204,7 @@ body {
    and as a utility so sizing stays on the Tailwind scale. */
 @utility nav-link {
   @apply text-light-muted ease-settle hover:text-blue focus-visible:text-blue inline-flex items-center gap-1 text-xl transition-colors duration-200 motion-reduce:transition-none;
-  @apply -mx-4 -my-1 px-4 py-1;
+  @apply -mx-6 -my-1 px-6 py-1;
 
   /* Plain selector rather than the `current-page:` variant so it outranks the
      hover/focus color without leaning on variant order. */
