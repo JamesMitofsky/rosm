@@ -119,8 +119,19 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         /* Nav wears the section-heading face. Jua ships one weight, so nothing
           here asks for bold — it would be synthesized. */
       }
+      {
+        /* Each link carries a `view-transition-name` so its splotch cross-fades
+          between pages (see the @view-transition block in globals.css). Names
+          must be unique per document, hence one per link, and stable across
+          pages so the old and new snapshots pair up. */
+      }
       <nav class="font-hero hidden sm:flex items-center gap-12">
-        <a href="/" class="nav-link" aria-current={isCurrent("/")}>
+        <a
+          href="/"
+          class="nav-link"
+          style="view-transition-name: nav-home"
+          aria-current={isCurrent("/")}
+        >
           {
             /* Phosphor "house" (fill weight, matching the mobile menu), inline for the same reason as the map below:
               the header is on every page and shouldn't carry an icon island. */
@@ -142,6 +153,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         <a
           href="/public-drinking-fountains"
           class="nav-link"
+          style="view-transition-name: nav-map"
           aria-current={isCurrent("/public-drinking-fountains")}
         >
           <svg
@@ -158,7 +170,12 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           </svg>
           Map
         </a>
-        <a href="/waitlist" class="nav-link" aria-current={isCurrent("/waitlist")}>
+        <a
+          href="/waitlist"
+          class="nav-link"
+          style="view-transition-name: nav-waitlist"
+          aria-current={isCurrent("/waitlist")}
+        >
           <svg
             width="16"
             height="16"
@@ -179,5 +196,79 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
       </div>
     </header>
     <slot />
+    <script>
+      // Fallback nav fade for engines without cross-document view transitions
+      // (Gecko, as of Firefox 154 — see the @view-transition block in
+      // globals.css). `CSSViewTransitionRule` is the object model for that
+      // at-rule, so its presence is the feature test; `startViewTransition`
+      // alone is not, since Gecko ships the same-document half. `typeof` rather
+      // than `in window`: lib.dom declares the class, so TypeScript would
+      // narrow the negative branch to `never` and reject everything inside it.
+      //
+      // The fade runs on the outgoing page: the tapped link takes
+      // `aria-current` and the old one loses it, the nav-link CSS transitions
+      // do the cross-fade, and only then does the page turn. The new document
+      // renders the header in exactly that end state, so the swap itself is
+      // invisible. Prefetch (astro.config.mjs) means the wait is the fade,
+      // not the network.
+      if (typeof CSSViewTransitionRule === "undefined") {
+        const links = Array.from(
+          document.querySelectorAll<HTMLAnchorElement>("header nav .nav-link"),
+        );
+        const setCurrent = (current: HTMLAnchorElement | null) => {
+          for (const link of links) {
+            if (link === current) link.setAttribute("aria-current", "page");
+            else link.removeAttribute("aria-current");
+          }
+        };
+        // Same normalization as `currentPath` above, for the bfcache restore.
+        const linkForPath = (pathname: string) => {
+          const path = pathname.replace(/(.)\/$/, "$1");
+          return (
+            links.find((link) => new URL(link.href).pathname.replace(/(.)\/$/, "$1") === path) ??
+            null
+          );
+        };
+
+        for (const link of links) {
+          link.addEventListener("click", (event) => {
+            // Leave anything that isn't a plain same-tab navigation alone:
+            // modified clicks open new tabs, and the current page has nothing to fade.
+            if (
+              event.defaultPrevented ||
+              event.button !== 0 ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey ||
+              (link.target && link.target !== "_self") ||
+              link.getAttribute("aria-current") === "page"
+            ) {
+              return;
+            }
+            event.preventDefault();
+            setCurrent(link);
+            // Wait on the transitions the attribute change started (pseudo-elements
+            // included), not a fixed timer, so reduced-motion's `transition: none`
+            // navigates at once. The timeout is a backstop only, in case an
+            // animation is paused or never reports finished.
+            const running = links.flatMap((l) =>
+              l.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined)),
+            );
+            const backstop = new Promise((resolve) => setTimeout(resolve, 600));
+            Promise.race([Promise.all(running), backstop]).then(() => {
+              window.location.assign(link.href);
+            });
+          });
+        }
+
+        // Coming back through the bfcache restores this document with the
+        // attribute still on the link that was tapped. Put it back where the
+        // URL says it belongs.
+        window.addEventListener("pageshow", (event) => {
+          if (event.persisted) setCurrent(linkForPath(window.location.pathname));
+        });
+      }
+    </script>
   </body>
 </html>
