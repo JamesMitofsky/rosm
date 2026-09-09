@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { List, X, MapTrifold, House, UserPlus } from "phosphor-svelte";
+  import { List, X, MapTrifold, House, Bell } from "phosphor-svelte";
   import { fade, fly, scale } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { prefersReducedMotion } from "svelte/motion";
@@ -105,7 +105,7 @@
         in:fly={{ y: -6, duration: ms(220), delay: ms(140), easing: cubicOut }}
         class="row inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-lg text-light-muted transition duration-200 ease-out hover:bg-blue/5 hover:text-blue current-page:text-blue"
       >
-        <UserPlus class="h-5 w-5" weight="fill" />
+        <Bell class="h-5 w-5" weight="fill" />
         Waitlist
       </button>
     </div>

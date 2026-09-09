@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { UserPlus, X } from "phosphor-svelte";
+  import { Bell, X } from "phosphor-svelte";
   import ErrorNotice from "./ErrorNotice.svelte";
 
   // Landing-page CTA: the nav "Waitlist" button plus the waitlist modal it
@@ -91,7 +91,7 @@
         inverted ? "bg-white text-blue hover:bg-white/90" : "bg-blue text-white hover:bg-[#0a6fa3]",
       ].join(" ")}
 >
-  <UserPlus class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"} weight="fill" />
+  <Bell class={size === "sm" ? "h-4 w-4" : "h-5 w-5 md:h-6 md:w-6"} weight="fill" />
   <!-- Nav item keeps to one word like its neighbours; the body-copy button
        spells out the ask. -->
   {size === "sm" ? "Waitlist" : "Join the waitlist"}
