@@ -25,7 +25,7 @@
   // Location-specific play-by-play for the hero fetch.
   const LOADING_STEPS: LoadingStep[] = [
     { text: "Opening a socket to OpenStreetMap servers…", ms: 5000 },
-    { text: "Scanning drinking-water nodes around Washington, DC…", ms: 5000 },
+    { text: "Scanning drinking-water nodes…", ms: 5000 },
     { text: "Reading check_date tags to grade recency…", ms: 5000 },
   ];
 

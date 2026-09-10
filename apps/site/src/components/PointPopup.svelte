@@ -94,8 +94,8 @@
 <div class="flex w-60 flex-col gap-2.5 text-neutral-800">
   {#if !detailFor}
     <div>
-      <div class="text-xs font-medium tracking-wide text-neutral-500 uppercase">
-        {checkedAgoLabel(fountain.tags, now)}
+      <div class="text-xs font-medium tracking-wide text-neutral-500">
+        {checkedAgoLabel(fountain.tags, now, "long")}
       </div>
       {#if isDogWater(fountain.tags)}
         <div class="mt-1 flex items-center gap-1 text-xs font-medium text-violet-700">

@@ -1,6 +1,11 @@
 ---
 import { MAP_PLACEHOLDERS } from "@/lib/basemap/placeholders.generated";
-import { BASEMAP_BACKGROUND, MAP_FRAMES, type MapFrameId } from "@/lib/basemap/frames";
+import {
+  BASEMAP_BACKGROUND,
+  MAP_FRAMES,
+  MAP_REVEAL_MS,
+  type MapFrameId,
+} from "@/lib/basemap/frames";
 
 /**
  * The box every MapLibre map on the site renders inside: a server-rendered
@@ -110,7 +115,7 @@ const frameCss = aspectCss + sizeCss + spinnerCss;
 }
 <div
   class:list={["map-frame", className]}
-  style={`--basemap-background: ${BASEMAP_BACKGROUND}; --map-frame-radius: ${radius}`}
+  style={`--basemap-background: ${BASEMAP_BACKGROUND}; --map-frame-radius: ${radius}; --map-reveal-ms: ${MAP_REVEAL_MS}ms`}
   data-map-frame={frame}
 >
   {
@@ -188,14 +193,12 @@ const frameCss = aspectCss + sizeCss + spinnerCss;
 </div>
 
 <style>
-  /* How long the overlay takes to dissolve once the map reports its first
-     paint. Long enough to read as the frame clearing rather than as a cut, and
-     no longer: the map underneath is already drawn and already interactive by
-     this point, since the overlay stops taking pointer events the moment
-     `data-map-ready` lands, so every extra millisecond is a finished map behind
-     frosted glass. Kept in step with REVEAL_MS in the script below. */
+  /* The dissolve's length, `--map-reveal-ms`, arrives on the element's inline
+     style from `MAP_REVEAL_MS` in `frames.ts` — one number, shared with the
+     script below and with any map that waits for the frame to clear. The
+     overlay stops taking pointer events the moment `data-map-ready` lands, so
+     the map is interactive for the whole of it. */
   .map-frame {
-    --map-reveal-ms: 280ms;
     position: relative;
     overflow: hidden;
     isolation: isolate;
@@ -346,7 +349,7 @@ const frameCss = aspectCss + sizeCss + spinnerCss;
    * sync between an Astro page and a Svelte component, and any number of maps
    * on a page each clear their own frame.
    */
-  const REVEAL_MS = 280;
+  import { MAP_REVEAL_MS } from "@/lib/basemap/frames";
   /**
    * Backstop for the unmount only. The overlay normally leaves the tree when its
    * fade actually finishes — see the `transitionend` handler — and this covers
@@ -354,7 +357,7 @@ const frameCss = aspectCss + sizeCss + spinnerCss;
    * started, a tab backgrounded mid-fade, `prefers-reduced-motion` collapsing
    * the duration to zero. Generous on purpose, so it never races the real event.
    */
-  const UNMOUNT_FALLBACK_MS = REVEAL_MS + 400;
+  const UNMOUNT_FALLBACK_MS = MAP_REVEAL_MS + 400;
   /**
    * Last resort. `MapView` reports ready on load, on idle, on error and on its
    * own 20s load timeout, so the only way the overlay is still up past this is
