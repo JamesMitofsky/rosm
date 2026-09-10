@@ -233,11 +233,115 @@
   const motionMs = (ms: number) =>
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
 
+  // The part of the box the map is actually seen through, as the px each edge
+  // of the box is covered by — see the `.map-view-visible` element in the
+  // markup for how a page declares it. Moves this component makes on its own
+  // (bringing a tapped marker in, the zoom buttons) aim at the middle of that
+  // area rather than the middle of the box, where on a page that paints copy
+  // over one side of the map they would land half under the copy.
+  //
+  // Deliberately *not* handed to MapLibre as `padding`, which looks like the
+  // same idea. Padding redefines the map's centre as the visible area's: the
+  // opening view is then drawn there, so the whole map slides sideways out
+  // from under the loading frame that was rendered around the box's centre,
+  // and the pen (`maxBounds`) constrains a point that is no longer the box's
+  // centre. Keeping the map's own centre where it is and doing the arithmetic
+  // here leaves the frame, the pen, and every other camera move exactly as
+  // they were.
+  let visibleInset = $state({ top: 0, right: 0, bottom: 0, left: 0 });
+  let visibleEl = $state<HTMLDivElement | undefined>();
+  // The measure above, for `handleLoad` to run once the controls are in the DOM.
+  let measureVisible: (() => void) | undefined;
+
+  $effect(() => {
+    const box = root;
+    const area = visibleEl;
+    if (!box || !area) return;
+    const measure = () => {
+      const w = box.clientWidth;
+      const h = box.clientHeight;
+      // Mid-layout the box reports 0; the observer will fire again once it has
+      // a size.
+      if (!w || !h) return;
+      // `offset*` rather than bounding rects: the box is the area's offset
+      // parent, so these are its layout position inside the box, unaffected
+      // by any transform an ancestor (a reveal, say) is animating.
+      let next = {
+        top: area.offsetTop,
+        left: area.offsetLeft,
+        right: w - area.offsetLeft - area.offsetWidth,
+        bottom: h - area.offsetTop - area.offsetHeight,
+      };
+      // The map's own furniture along the bottom edge — the view controls
+      // stacked in one corner, the attribution in the other — is cover too:
+      // a marker aimed at the middle of the area declared by the page lands
+      // with its popup's foot among the buttons. MapLibre lays each corner's
+      // controls out in a container pinned to the box's bottom edge (lifted by
+      // `--map-ctrl-inset-bottom`), so the taller container's top is where
+      // the clear ground ends. Read off the DOM rather than summed from the
+      // controls' known sizes, so adding one later changes nothing here.
+      for (const corner of box.querySelectorAll<HTMLElement>(
+        ".maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right",
+      )) {
+        if (corner.offsetHeight) next.bottom = Math.max(next.bottom, h - corner.offsetTop);
+      }
+      // Insets that leave nothing between them are a page bug; the whole box
+      // is the only sane answer, and a degenerate area would aim moves at a
+      // point outside the map.
+      if (next.top + next.bottom >= h || next.left + next.right >= w) {
+        next = { top: 0, right: 0, bottom: 0, left: 0 };
+      }
+      const cur = visibleInset;
+      if (
+        next.top !== cur.top ||
+        next.right !== cur.right ||
+        next.bottom !== cur.bottom ||
+        next.left !== cur.left
+      ) {
+        visibleInset = next;
+      }
+    };
+    // Both observed: the area moves without resizing when a page swaps one
+    // inset for another of the same size, but the box's own resize is the
+    // usual reason either changes. The control containers are not observed —
+    // they are laid out once the map mounts, which `handleLoad` follows with
+    // a measure, and hold their size from then on.
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    ro.observe(area);
+    measureVisible = measure;
+    return () => {
+      ro.disconnect();
+      measureVisible = undefined;
+    };
+  });
+
+  // Where the box's centre sits relative to the visible area's, in px. To put
+  // a point in the middle of the visible area, the map's centre — the point
+  // the opening view was drawn around and the pen (`clampToPen`) is measured
+  // from — goes this far from it.
+  function boxCentreOffset(): [number, number] {
+    const i = visibleInset;
+    return [(i.right - i.left) / 2, (i.bottom - i.top) / 2];
+  }
+
+  // The middle of the visible area, as the ground under it right now. What the
+  // zoom buttons zoom about: MapLibre's default is the box's centre, which on
+  // a half-covered map is at the visible area's edge, so every press would
+  // slide the ground the visitor is looking at away toward the cover.
+  function visibleCentre(): maplibregl.LngLat | undefined {
+    if (!map) return;
+    const { clientWidth: w, clientHeight: h } = map.getContainer();
+    const i = visibleInset;
+    return map.unproject([(i.left + w - i.right) / 2, (i.top + h - i.bottom) / 2]);
+  }
+
   // The view controls (see `cooperativeGestures`). MapLibre's own
   // NavigationControl is not used because it cannot take a third button, and
   // three buttons in one group read as one control where two groups read as
-  // two. Zoom in/out borrow MapLibre's button classes so they get its icons
-  // and disabled styling; reset is ours.
+  // two: reset alone on top, the zoom pair beneath it. Zoom in/out borrow
+  // MapLibre's button classes so they get its icons and disabled styling;
+  // reset is ours.
   //
   // Whether either zoom button has anything left to do. Read off the map at
   // every zoom rather than derived from the props: the map's own limits are
@@ -336,11 +440,12 @@
    * With no margin that move is clamped to nothing and a popup on an edge marker
    * opens half outside the frame.
    *
-   * Sized so an edge marker's popup lands *within* the frame with air around it,
-   * rather than with one side flush against it: centring a marker that started
-   * on the edge costs about half the box, and the popup standing above it wants
-   * a bit more. Short of the 0.5 that would let the route itself be panned
-   * entirely out of view.
+   * Sized so an edge marker lands at the visible area's centre with its popup
+   * *within* the frame, rather than with one side flush against it: centring a
+   * marker that started on the edge costs about half the box, and where the
+   * visible area's centre is off the box's (see `visibleInset`) a bit more.
+   * Short of the 0.5 that would let the route itself be panned entirely out of
+   * view.
    */
   const LOCK_SLACK = 0.4;
 
@@ -532,8 +637,11 @@
     ];
   }
 
-  // Bring a tapped marker into the frame so its popup has room (demo maps opt in
-  // via `centerOnSelect`).
+  // Bring a tapped marker to the middle of the visible area (demo maps opt in
+  // via `centerOnSelect`). The marker itself, not the marker-and-popup pair:
+  // this used to aim half the popup's height above the marker so the pair sat
+  // centred, which put the marker itself well below centre — and what the
+  // visitor tapped is the marker.
   //
   // `easeTo`, not `flyTo`: flyTo flies an arc that pulls the camera back and in
   // again, which over a couple of hundred pixels is mostly swoop — and under a
@@ -544,27 +652,22 @@
     if (!centerOnSelect || !map) return;
     const m = untrack(() => selectedMarker);
     if (!m) return;
-    const mapInst = map;
-    const raf = requestAnimationFrame(() => {
-      const popupEl = mapInst
-        .getContainer()
-        .querySelector(".maplibregl-popup") as HTMLElement | null;
-      const offsetY = popupEl ? 14 + popupEl.offsetHeight / 2 : 0;
-      // Sit the camera north of the marker by that much, so the marker lands low
-      // in the frame and the popup standing above it has headroom. Worked out
-      // here rather than handed to `easeTo` as `offset` because the destination
-      // has to be a real centre before it can be clamped against the pen.
-      const worldPx = WORLD_TILE_PX * 2 ** mapInst.getZoom();
-      const [lat, lon] = untrack(() =>
-        clampToPen(yToLat(latToY(m.lat) - offsetY / worldPx), m.lon),
-      );
-      mapInst.easeTo({
-        center: [lon, lat],
-        duration: motionMs(600),
-        essential: true,
-      });
+    // Where the map's own centre must be for the marker to sit at the visible
+    // area's centre (`boxCentreOffset`), worked out in map coordinates rather
+    // than handed to `easeTo` as `offset`: the destination has to be a real
+    // centre before it can be clamped against the pen, and `easeTo` clamps
+    // whatever it is given as the centre, so given anything else it would
+    // clamp the wrong point.
+    const worldPx = WORLD_TILE_PX * 2 ** map.getZoom();
+    const [ox, oy] = untrack(boxCentreOffset);
+    const [lat, lon] = untrack(() =>
+      clampToPen(yToLat(latToY(m.lat) + oy / worldPx), xToLon(lonToX(m.lon) + ox / worldPx)),
+    );
+    map.easeTo({
+      center: [lon, lat],
+      duration: motionMs(600),
+      essential: true,
     });
-    return () => cancelAnimationFrame(raf);
   });
 
   function emitView(userInitiated: boolean) {
@@ -595,6 +698,8 @@
     // actually settled on.
     applyViewLock();
     trackZoomLimits();
+    // The controls exist now; the visible area is measured before they do.
+    measureVisible?.();
     emitView(false);
     const attrEl = map?.getContainer().querySelector(".maplibregl-ctrl-attrib");
     attrEl?.classList.remove("maplibregl-compact-show");
@@ -661,6 +766,18 @@
       </p>
     </div>
   {/if}
+  <!-- The part of the box the map is seen through. A page that paints
+       something over one side of the map (the landing hero: copy over the
+       right half on wide screens, over the top on narrow ones) declares the
+       covered strips as custom properties on any ancestor —
+       `--map-view-inset-top/right/bottom/left`, any CSS length — and this
+       element takes the shape of what is left. Sized in CSS rather than by
+       reading the properties from script so the page can write them in
+       whatever unit fits (a percentage, a `calc()` against one of its own
+       variables) and the browser does the resolving; the observer in the
+       script reads the result in px (`visibleInset`). Never painted, never
+       hit-tested. -->
+  <div bind:this={visibleEl} class="map-view-visible" aria-hidden="true"></div>
   <!-- Fully opaque throughout, and deliberately not faded in. The map used to
        rise from opacity 0 while a loading panel sat on top of it, which is a
        cross-fade rather than a reveal: for its whole length both layers were
@@ -707,34 +824,34 @@
         <div class="maplibregl-ctrl-group">
           <button
             type="button"
-            class="maplibregl-ctrl-zoom-in"
-            title="Zoom in"
-            aria-label="Zoom in"
-            disabled={atMaxZoom}
-            onclick={() => map?.zoomIn({ duration: motionMs(300) })}
-          >
-            <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
-          </button>
-          <button
-            type="button"
-            class="maplibregl-ctrl-zoom-out"
-            title="Zoom out"
-            aria-label="Zoom out"
-            disabled={atMinZoom}
-            onclick={() => map?.zoomOut({ duration: motionMs(300) })}
-          >
-            <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
-          </button>
-        </div>
-        <div class="maplibregl-ctrl-group">
-          <button
-            type="button"
             class="view-controls__reset"
             title="Reset view"
             aria-label="Reset view"
             onclick={resetView}
           >
             <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
+          </button>
+        </div>
+        <div class="maplibregl-ctrl-group">
+          <button
+            type="button"
+            class="maplibregl-ctrl-zoom-out"
+            title="Zoom out"
+            aria-label="Zoom out"
+            disabled={atMinZoom}
+            onclick={() => map?.zoomOut({ around: visibleCentre(), duration: motionMs(300) })}
+          >
+            <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
+          </button>
+          <button
+            type="button"
+            class="maplibregl-ctrl-zoom-in"
+            title="Zoom in"
+            aria-label="Zoom in"
+            disabled={atMaxZoom}
+            onclick={() => map?.zoomIn({ around: visibleCentre(), duration: motionMs(300) })}
+          >
+            <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
           </button>
         </div>
       </CustomControl>
@@ -855,6 +972,16 @@
     bottom: var(--map-ctrl-inset-bottom, 0);
   }
 
+  .map-view-visible {
+    position: absolute;
+    top: var(--map-view-inset-top, 0);
+    right: var(--map-view-inset-right, 0);
+    bottom: var(--map-view-inset-bottom, 0);
+    left: var(--map-view-inset-left, 0);
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   /* MapLibre's cooperative-gestures screen: a 40% black wash with a message,
      thrown over the whole map for a second on every wheel tick that arrives
      without the modifier. On a map that is the page's hero that is the hero
@@ -865,14 +992,16 @@
     display: none;
   }
 
-  /* Two pills in a row: the zoom pair joined, the reset standing a step to
-     the right on its own. The control itself is not a group (`group={false}`)
-     — the pills inside carry MapLibre's group class, so each gets its own
-     paper and shadow. MapLibre draws the seam between buttons on the top edge
-     for its stacked groups; in a row the seam goes on the left instead, same
-     colour as its own (`#ddd`). */
+  /* Two pills stacked, flush left: the reset on its own above, the zoom pair
+     joined side by side below. The control itself is not a group
+     (`group={false}`) — the pills inside carry MapLibre's group class, so
+     each gets its own paper and shadow. MapLibre draws the seam between
+     buttons on the top edge for its stacked groups; in the zoom row the seam
+     goes on the left instead, same colour as its own (`#ddd`). */
   .map-view-root :global(.view-controls) {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
   }
 

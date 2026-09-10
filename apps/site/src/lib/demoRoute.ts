@@ -1,5 +1,6 @@
 // Frozen demo data for the landing hero run map (extracted verbatim from the
-// original DemoRunMap): a real 24.5 km DC foot loop + its OSM fountains.
+// original DemoRunMap): a real DC foot loop of roughly 23.5 km + its OSM
+// fountains.
 import type { Fountain } from "@rosm/core/schemas";
 import type { StopStatus } from "@rosm/core/stores/run";
 
@@ -12,67 +13,51 @@ export const DC_FOUNTAINS: Fountain[] = [
     lon: -77.03205,
     tags: { name: "Meridian Hill Park", check_date: "2019-06-14" },
   },
-  { id: 2, lat: 38.93047, lon: -77.03617, tags: { name: "Upshur Park" } },
   {
-    id: 3,
+    id: 2,
     lat: 38.91665,
     lon: -77.02586,
     tags: { name: "LeDroit Park", check_date: "2021-03-02" },
   },
   {
-    id: 4,
+    id: 3,
     lat: 38.90981,
     lon: -77.02821,
     tags: { name: "Logan Circle", check_date: "2018-09-27" },
   },
-  { id: 5, lat: 38.90998, lon: -77.03762, tags: { name: "Stead Park" } },
+  { id: 4, lat: 38.90998, lon: -77.03762, tags: { name: "Stead Park" } },
   {
-    id: 6,
+    id: 5,
     lat: 38.88672,
     lon: -76.99649,
     tags: { name: "Lincoln Park", check_date: "2020-05-11" },
   },
-  { id: 7, lat: 38.8831, lon: -76.99871, tags: { name: "Folger Park" } },
+  { id: 6, lat: 38.8831, lon: -76.99871, tags: { name: "Folger Park" } },
   {
-    id: 8,
+    id: 7,
     lat: 38.88887,
     lon: -77.01979,
     tags: { name: "National Mall", check_date: "2017-08-19" },
   },
-  { id: 9, lat: 38.88897, lon: -77.02442, tags: { name: "Smithsonian Castle" } },
-  { id: 10, lat: 38.90495, lon: -77.06792, tags: { name: "Georgetown Waterfront" } },
+  { id: 8, lat: 38.88897, lon: -77.02442, tags: { name: "Smithsonian Castle" } },
+  { id: 9, lat: 38.90495, lon: -77.06792, tags: { name: "Georgetown Waterfront" } },
   {
-    id: 11,
+    id: 10,
     lat: 38.91023,
     lon: -77.06672,
     tags: { name: "Montrose Park", check_date: "2022-11-03" },
   },
 ];
 
-export const DC_ROUTE: [number, number][] = [
+// The run as recorded: a loop (first and last points coincide), one vertex
+// every few metres, every kerb and jog. It leaves point 1 straight down 15th
+// and comes home to it on the diagonal from 16th & W, one open turn at the
+// stop. (It used to hook round the north side of Meridian Hill Park at one end
+// or the other — a hairpin at the stop, and before that a crossing.)
+//
+// Not what is drawn: see `DC_ROUTE` below.
+const DC_ROUTE_TRACE: [number, number][] = [
   [38.92547, -77.03219],
-  [38.92645, -77.03256],
-  [38.92627, -77.03548],
-  [38.92621, -77.03637],
-  [38.92629, -77.03663],
-  [38.92648, -77.03676],
-  [38.92677, -77.03714],
-  [38.92702, -77.03682],
-  [38.92717, -77.03682],
-  [38.92785, -77.0366],
-  [38.92877, -77.0366],
-  [38.93042, -77.03659],
-  [38.93041, -77.03621],
-  [38.92986, -77.03634],
-  [38.92867, -77.0361],
-  [38.92718, -77.03546],
-  [38.9267, -77.03543],
-  [38.92626, -77.03541],
-  [38.92528, -77.03535],
-  [38.9248, -77.03456],
-  [38.92444, -77.03423],
-  [38.92262, -77.03397],
-  [38.92265, -77.03266],
   [38.92236, -77.03189],
   [38.92114, -77.03011],
   [38.92064, -77.02961],
@@ -322,9 +307,97 @@ export const DC_ROUTE: [number, number][] = [
   [38.92474, -77.03847],
   [38.92477, -77.03781],
   [38.92486, -77.03539],
-  [38.92536, -77.0338],
   [38.92547, -77.03219],
 ];
+
+/**
+ * How far the drawn route may stray from the trace, in metres.
+ *
+ * The hero shows the whole loop at a zoom where a pixel is some forty metres,
+ * so the trace's finest detail — the wobble of a recorded track, a kerb cut,
+ * the two sides of a street it doubled back along — is sub-pixel noise that
+ * only shows as kinks. Half a pixel takes that out and nothing more: at this
+ * tolerance every street the run took is still the street the line follows.
+ * Anything much coarser lets a segment cut the corner of a block, and at
+ * thirty metres a doubled-back block near Stead Park is folded into a
+ * crossing. The live run screen draws its own route from its own data at
+ * street zoom.
+ */
+const ROUTE_TOLERANCE_M = 20;
+
+/** Metres per degree of latitude, and of longitude at DC's latitude. */
+const M_PER_DEG_LAT = 111_320;
+const M_PER_DEG_LON = M_PER_DEG_LAT * Math.cos((DC_CENTER[0] * Math.PI) / 180);
+
+/** Distance in metres from `p` to the segment `a`–`b`, all as [lat, lon]. */
+function distanceToSegment(p: [number, number], a: [number, number], b: [number, number]) {
+  const px = (p[1] - a[1]) * M_PER_DEG_LON;
+  const py = (p[0] - a[0]) * M_PER_DEG_LAT;
+  const dx = (b[1] - a[1]) * M_PER_DEG_LON;
+  const dy = (b[0] - a[0]) * M_PER_DEG_LAT;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, (px * dx + py * dy) / len2));
+  return Math.hypot(px - t * dx, py - t * dy);
+}
+
+/**
+ * Douglas–Peucker over `trace`, keeping every index in `anchors` as well as the
+ * two ends. The simplification runs between consecutive anchors, so an anchor
+ * is never dropped and the line always passes through it.
+ */
+function simplifyRoute(
+  trace: [number, number][],
+  anchors: Iterable<number>,
+  toleranceM: number,
+): [number, number][] {
+  const keep = new Set<number>([0, trace.length - 1, ...anchors]);
+  const kept = [...keep].sort((a, b) => a - b);
+  // Spans still to look at, each between two kept vertices.
+  const stack: [number, number][] = kept.slice(1).map((to, k) => [kept[k], to]);
+  while (stack.length) {
+    const [from, to] = stack.pop()!;
+    let farthest = -1;
+    let farthestD = toleranceM;
+    for (let i = from + 1; i < to; i++) {
+      const d = distanceToSegment(trace[i], trace[from], trace[to]);
+      if (d > farthestD) {
+        farthestD = d;
+        farthest = i;
+      }
+    }
+    if (farthest !== -1) {
+      keep.add(farthest);
+      stack.push([from, farthest], [farthest, to]);
+    }
+  }
+  return [...keep].sort((a, b) => a - b).map((i) => trace[i]);
+}
+
+/** The trace vertex nearest each fountain: where the drawn line must pass. */
+const stopAnchors = DC_FOUNTAINS.map((f) => {
+  let best = 0;
+  let bestD = Infinity;
+  DC_ROUTE_TRACE.forEach(([lat, lon], i) => {
+    const d = Math.hypot((lon - f.lon) * M_PER_DEG_LON, (lat - f.lat) * M_PER_DEG_LAT);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+});
+
+/**
+ * The route as drawn — the trace with its street-level kinks taken out (see
+ * `ROUTE_TOLERANCE_M`), still passing through every stop. Computed once at
+ * module load; both the live map and the loading frame's placeholder draw
+ * this, so they agree vertex for vertex.
+ */
+export const DC_ROUTE: [number, number][] = simplifyRoute(
+  DC_ROUTE_TRACE,
+  stopAnchors,
+  ROUTE_TOLERANCE_M,
+);
 
 // Same palette as the live run screen.
 export const STATUS_COLOR: Record<StopStatus, string> = {
@@ -341,11 +414,10 @@ export const STATUS_COLOR: Record<StopStatus, string> = {
 // approach to the next target.
 export const SEED_STATUSES: Record<number, StopStatus> = {
   1: "confirm",
-  2: "confirm",
-  3: "out_of_order",
+  2: "out_of_order",
+  3: "confirm",
   4: "confirm",
   5: "confirm",
-  6: "confirm",
-  7: "removed",
-  8: "confirm",
+  6: "removed",
+  7: "confirm",
 };
