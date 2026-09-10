@@ -10,11 +10,14 @@
  *
  * It is only possible to pre-render a frame because none of these views are
  * computed at runtime: every map on the site opens on a hard-coded centre and
- * zoom (see `DemoRunMap.svelte` and `LiveFountainMap.svelte`). A map that fitted
+ * zoom (`DemoRunMap.svelte` reads its own from here; `LiveFountainMap.svelte`
+ * states its own, mirrored below). A map that fitted
  * itself to data it had not fetched yet would have no knowable first frame, and
  * would have to be made static first — as the café guide in the coffee-tracker
  * repo was — before any of this could apply to it.
  */
+
+import { DC_CENTER } from "../demoRoute";
 
 /** Identifies one map *in one place on the site*. See {@link MapFrameSpec.frame}. */
 export type MapFrameId = "demo-run" | "live-fountains-dc";
@@ -37,26 +40,34 @@ export type MapFrameVariant = {
   /** The exact zoom the map opens on, for viewports this variant matches. */
   zoom: number;
   /**
-   * The frame's CSS pixel size at a representative viewport of this variant.
+   * The picture's size, in CSS pixels — and the largest box this frame is
+   * expected to fill.
    *
-   * Two jobs. It fixes how much *ground* the pre-rendered image covers — the
-   * generator renders exactly this box at {@link zoom} — and its **ratio is the
-   * frame's aspect ratio**: `MapFrame.astro` emits `aspect-ratio` from these
-   * numbers, so a caller gives the frame a width and this decides its height.
+   * `MapFrame.astro` draws the picture at exactly this size, centred in its
+   * box, and lets the box crop it: one CSS pixel of picture is one CSS pixel of
+   * the live map at {@link zoom}, whatever the box's own size, so the picture
+   * and the map agree on where every road and every stop is. (Scaling the
+   * picture to *fit* the box instead was the failure this replaces: a map at a
+   * fixed zoom answers a bigger box by showing more ground, not by drawing the
+   * same view bigger, and the two drifted apart by the difference — most
+   * visibly wherever the subject sits off-centre, see {@link subject}.)
    *
-   * The shape has to come from here rather than from the caller because the
-   * image and the map answer a change in shape differently: the thumbnail is
-   * `object-fit: cover`d, so it always shows *this* view and crops whichever
-   * axis has room to spare, while the map holds a fixed zoom and simply reveals
-   * more ground on that axis. Any disagreement between the box and these
-   * numbers shows up as the dissolve moving the map under you.
-   *
-   * The width is still only representative: at a wider viewport the frame is
-   * the same shape but bigger, so the image scales up while the map stays at
-   * {@link zoom} and shows more ground. That residual is uniform across both
-   * axes, and it is seen through the frame's glass.
+   * The price of that exactness is paid at the edges: a box larger than this
+   * shows the frame's own paper around the picture. So the size is generous —
+   * the biggest box the frame is realistically asked to fill — rather than a
+   * typical one. Its ratio is also emitted as the frame's `aspect-ratio`, for a
+   * frame whose caller gives it only a width.
    */
   frame: { width: number; height: number };
+  /**
+   * Where the map's subject sits relative to the frame's centre, in the
+   * frame's CSS pixels — positive x east, positive y south. Absent when the
+   * subject is centred. Fixed pixels rather than a fraction on purpose: the
+   * zoom is fixed, so however large the frame is, the subject is exactly this
+   * far from its centre. `MapFrame.astro` parks its loading spinner here rather
+   * than dead centre, where the page may have laid copy over the map.
+   */
+  subject?: { x: number; y: number };
 };
 
 export type MapFrameSpec = {
@@ -65,57 +76,51 @@ export type MapFrameSpec = {
   variants: MapFrameVariant[];
 };
 
-/** Centre of the hero demo route — mirrors `DC_CENTER` in `lib/demoRoute.ts`. */
-const DEMO_CENTER: [number, number] = [38.9068, -77.0331];
 /** Centre the live fountain map opens on — mirrors `LiveFountainMap.svelte`. */
 const LIVE_CENTER: [number, number] = [38.8972, -77.0369];
 
 /**
- * Content width of a `max-w-6xl px-5` column at a given viewport width.
- *
- * `max-w-6xl` is 72rem and the site's root font size is the browser default 16,
- * so 1152px; `px-5` takes 20px off each side. The landing page lays its hero
- * map out inside exactly this column.
- */
-const columnWidth = (viewportWidth: number) => Math.min(viewportWidth, 1152) - 40;
-
-/**
  * The box the full-screen fountain map opens into: the viewport, less the site
- * header above it. The header is `py-4` around a 40px logo on desktop and a
- * 24px menu button with its own padding on mobile — 72px and about 64px.
- * Representative viewports are a 1280x800 desktop window and a 390x844 phone;
- * the frame really is the viewport, so on other screens the image is
- * `cover`-cropped against a map that shows more or less ground instead, and the
- * residual is seen through the frame's glass — same trade as every other frame.
+ * header above it. Sized for a 1920x1080 desktop and a 640px-wide phone (its
+ * own breakpoint) at a tall 1000px — anything larger shows the frame's paper
+ * past the picture's edge, see {@link MapFrameVariant.frame}.
  */
-const DESKTOP_HEADER = 72;
-const MOBILE_HEADER = 64;
-const LIVE_WIDE_FRAME = { width: 1280, height: 800 - DESKTOP_HEADER };
-const LIVE_NARROW_FRAME = { width: 390, height: 844 - MOBILE_HEADER };
+const LIVE_WIDE_FRAME = { width: 1920, height: 1080 };
+const LIVE_NARROW_FRAME = { width: 640, height: 1000 };
+
+/** MapLibre's vector tile size. Zoom is defined against it: world = SIZE * 2^zoom. */
+export const TILE_SIZE = 512;
 
 /**
- * The hero frame, square at both breakpoints. `md:grid-cols-[46%_1fr]` gives
- * the map 46% of the column on desktop; on mobile it is full-bleed in the
- * stacked layout, measured at a 390px phone.
+ * The hero frame: the landing page's first section, which the demo map fills
+ * edge to edge (index.astro). The section is capped at 52rem tall (832px) and
+ * the phone variant covers viewports up to 767px wide, so those are the
+ * pictures' sizes; a desktop wider than 1920px shows paper past the edges.
  */
-const DEMO_WIDE_SIZE = Math.round(columnWidth(1280) * 0.46);
-const DEMO_NARROW_SIZE = columnWidth(390);
-const DEMO_WIDE_ZOOM = 12;
+const DEMO_WIDE_FRAME = { width: 1920, height: 832 };
+const DEMO_NARROW_FRAME = { width: 767, height: 832 };
+const DEMO_WIDE_ZOOM = 12.05;
+const DEMO_NARROW_ZOOM = 11.5;
+
 /**
- * The narrow zoom, derived rather than chosen.
+ * Where the route sits in the hero, relative to the frame's centre — positive
+ * x east, positive y south, in the variant's CSS pixels at its zoom.
  *
- * Both hero variants are the same *shape* now, so the only thing left between
- * them is pixel size — and a map answers a smaller box by showing less ground,
- * not by drawing the same view smaller. Left as two independent numbers the two
- * variants framed the route differently: at zoom 11 the phone showed about 37%
- * more ground than the desktop did, which read as the route sitting small in a
- * lot of empty margin.
- *
- * Zoom is log2 of scale, so the size difference *is* a zoom offset: half a
- * level covers 350 vs 512. Both variants now show exactly the same ground.
+ * The hero's copy is painted *over* the map: the headline and subtitle take the
+ * right half on desktop and the top of the section on mobile. A map centred on
+ * the route would put its eastern stops under the desktop headline and its
+ * northern ones under the mobile subtitle, so each variant moves the route the
+ * other way, into the half of the section the copy leaves clear. Sized from
+ * the route's pixel extent at each zoom: on desktop the route spans about
+ * 440px and clears the copy column down to a 1024px viewport; on mobile it
+ * stands about 270px tall below the header and a ~210px copy block, and above
+ * the wave.
  */
-const DEMO_NARROW_ZOOM =
-  Math.round((DEMO_WIDE_ZOOM + Math.log2(DEMO_NARROW_SIZE / DEMO_WIDE_SIZE)) * 100) / 100;
+const DEMO_WIDE_SUBJECT = { x: -260, y: 0 };
+const DEMO_NARROW_SUBJECT = { x: 0, y: 120 };
+/** The centre that puts the route (`DC_CENTER`) at `subject` in the frame. */
+const demoCenter = (zoom: number, subject: { x: number; y: number }) =>
+  shiftCenter(DC_CENTER, zoom, { x: -subject.x, y: -subject.y });
 
 export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
   "demo-run": {
@@ -123,15 +128,17 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
     variants: [
       {
         media: "(max-width: 767px)",
-        center: DEMO_CENTER,
+        center: demoCenter(DEMO_NARROW_ZOOM, DEMO_NARROW_SUBJECT),
         zoom: DEMO_NARROW_ZOOM,
-        frame: { width: DEMO_NARROW_SIZE, height: DEMO_NARROW_SIZE },
+        frame: DEMO_NARROW_FRAME,
+        subject: DEMO_NARROW_SUBJECT,
       },
       {
         media: null,
-        center: DEMO_CENTER,
+        center: demoCenter(DEMO_WIDE_ZOOM, DEMO_WIDE_SUBJECT),
         zoom: DEMO_WIDE_ZOOM,
-        frame: { width: DEMO_WIDE_SIZE, height: DEMO_WIDE_SIZE },
+        frame: DEMO_WIDE_FRAME,
+        subject: DEMO_WIDE_SUBJECT,
       },
     ],
   },
@@ -159,26 +166,26 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
 /**
  * Width, in pixels, of the pre-rendered frame — a thumbnail, not a picture.
  *
- * This is the frame's real blur control. The image is stretched to the width of
- * the box it fills, so the ratio between the two *is* the softening: at 96px,
- * where this started, a phone frame magnified every source pixel about 3.6x and
- * a desktop live map over 11x, which dissolved the road network entirely and
- * left only the shape of the city — river, Mall, density gradient. The `filter`
- * in `MapFrame.astro` barely registered next to it.
+ * This is the frame's real blur control. The image is drawn at its frame's CSS
+ * size, so the ratio between the two *is* the softening: at 96px, where this
+ * started, a phone frame magnified every source pixel several times and a
+ * desktop one over ten, which dissolved the road network entirely and left
+ * only the shape of the city — river, Mall, density gradient. The `filter` in
+ * `MapFrame.astro` barely registered next to it.
  *
- * At 160 the same frames magnify ~2.2x and ~7x, so arterial roads and the park
- * edges survive and the picture reads as the map it is about to become rather
- * than as fog. Raise it further to sharpen; the cost is quadratic in bytes and
- * every one of them is in the HTML.
+ * At 240 a 1920px desktop frame magnifies 8x and a phone frame about 3x, so
+ * arterial roads and the park edges survive and the picture reads as the map
+ * it is about to become rather than as fog. Raise it further to sharpen; the
+ * cost is quadratic in bytes and every one of them is in the HTML.
  *
  * Small enough to inline is the constraint that bounds it. At a few kilobytes
  * each these ship as base64 data URIs inside the HTML, so the loading frame
  * costs no request at all — and a request is exactly what it could not afford,
  * since it would queue against the ~1MB engine chunk it exists to cover for.
  */
-export const PLACEHOLDER_WIDTH = 160;
+export const PLACEHOLDER_WIDTH = 240;
 
-/** Quality the thumbnail is encoded at. Generous — a 160px image is cheap. */
+/** Quality the thumbnail is encoded at. Generous — a 240px image is cheap. */
 export const PLACEHOLDER_QUALITY = 75;
 
 /** The thumbnail's pixel size for a variant: {@link PLACEHOLDER_WIDTH} at the frame's aspect. */
@@ -190,23 +197,22 @@ export function placeholderSize(variant: MapFrameVariant) {
 }
 
 /**
- * The zoom the named frame opens at, for the viewport the browser is showing.
+ * The centre and zoom the named frame opens at, for the viewport the browser is
+ * showing.
  *
  * The runtime half of the resolution `MapFrame` hands to the HTML parser: the
  * `<picture>` picks the thumbnail by the same media strings this walks. A
- * component calling this cannot open at a different zoom from the picture it
+ * component calling this cannot open on a different view from the picture it
  * dissolves out of, which is exactly what happens when it restates the
- * breakpoint itself. Browser-only — it reads `matchMedia`.
+ * breakpoint — or the centre — itself. Browser-only — it reads `matchMedia`.
  */
-export function zoomForViewport(id: MapFrameId): number {
+export function openingViewForViewport(id: MapFrameId): Pick<MapFrameVariant, "center" | "zoom"> {
   const { variants } = MAP_FRAMES[id];
   const matched = variants.find((v) => v.media !== null && window.matchMedia(v.media).matches);
   const fallback = variants.find((v) => v.media === null) ?? variants[variants.length - 1];
-  return (matched ?? fallback).zoom;
+  const { center, zoom } = matched ?? fallback;
+  return { center, zoom };
 }
-
-/** MapLibre's vector tile size. Zoom is defined against it: world = SIZE * 2^zoom. */
-export const TILE_SIZE = 512;
 
 /**
  * Web Mercator projection into the unit square, north-west origin.
@@ -221,6 +227,30 @@ export function projectMercator(lon: number, lat: number): [number, number] {
     (180 + lon) / 360,
     (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))) / 360,
   ];
+}
+
+/** Inverse of {@link projectMercator}: unit-square coordinates back to lon/lat. */
+export function unprojectMercator(x: number, y: number): [number, number] {
+  const k = ((180 - y * 360) * Math.PI) / 180;
+  return [x * 360 - 180, ((Math.atan(Math.exp(k)) - Math.PI / 4) * 360) / Math.PI];
+}
+
+/**
+ * A centre moved by a pixel offset at a zoom — positive x east, positive y
+ * south, in the CSS pixels a map at `zoom` draws. How a frame's opening view
+ * places its subject off-centre: state the subject, then say where in the box
+ * it should sit, rather than hand-tuning a lat/lon until it lands there.
+ */
+export function shiftCenter(
+  [lat, lon]: [number, number],
+  zoom: number,
+  by: { x: number; y: number },
+): [number, number] {
+  const world = TILE_SIZE * 2 ** zoom;
+  const [x, y] = projectMercator(lon, lat);
+  const [outLon, outLat] = unprojectMercator(x + by.x / world, y + by.y / world);
+  const r = (n: number) => Math.round(n * 1e6) / 1e6;
+  return [r(outLat), r(outLon)];
 }
 
 /**

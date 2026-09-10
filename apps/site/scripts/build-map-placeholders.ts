@@ -14,16 +14,17 @@
  * island's own chunk has hydrated. An image is subject to none of that — it is
  * on screen in the first paint, and the real map slides in underneath it.
  *
- * Alignment is the whole game. The image covers exactly the ground a map's
- * opening view frames, so `object-fit: cover`ing it into the frame puts a CSS
- * pixel of image over roughly the ground a CSS pixel of live map covers. Get
- * this wrong and the dissolve reads as a jump. See `frames.ts` for the geometry
- * both sides read, and re-run this after changing any of it.
+ * Alignment is the whole game. The image covers exactly the ground the map's
+ * opening view shows in a box of the variant's `frame` size, and `MapFrame`
+ * draws it at that size, so a CSS pixel of image sits over the ground a CSS
+ * pixel of live map covers. Get this wrong and the dissolve reads as a jump.
+ * See `frames.ts` for the geometry both sides read, and re-run this after
+ * changing any of it.
  *
  * Source is CARTO's raster Voyager, the raster twin of the Voyager-derived
  * vector style the live map renders, so the two agree on palette and land/water
  * shape. Both are OpenStreetMap data; the map's own AttributionControl carries
- * the OSM credit, and the thumbnails are 160px wide, upscaled and softened, so
+ * the OSM credit, and the thumbnails are 240px wide, upscaled and softened, so
  * no labels survive into the page.
  */
 import { writeFileSync } from "node:fs";

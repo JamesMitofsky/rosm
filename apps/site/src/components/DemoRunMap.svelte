@@ -5,19 +5,21 @@
   import type { StopStatus } from "@rosm/core/stores/run";
   import { editSummary, todayLocal } from "@rosm/core/editSummary";
   import { celebratePoint } from "@/lib/confetti";
-  import { zoomForViewport } from "@/lib/basemap/frames";
-  import { DC_CENTER, DC_FOUNTAINS, DC_ROUTE, STATUS_COLOR, SEED_STATUSES } from "@/lib/demoRoute";
+  import { openingViewForViewport } from "@/lib/basemap/frames";
+  import { DC_FOUNTAINS, DC_ROUTE, STATUS_COLOR, SEED_STATUSES } from "@/lib/demoRoute";
 
   // Interactive replica of the run screen for the landing hero. Every tap flows
   // through the real PointPopup, but edits only touch local state — nothing is
   // sent to OSM, queued in the outbox, or persisted anywhere.
   let { class: className = "" }: { class?: string } = $props();
 
-  // Zoom is initial-only, so pick it once at mount. Read from the frame spec
-  // rather than restated here: this map dissolves out of a picture rendered at
-  // that exact zoom, and two copies of the number are two things to keep in
-  // step.
-  const zoom = zoomForViewport("demo-run");
+  // The opening view is initial-only, so pick it once at mount. Read from the
+  // frame spec rather than restated here: this map dissolves out of a picture
+  // rendered at exactly that centre and zoom, and two copies of either number
+  // are two things to keep in step. The centre is not the route's own — the
+  // spec shifts it so the route sits clear of the hero copy painted over the
+  // map (see `frames.ts`).
+  const { center, zoom } = openingViewForViewport("demo-run");
 
   function seedEdits(): Record<number, PointEdit> {
     const today = todayLocal();
@@ -70,9 +72,10 @@
 <div class="relative h-full w-full {className}">
   <MapView
     class="hero-map"
-    center={DC_CENTER}
+    {center}
     {zoom}
     lockToOpeningView
+    cooperativeGestures
     maxZoom={18}
     line={DC_ROUTE}
     {markers}

@@ -136,6 +136,12 @@
     lockToOpeningView?: boolean;
     interactive?: boolean;
     scrollWheelZoom?: boolean;
+    // MapLibre's cooperative gestures: the wheel scrolls the page unless a
+    // modifier is held, and one finger scrolls the page while two move the map,
+    // with MapLibre's own hint overlay explaining both. For a map that fills
+    // the width of a page that continues below it — without this, the map is
+    // a scroll trap the size of the screen.
+    cooperativeGestures?: boolean;
     // Add MapLibre's GeolocateControl: a "locate me" button that drops a blue
     // dot at the visitor's position, an accuracy halo, and — where the device
     // exposes orientation — a heading cone. MapLibre handles the geolocation
@@ -178,6 +184,7 @@
     lockToOpeningView = false,
     interactive = true,
     scrollWheelZoom = interactive,
+    cooperativeGestures = false,
     showLocate = false,
     showFullscreen = false,
     markers = [],
@@ -634,6 +641,7 @@
     pitchWithRotate={false}
     touchPitch={false}
     scrollZoom={scrollWheelZoom}
+    {cooperativeGestures}
     doubleClickZoom={interactive}
     touchZoomRotate={interactive}
     boxZoom={interactive}
@@ -749,5 +757,15 @@
   .map-view-root :global(.maplibregl-canvas-container),
   .map-view-root :global(.maplibregl-canvas) {
     border-radius: var(--map-frame-radius, 0);
+  }
+
+  /* Lifts the bottom-corner controls (attribution) clear of anything a page
+     lays over the map's lower edge — the landing hero runs its map under the
+     next section's wave, and the credit must not go under with it. A custom
+     property rather than a prop: like `--map-frame-radius`, it has to cross
+     the `<astro-island>` boundary from the page that knows the overlap. */
+  .map-view-root :global(.maplibregl-ctrl-bottom-left),
+  .map-view-root :global(.maplibregl-ctrl-bottom-right) {
+    bottom: var(--map-ctrl-inset-bottom, 0);
   }
 </style>
