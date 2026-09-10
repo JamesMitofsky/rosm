@@ -219,7 +219,13 @@
     // never drag more than a margin past the ground the first frame showed (see
     // `LOCK_SLACK`). Overrides `minZoom`.
     lockToOpeningView?: boolean;
+    // Whether the visitor can move the map or tap its markers. Off, every
+    // gesture handler is disabled, taps on markers and on the ground are
+    // ignored, and the view controls are disabled — the map is a picture
+    // until it is turned back on. Reactive: a page can lock the map while
+    // it is showing something (the hero's replay) and unlock it after.
     interactive?: boolean;
+    // Defaults to `interactive`.
     scrollWheelZoom?: boolean;
     // MapLibre's cooperative gestures: the wheel scrolls the page unless a
     // modifier is held, and one finger scrolls the page while two move the map.
@@ -300,7 +306,7 @@
     maxZoom,
     lockToOpeningView = false,
     interactive = true,
-    scrollWheelZoom = interactive,
+    scrollWheelZoom,
     cooperativeGestures = false,
     showLocate = false,
     showFullscreen = false,
@@ -339,6 +345,9 @@
   const mapStyle = structuredClone(rawMapStyle) as maplibregl.StyleSpecification;
 
   let map = $state<maplibregl.Map | undefined>();
+  // Tracked here rather than as the prop's fallback so it follows a change
+  // to `interactive` after mount.
+  const wheelZoom = $derived(scrollWheelZoom ?? interactive);
   // 0 → 1 grow factor for the pop-in.
   let popScale = $state(1);
 
@@ -878,7 +887,7 @@
   }
 
   function handleClick(ev: maplibregl.MapMouseEvent) {
-    if (!map) return;
+    if (!map || !interactive) return;
     const feats = map.queryRenderedFeatures(ev.point, { layers: [MARKERS_LAYER] });
     const f = feats[0];
     if (f) {
@@ -960,7 +969,7 @@
     dragRotate={false}
     pitchWithRotate={false}
     touchPitch={false}
-    scrollZoom={scrollWheelZoom}
+    scrollZoom={wheelZoom}
     {cooperativeGestures}
     doubleClickZoom={interactive}
     touchZoomRotate={interactive}
@@ -987,6 +996,7 @@
             class="view-controls__reset"
             title="Reset view"
             aria-label="Reset view"
+            disabled={!interactive}
             onclick={resetView}
           >
             <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
@@ -998,7 +1008,7 @@
             class="maplibregl-ctrl-zoom-out"
             title="Zoom out"
             aria-label="Zoom out"
-            disabled={atMinZoom}
+            disabled={!interactive || atMinZoom}
             onclick={() => map?.zoomOut({ around: visibleCentre(), duration: motionMs(300) })}
           >
             <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
@@ -1008,7 +1018,7 @@
             class="maplibregl-ctrl-zoom-in"
             title="Zoom in"
             aria-label="Zoom in"
-            disabled={atMaxZoom}
+            disabled={!interactive || atMaxZoom}
             onclick={() => map?.zoomIn({ around: visibleCentre(), duration: motionMs(300) })}
           >
             <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
@@ -1062,7 +1072,7 @@
           "circle-stroke-color": "#fff",
           "circle-stroke-opacity": ["case", ["get", "dimmed"], 0.45, 1],
         }}
-        onmouseenter={() => setCursor("pointer")}
+        onmouseenter={() => interactive && setCursor("pointer")}
         onmouseleave={() => setCursor("")}
       />
     </GeoJSONSource>

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import MapView, { MARKER_POP_MS, type MapMarker } from "@/components/MapView.svelte";
+  import MapView, { type MapMarker } from "@/components/MapView.svelte";
   import PointPopup, { type PointEdit } from "@/components/PointPopup.svelte";
   import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
   import type { StopStatus } from "@rosm/core/stores/run";
   import { editSummary, todayLocal } from "@rosm/core/editSummary";
   import { celebratePoint } from "@/lib/confetti";
-  import { MAP_REVEAL_MS, openingViewForViewport } from "@/lib/basemap/frames";
+  import { openingViewForViewport } from "@/lib/basemap/frames";
   import {
     DC_FOUNTAINS,
     DC_ROUTE,
@@ -53,13 +53,18 @@
    */
   const RUN_MS = 2200;
   /**
-   * Pause between the loading frame clearing and the replay starting, so the
-   * visitor sees a settled map before anything on it moves: the frame's
-   * dissolve, the dots' own pop-in, and a beat.
+   * Pause between the map being ready and the replay starting: a beat of
+   * settled map before anything on it moves.
    */
-  const HOLD_MS = MAP_REVEAL_MS + MARKER_POP_MS + 150;
+  const HOLD_MS = 400;
   /** How long a stop's ping lasts once the runner reaches it. */
   const PULSE_MS = 550;
+  /**
+   * Beat between the runner halting at `DEMO_NEXT_STOP` and its popup
+   * springing open: enough that the halt registers as its own event before
+   * the popup answers it.
+   */
+  const POPUP_DELAY_MS = 150;
 
   /**
    * The replay's clock: one leg per stretch between checkpoints, each eased
@@ -84,9 +89,11 @@
     DEMO_SEEDED_IN_ORDER.map((id) => [id, seededEdit(id)]),
   );
 
-  // The replay's clock. `idle` until the loading frame has cleared and the
-  // hold has passed, `running` while the line draws, `done` after — or at
-  // once, under reduced motion, in which case the map opens on the end frame.
+  // The replay's clock. `idle` until the map is ready and the hold has
+  // passed, `running` while the line draws, `done` after — or at once, under
+  // reduced motion, in which case the map opens on the end frame. The map is
+  // locked (`interactive`) until `done`: a visitor who dragged or tapped
+  // mid-replay would be fighting the camera and the popup that is coming.
   let phase = $state<"idle" | "running" | "done">("idle");
   let elapsed = $state(0);
   let ready = $state(false);
@@ -133,14 +140,15 @@
   // on the map (which sets or clears it) and the replay (below) share it.
   let selected = $state<string | null>(null);
 
-  // The moment the runner halts, open the next stop's popup — no beat between
-  // the two, so the popup reads as the arrival itself, not a consequence of
-  // it. Also the path under reduced motion, where the map opens on the end
-  // frame with the popup already up. Depends on `phase` alone, so it runs
-  // once per arrival: a visitor who closes the popup does not have it reopen
-  // on the next render.
+  // Once the runner halts, open the next stop's popup after `POPUP_DELAY_MS`.
+  // Also the path under reduced motion, where the map opens on the end frame
+  // and the popup follows the same beat later. Depends on `phase` alone, so
+  // it runs once per arrival: a visitor who closes the popup does not have
+  // it reopen on the next render.
   $effect(() => {
-    if (phase === "done") selected = String(DEMO_NEXT_STOP);
+    if (phase !== "done") return;
+    const timer = setTimeout(() => (selected = String(DEMO_NEXT_STOP)), POPUP_DELAY_MS);
+    return () => clearTimeout(timer);
   });
 
   // Per-frame values. Everything the map redraws every frame hangs off these
@@ -228,6 +236,7 @@
     {center}
     {zoom}
     lockToOpeningView
+    interactive={phase === "done"}
     cooperativeGestures
     maxZoom={18}
     line={DC_ROUTE}
