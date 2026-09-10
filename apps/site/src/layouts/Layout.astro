@@ -4,7 +4,7 @@ import MobileNav from "@/components/MobileNav.svelte";
 // Brand mark, inlined: every page is a fresh document, and a `public/` image
 // is re-validated on each load (`max-age=0`), so as a request it painted a
 // beat after the header text and popped in. Derived by scripts/build-header-assets.ts.
-import logoSrc from "@/assets/logo-120.png?inline";
+import logoSrc from "@/assets/logo-144.png?inline";
 import { APP_NAME } from "@/lib/appConfig";
 // Which nav item is the page the visitor is on. Trailing slash stripped so
 // `/public-drinking-fountains/` and `/public-drinking-fountains` count as the same page.
@@ -101,18 +101,18 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     }
     <header class="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
       {
-        /* Logo sits top-left at every width and is the way home. 120px source
-          = 3x the 40px render so it stays crisp on high-DPI screens. Decoded
+        /* Logo sits top-left at every width and is the way home. 144px source
+          = 3x the 48px render so it stays crisp on high-DPI screens. Decoded
           synchronously so it is in the first paint rather than a frame after. */
       }
       <a href="/" class="nav-brand flex items-center w-fit" aria-label={APP_NAME}>
         <img
           src={logoSrc}
           alt={APP_NAME}
-          width="120"
-          height="120"
+          width="144"
+          height="144"
           decoding="sync"
-          class="h-10 w-10"
+          class="h-12 w-12"
         />
       </a>
       {

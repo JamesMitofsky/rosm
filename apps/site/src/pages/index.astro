@@ -5,9 +5,10 @@ import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
 import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
 // The handwritten headline is one flat ink over a textured alpha, so it ships
-// as an alpha-only mask (scripts/build-header-assets.ts) that CSS fills with
-// `hero-ink`. Inlined: it is the LCP element and sits inside the `.reveal`
-// entrance, and as a separate request it landed mid-animation and popped in.
+// as a luminance mask (hand-authored, see scripts/build-header-assets.ts) that
+// CSS fills with `hero-ink`. Inlined: it is the LCP element and sits inside
+// the `.reveal` entrance, and as a separate request it landed mid-animation
+// and popped in.
 // Dimensions come from the generated module rather than an image import: a
 // bare import of the WebP makes the image pipeline emit a copy nobody requests.
 import heroMask from "@/assets/hero-handwriting-mask.webp?inline";
@@ -231,7 +232,7 @@ const mobileContourLines = contoursFor(
             class="reveal flex flex-col items-start gap-7 md:col-start-2 md:row-start-2 md:self-start"
             style="transition-delay: 0.16s"
           >
-            <p class="text-muted max-w-xl mt-5 text-lg leading-relaxed">
+            <p class="text-muted max-w-md mt-5 text-lg leading-relaxed">
               Is it civic service? Gamified running? A way to get more kudos on Strava? Yes.
             </p>
           </div>

@@ -47,16 +47,17 @@
   --color-info: #0e85c6;
   --color-link: #0e85c6;
   --color-blue: #0e85c6;
-  /* The header nav's current-page chalk splotch, sampled from the painted
-     source (src/assets/nav-active-bg.png). A touch dustier than `blue`. */
+  /* The header nav's current-page chalk splotch, sampled from the artwork
+     before it became a mask (src/assets/nav-active-mask.webp). A touch dustier
+     than `blue`. */
   --color-chalk-blue: #3f83c2;
   /* Hero headline blue (Run & Verify). Shared by all display-face headings
      except the "The Problem" plate. */
   --color-hero: #0b6fa7;
-  /* Ink of the handwritten hero headline, sampled from the painted source
-     (src/assets/hero-handwriting.png); the mask in index.astro is filled with
-     it. Kept as its own token, not folded into `hero`, so the headline reads
-     exactly as it was painted. */
+  /* Ink of the handwritten hero headline, sampled from the artwork before it
+     became a mask (src/assets/hero-handwriting-mask.webp); index.astro fills
+     the mask with it. Kept as its own token, not folded into `hero`, so the
+     headline reads exactly as it was painted. */
   --color-hero-ink: #1e71bd;
   --color-pink: #f4447a;
   --color-orange: #f38300;
