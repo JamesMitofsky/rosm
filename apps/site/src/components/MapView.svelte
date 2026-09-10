@@ -28,6 +28,9 @@
     popKey?: string | number;
   };
 
+  /** Gap between a marker and the tip of its popup, in px. */
+  const POPUP_OFFSET_PX = 14;
+
   const MARKERS_SOURCE = "markers";
   const MARKERS_LAYER = "markers-circle";
   const RUNNER_SOURCE = "runner";
@@ -815,11 +818,16 @@
     ];
   }
 
-  // Bring a tapped marker to the middle of the visible area (demo maps opt in
-  // via `centerOnSelect`). The marker itself, not the marker-and-popup pair:
-  // this used to aim half the popup's height above the marker so the pair sat
-  // centred, which put the marker itself well below centre — and what the
-  // visitor tapped is the marker.
+  // Bring a tapped marker's popup to the middle of the visible area (demo
+  // maps opt in via `centerOnSelect`): the card, not the marker. The card is
+  // what the visitor reads next, and centring the marker leaves the card
+  // pushed up toward the edge — or, for a popup that opens beneath its
+  // marker, down. The marker sits a card's half-height off centre, on
+  // whichever side its popup opens.
+  //
+  // Measured off the popup's DOM a frame after it mounts: `offsetHeight`,
+  // which the pop-in's transform does not touch. If the popup is not there
+  // yet (or the marker opens none) the marker itself is centred.
   //
   // `easeTo`, not `flyTo`: flyTo flies an arc that pulls the camera back and in
   // again, which over a couple of hundred pixels is mostly swoop — and under a
@@ -830,22 +838,40 @@
     if (!centerOnSelect || !map) return;
     const m = untrack(() => selectedMarker);
     if (!m) return;
-    // Where the map's own centre must be for the marker to sit at the visible
-    // area's centre (`boxCentreOffset`), worked out in map coordinates rather
-    // than handed to `easeTo` as `offset`: the destination has to be a real
-    // centre before it can be clamped against the pen, and `easeTo` clamps
-    // whatever it is given as the centre, so given anything else it would
-    // clamp the wrong point.
-    const worldPx = WORLD_TILE_PX * 2 ** map.getZoom();
-    const [ox, oy] = untrack(boxCentreOffset);
-    const [lat, lon] = untrack(() =>
-      clampToPen(yToLat(latToY(m.lat) + oy / worldPx), xToLon(lonToX(m.lon) + ox / worldPx)),
-    );
-    map.easeTo({
-      center: [lon, lat],
-      duration: motionMs(600),
-      essential: true,
+    const mapInst = map;
+    const raf = requestAnimationFrame(() => {
+      const popupEl = mapInst.getContainer().querySelector<HTMLElement>(".maplibregl-popup");
+      const card = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-content");
+      const tip = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-tip");
+      // How far the card's centre is from the marker on screen, in px,
+      // positive downward: the gap the popup keeps from the marker, the tip,
+      // then half the card — on the side the popup opens.
+      let cardDy = 0;
+      if (card) {
+        const reach = POPUP_OFFSET_PX + (tip?.offsetHeight ?? 0) + card.offsetHeight / 2;
+        cardDy = (m.popupAnchor ?? "bottom") === "bottom" ? -reach : reach;
+      }
+      // Where the map's own centre must be for the card to sit at the visible
+      // area's centre (`boxCentreOffset`), worked out in map coordinates
+      // rather than handed to `easeTo` as `offset`: the destination has to be
+      // a real centre before it can be clamped against the pen, and `easeTo`
+      // clamps whatever it is given as the centre, so given anything else it
+      // would clamp the wrong point.
+      const worldPx = WORLD_TILE_PX * 2 ** mapInst.getZoom();
+      const [ox, oy] = untrack(boxCentreOffset);
+      const [lat, lon] = untrack(() =>
+        clampToPen(
+          yToLat(latToY(m.lat) + (oy + cardDy) / worldPx),
+          xToLon(lonToX(m.lon) + ox / worldPx),
+        ),
+      );
+      mapInst.easeTo({
+        center: [lon, lat],
+        duration: motionMs(600),
+        essential: true,
+      });
     });
+    return () => cancelAnimationFrame(raf);
   });
 
   function emitView(userInitiated: boolean) {
@@ -1135,7 +1161,7 @@
       <Popup
         lnglat={[selectedMarker.lon, selectedMarker.lat]}
         anchor={selectedMarker.popupAnchor ?? "bottom"}
-        offset={14}
+        offset={POPUP_OFFSET_PX}
         closeOnClick={false}
         closeButton={false}
         maxWidth="none"
