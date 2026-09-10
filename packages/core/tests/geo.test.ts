@@ -6,6 +6,7 @@ import {
   boundsRadiusM,
   compass,
   fmtDist,
+  fmtWalkTime,
   haversine,
   maneuver,
   metersToMiles,
@@ -16,6 +17,8 @@ import {
   routeHeadingAt,
   toDeg,
   toRad,
+  walkMinutes,
+  WALK_SPEED_MPS,
   type Pt,
 } from "../src/geo";
 
@@ -351,5 +354,39 @@ describe("routeHeadingAt", () => {
     ];
     // Projecting at/past the last vertex: still resolves the eastbound heading.
     expect(routeHeadingAt(path, { lat: 0, lon: 0.01 })).toBeCloseTo(90, 0);
+  });
+});
+
+describe("walkMinutes", () => {
+  it("rounds up at the default pace", () => {
+    expect(WALK_SPEED_MPS).toBe(1.4);
+    // 840 m at 1.4 m/s is exactly 10 min.
+    expect(walkMinutes(840)).toBe(10);
+    // A hair over rounds up.
+    expect(walkMinutes(841)).toBe(11);
+  });
+
+  it("never reports less than a minute", () => {
+    expect(walkMinutes(0)).toBe(1);
+    expect(walkMinutes(10)).toBe(1);
+  });
+
+  it("honors a custom pace", () => {
+    expect(walkMinutes(840, 2.8)).toBe(5);
+  });
+});
+
+describe("fmtWalkTime", () => {
+  it("formats minutes, hours, and both", () => {
+    expect(fmtWalkTime(8)).toBe("8 min");
+    expect(fmtWalkTime(59)).toBe("59 min");
+    expect(fmtWalkTime(60)).toBe("1 hr");
+    expect(fmtWalkTime(65)).toBe("1 hr 5 min");
+    expect(fmtWalkTime(120)).toBe("2 hr");
+  });
+
+  it("clamps negatives and rounds fractions", () => {
+    expect(fmtWalkTime(-3)).toBe("0 min");
+    expect(fmtWalkTime(7.6)).toBe("8 min");
   });
 });

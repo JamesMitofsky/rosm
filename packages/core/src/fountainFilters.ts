@@ -90,3 +90,32 @@ export function toggled<T>(set: Set<T>, v: T): Set<T> {
   else n.add(v);
   return n;
 }
+
+// The map's "hide" filters: each key names a class of fountain a visitor looking
+// for water can choose not to see. Both are shown by default — hiding is the
+// opt-in — because an out-of-order fountain is still information (someone
+// checked it) and dog water is still water on the map.
+export type HideKey = "out_of_order" | "dog_water";
+export const HIDE_KEYS: readonly HideKey[] = ["out_of_order", "dog_water"];
+
+const HIDE_MATCH: Record<HideKey, (tags: Record<string, string>) => boolean> = {
+  out_of_order: isOutOfService,
+  dog_water: isDogWater,
+};
+
+// How many of `fs` each filter would hide — shown on the filter pills so the
+// visitor knows what a toggle costs before pressing it. Counted over the full
+// set, not the currently visible one, so the numbers don't shift as pills flip.
+export function hideCounts(fs: Fountain[]): Record<HideKey, number> {
+  const counts = { out_of_order: 0, dog_water: 0 };
+  for (const f of fs) {
+    for (const k of HIDE_KEYS) if (HIDE_MATCH[k](f.tags)) counts[k]++;
+  }
+  return counts;
+}
+
+// `fs` minus every fountain matching a hidden key.
+export function applyHide(fs: Fountain[], hidden: ReadonlySet<HideKey>): Fountain[] {
+  if (hidden.size === 0) return fs;
+  return fs.filter((f) => ![...hidden].some((k) => HIDE_MATCH[k](f.tags)));
+}

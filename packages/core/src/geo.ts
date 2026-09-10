@@ -120,6 +120,26 @@ export function compass(deg: number): string {
   return dirs[Math.round(deg / 45) % 8];
 }
 
+// Walking pace for time estimates. 1.4 m/s (~3.1 mph, ~19 min/mile) is the
+// conventional average adult walking speed used by pedestrian routing; the
+// estimate is a "how long from here", not a promise, so it stays a flat rate.
+export const WALK_SPEED_MPS = 1.4;
+
+// Whole minutes to walk `distanceM`, rounded up so a short hop never reads as
+// "0 min" — anything you can see on the map is at least a minute away.
+export function walkMinutes(distanceM: number, speedMps = WALK_SPEED_MPS): number {
+  return Math.max(1, Math.ceil(distanceM / speedMps / 60));
+}
+
+// "8 min", "1 hr 5 min", "2 hr" — the shortest reading of a minute count.
+export function fmtWalkTime(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest === 0 ? `${h} hr` : `${h} hr ${rest} min`;
+}
+
 // Human distance: feet under 1000 ft -> "395 ft", else miles "1.40 mi".
 export function fmtDist(m: number): string {
   const ft = metersToFeet(m);
