@@ -1,19 +1,31 @@
 ---
 import { MAP_FRAMES, offsetFromCenter } from "@/lib/basemap/frames";
-import { DC_FOUNTAINS, DC_ROUTE, SEED_STATUSES, STATUS_COLOR } from "@/lib/demoRoute";
+import { DC_FOUNTAINS, DC_ROUTE, STATUS_COLOR } from "@/lib/demoRoute";
+import { DEMO_RUN_END, demoRouteRunBy, demoRunnerAt, demoStatusesAt } from "@/lib/demoRun";
+import { ROUTE_LINE } from "@/lib/basemap/routeLine";
 
 /**
- * The hero run — its route and its numbered stops — drawn into `MapFrame`'s
- * loading state, in the positions the live map is about to put them.
+ * The hero run drawn into `MapFrame`'s loading state, in the positions the
+ * live map is about to put it — and in the state the live map *opens* in.
  *
- * This is the difference between a loading frame that shows a city and one that
- * shows *this map*: the same line, the same eleven dots in the same colours, at
- * the same places, under the frost. When MapLibre finishes and the overlay
- * dissolves, the shapes underneath are already where the eye left them.
+ * This is the difference between a loading frame that shows a city and one
+ * that shows *this map*: the same shapes, at the same places, under the frost.
+ * When MapLibre finishes and the overlay dissolves, what is underneath is
+ * already where the eye left it.
+ *
+ * What that state is depends on the visitor. The map opens on the first frame
+ * of a replay (`DemoRunMap.svelte`): the whole loop faint, every stop pending,
+ * the runner at the start, and nothing run yet — so that is what is drawn.
+ * Under `prefers-reduced-motion` the replay is skipped and the map opens on its
+ * *end* frame instead, so the same markup carries that frame too, switched in
+ * by the media query: the run so far drawn solid, the reached stops in their
+ * colours, the runner where the run ends. Both come from `demoRun.ts`, the
+ * same module the replay reads, so the two cannot disagree.
  *
  * None of it needs the engine. The opening view is fixed at build time, so a
- * point's offset from the frame's centre is a pure function of its coordinates
- * — see `offsetFromCenter`. This runs at build time and ships as markup.
+ * point's offset from the frame's centre is a pure function of its
+ * coordinates — see `offsetFromCenter`. This runs at build time and ships as
+ * markup.
  *
  * Alignment with the thumbnail is exact rather than approximate, and that is
  * what the `viewBox`/`slice` pairing buys: the SVG's user space *is* the
@@ -28,6 +40,11 @@ const variants = MAP_FRAMES["demo-run"].variants;
 /** Trim coordinates to a tenth of a pixel — past that it is bytes in the HTML. */
 const r = (n: number) => Math.round(n * 10) / 10;
 
+const openingStatuses = demoStatusesAt(0);
+const endStatuses = demoStatusesAt(DEMO_RUN_END);
+const colorFor = (statuses: Record<number, string>, id: number) =>
+  STATUS_COLOR[(statuses[id] ?? "pending") as keyof typeof STATUS_COLOR];
+
 const shots = variants.map((variant, index) => {
   const cx = variant.frame.width / 2;
   const cy = variant.frame.height / 2;
@@ -35,20 +52,29 @@ const shots = variants.map((variant, index) => {
     const offset = offsetFromCenter(point, variant);
     return { x: r(cx + offset.x), y: r(cy + offset.y) };
   };
+  const points = (route: [number, number][]) =>
+    route
+      .map(([lat, lon]) => at({ lat, lon }))
+      .map(({ x, y }) => `${x},${y}`)
+      .join(" ");
+  const runnerAt = (length: number) => {
+    const [lat, lon] = demoRunnerAt(length);
+    return at({ lat, lon });
+  };
 
   return {
     id: `demo-run-${index}`,
     media: variant.media,
     viewBox: `0 0 ${variant.frame.width} ${variant.frame.height}`,
-    route: DC_ROUTE.map(([lat, lon]) => at({ lat, lon }))
-      .map(({ x, y }) => `${x},${y}`)
-      .join(" "),
+    loop: points(DC_ROUTE),
+    run: points(demoRouteRunBy(DEMO_RUN_END)),
+    runnerStart: runnerAt(0),
+    runnerEnd: runnerAt(DEMO_RUN_END),
     stops: DC_FOUNTAINS.map((fountain, i) => ({
       ...at(fountain),
       label: String(i + 1),
-      // Mirrors what `DemoRunMap` hands `MapView` for the same fountain: the
-      // seeded status if it has one, "pending" grey otherwise.
-      color: STATUS_COLOR[SEED_STATUSES[fountain.id] ?? "pending"],
+      color: colorFor(openingStatuses, fountain.id),
+      endColor: colorFor(endStatuses, fountain.id),
     })),
   };
 });
@@ -79,26 +105,67 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
     >
-      {/* Same blue, width and joins the live `LineLayer` draws. */}
+      {/* The whole loop, faint: the plan. Same blue, width and joins as the
+          live map's `lineUpcoming` layer. */}
       <polyline
-        points={shot.route}
+        points={shot.loop}
         fill="none"
-        stroke="#2563eb"
-        stroke-width="5"
-        stroke-opacity="0.8"
+        stroke={ROUTE_LINE.color}
+        stroke-width={ROUTE_LINE.width}
+        stroke-opacity={ROUTE_LINE.upcomingOpacity}
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      {/* The run so far, solid — the end frame's, shown only under reduced
+          motion (see the style block). */}
+      <polyline
+        class="demo-route__run"
+        points={shot.run}
+        fill="none"
+        stroke={ROUTE_LINE.color}
+        stroke-width={ROUTE_LINE.width}
+        stroke-opacity={ROUTE_LINE.opacity}
         stroke-linecap="round"
         stroke-linejoin="round"
       />
       {shot.stops.map((stop) => (
         <g>
           {/* `markerRadius` 9 with a 2px white ring — `MapView`'s defaults, which
-              the hero map does not override. */}
-          <circle cx={stop.x} cy={stop.y} r="9" fill={stop.color} stroke="#fff" stroke-width="2" />
+              the hero map does not override. The fill is the opening colour;
+              `--end` is what the reduced-motion end frame swaps in. */}
+          <circle
+            cx={stop.x}
+            cy={stop.y}
+            r="9"
+            class="demo-route__stop"
+            style={`--start:${stop.color};--end:${stop.endColor}`}
+            stroke="#fff"
+            stroke-width="2"
+          />
           <text x={stop.x} y={stop.y} class="demo-route__label">
             {stop.label}
           </text>
         </g>
       ))}
+      {/* The runner: MapView's `.runner-dot`, a 14px disc whose 2.5px white
+          ring lies inside that. An SVG stroke straddles the edge, so the
+          radius is pulled in by half the ring to land on the same outline.
+          At the start it sits under the first stop; the end frame's copy is
+          swapped in under reduced motion. */}
+      <circle
+        class="demo-route__runner demo-route__runner--start"
+        cx={shot.runnerStart.x}
+        cy={shot.runnerStart.y}
+        r="5.75"
+        style={`--route-line-color:${ROUTE_LINE.color}`}
+      />
+      <circle
+        class="demo-route__runner demo-route__runner--end"
+        cx={shot.runnerEnd.x}
+        cy={shot.runnerEnd.y}
+        r="5.75"
+        style={`--route-line-color:${ROUTE_LINE.color}`}
+      />
     </svg>
   ))
 }
@@ -111,6 +178,10 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
     height: 100%;
   }
 
+  .demo-route__stop {
+    fill: var(--start);
+  }
+
   .demo-route__label {
     fill: #fff;
     font-family: inherit;
@@ -118,6 +189,31 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
     font-weight: 700;
     text-anchor: middle;
     dominant-baseline: central;
+  }
+
+  .demo-route__runner {
+    fill: var(--route-line-color);
+    stroke: #fff;
+    stroke-width: 2.5;
+    filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
+  }
+
+  /* The replay's end frame, for a visitor who will not see the replay. */
+  .demo-route__run,
+  .demo-route__runner--end {
+    display: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .demo-route__run,
+    .demo-route__runner--end {
+      display: initial;
+    }
+    .demo-route__runner--start {
+      display: none;
+    }
+    .demo-route__stop {
+      fill: var(--end);
+    }
   }
 </style>
 

@@ -1,5 +1,7 @@
 <script module lang="ts">
   import type { Snippet } from "svelte";
+  import type * as maplibregl from "maplibre-gl";
+  import { ROUTE_LINE } from "@/lib/basemap/routeLine";
 
   export type MapMarker = {
     id: number | string;
@@ -15,11 +17,82 @@
     data?: unknown;
     // Opt a specific marker out of opening a popup even when `markerPopup` is set.
     noPopup?: boolean;
+    // Changing this replays the label's pop-in (the `marker-pop` keyframe in
+    // globals.css) without touching the marker set — for a marker that has just
+    // changed state and should be seen to.
+    popKey?: string | number;
   };
 
   const MARKERS_SOURCE = "markers";
   const MARKERS_LAYER = "markers-circle";
-  const POP_MS = 340;
+  const PULSE_LAYER = "markers-pulse";
+  /**
+   * How long a newly appeared dot takes to grow to full size. Exported for a
+   * caller timing something to start once the dots have settled.
+   */
+  export const MARKER_POP_MS = 340;
+
+  // Shared by every line layer here. A module constant rather than an inline
+  // literal so the layer's layout effect sees one object and never re-runs.
+  const LINE_LAYOUT = { "line-cap": "round", "line-join": "round" } as const;
+  /** The `lineUpcoming` layer: the drawn line's own width and colour, faint. */
+  const UPCOMING_PAINT = {
+    "line-color": ROUTE_LINE.color,
+    "line-width": ROUTE_LINE.width,
+    "line-opacity": ROUTE_LINE.upcomingOpacity,
+  } as const;
+
+  /**
+   * A `line-gradient` that paints the line up to `progress` (0–1 of its
+   * length) and nothing past it.
+   *
+   * The edge is a short ramp rather than a hard step. MapLibre renders a
+   * gradient into a texture along the line, and a `step` expression is drawn
+   * at a much higher resolution with nearest filtering — a tip that hops a
+   * texel at a time — where `interpolate` stays at 256 texels, linearly
+   * filtered, so the tip glides. The ramp is ~1/200 of the route, about three
+   * pixels at the zooms the hero uses.
+   *
+   * Same colour on both stops: only alpha changes across the ramp.
+   */
+  const GRADIENT_RAMP = 0.005;
+  // `ROUTE_LINE.color` with an alpha: the gradient only ever varies alpha.
+  const rgba = (a: number) => {
+    const hex = ROUTE_LINE.color;
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  };
+  function gradientExpr(progress: number): maplibregl.ExpressionSpecification {
+    if (progress <= 0)
+      return ["interpolate", ["linear"], ["line-progress"], 0, rgba(0), 1, rgba(0)];
+    if (progress >= 1)
+      return ["interpolate", ["linear"], ["line-progress"], 0, rgba(1), 1, rgba(1)];
+    const lo = Math.max(0, Math.min(1 - GRADIENT_RAMP, progress - GRADIENT_RAMP));
+    const hi = lo + GRADIENT_RAMP;
+    return ["interpolate", ["linear"], ["line-progress"], lo, rgba(1), hi, rgba(0)];
+  }
+
+  /**
+   * Paint for the ping a marker gives off when a caller `pulses` it: a ring in
+   * the marker's own colour that grows out from under the dot and thins to
+   * nothing as `pulse` runs 0 → 1.
+   *
+   * Driven by feature-state, not by feature properties or a paint uniform,
+   * and that is the whole point of the layer: the expressions below never
+   * change, so updating a pulse is one `setFeatureState` for that feature —
+   * no source reload, no re-upload of the marker data, and no interference
+   * with the dot layer's own radius, which stays a plain uniform. At `pulse` 0
+   * (every feature that is not pulsing) the ring is fully transparent, so it
+   * is never seen under a dot that is still growing in.
+   */
+  function pulsePaint(baseRadius: number): maplibregl.CircleLayerSpecification["paint"] {
+    const p: maplibregl.ExpressionSpecification = ["coalesce", ["feature-state", "pulse"], 0];
+    return {
+      "circle-radius": ["+", baseRadius, ["*", baseRadius * 1.4, p]],
+      "circle-color": ["get", "color"],
+      "circle-opacity": ["case", [">", p, 0], ["*", 0.5, ["-", 1, p]], 0],
+    };
+  }
 
   const ATTRIBUTION =
     '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a>';
@@ -108,7 +181,6 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import type * as maplibregl from "maplibre-gl";
   import "maplibre-gl/dist/maplibre-gl.css";
   import rawMapStyle from "@/lib/basemap/map-style.json";
   import {
@@ -157,6 +229,21 @@
     markers?: MapMarker[];
     markerRadius?: number;
     line?: [number, number][];
+    // How much of `line` is drawn, 0–1 of its length, for a caller animating
+    // the line in. Given at all — even as 0 — the line's source is built with
+    // `lineMetrics` and its layer with a `line-gradient`, both of which MapLibre
+    // needs from the start; a caller cannot begin without it and opt in later.
+    lineProgress?: number;
+    // Draw the whole of `line` faintly beneath the drawn part — the route
+    // still to come, under a `lineProgress` that has not reached it.
+    lineUpcoming?: boolean;
+    // A `[lat, lon]` to mark with a small dot: the runner's position. A DOM
+    // marker, so moving it every frame is one transform write.
+    runner?: [number, number];
+    // Marker id → 0–1: a ping the marker gives off, at that point in its life.
+    // Per-frame state travels here rather than inside `markers`, so a pulse
+    // never causes the marker set — and every label — to be rebuilt.
+    pulses?: Record<string, number>;
     onViewChange?: (
       view: {
         lat: number;
@@ -177,6 +264,11 @@
     // Fired on a fatal (pre-load) map failure so callers can stop their own
     // loaders and let the error surface.
     onError?: (err: unknown) => void;
+    // Fired once, when the map tells its loading frame to clear — the same
+    // moment as the `rosm:map-ready` event, for the caller that rendered this
+    // map and wants to start something the visitor will actually see. Fires
+    // on failure too (the frame clears to the error card either way).
+    onReady?: () => void;
     // Rendered inside the map popup when a marker is tapped, given that marker.
     markerPopup?: Snippet<[MapMarker]>;
   };
@@ -195,6 +287,10 @@
     markers = [],
     markerRadius = 9,
     line,
+    lineProgress,
+    lineUpcoming = false,
+    runner,
+    pulses,
     onViewChange,
     recenterKey,
     fitPoints,
@@ -203,6 +299,7 @@
     class: className,
     hidePlaceLabels = false,
     onError,
+    onReady,
     markerPopup,
   }: Props = $props();
 
@@ -284,6 +381,38 @@
 
   const radius = $derived(Math.max(0, markerRadius * popScale));
   const strokeW = $derived(Math.max(0, 2 * popScale));
+
+  // The drawn line's paint. Under `lineProgress` the gradient is part of it
+  // from the first frame, and each change is one `setPaintProperty`: the
+  // layer wrapper diffs paint by key, and a gradient over `line-progress` is
+  // not a data-driven expression, so MapLibre re-renders its colour ramp
+  // without relaying out the source.
+  const linePaint = $derived.by<maplibregl.LineLayerSpecification["paint"]>(() => {
+    const paint: maplibregl.LineLayerSpecification["paint"] = {
+      "line-color": ROUTE_LINE.color,
+      "line-width": ROUTE_LINE.width,
+      "line-opacity": ROUTE_LINE.opacity,
+    };
+    if (lineProgress !== undefined) paint["line-gradient"] = gradientExpr(lineProgress);
+    return paint;
+  });
+
+  // Push `pulses` into feature-state (see `pulsePaint`). Only the difference
+  // is written: a pulse that has ended is cleared so its feature falls back
+  // to the transparent ring, and one that continues is overwritten in place.
+  let pulsing = new Set<string>();
+  $effect(() => {
+    const next = pulses;
+    if (!next || !isLoaded || !map) return;
+    const m = map;
+    if (!m.getSource(MARKERS_SOURCE)) return;
+    const ids = new Set(Object.keys(next));
+    for (const id of pulsing) {
+      if (!ids.has(id)) m.removeFeatureState({ source: MARKERS_SOURCE, id }, "pulse");
+    }
+    for (const id of ids) m.setFeatureState({ source: MARKERS_SOURCE, id }, { pulse: next[id] });
+    pulsing = ids;
+  });
 
   // Recenter / fit on explicit request (recenterKey change), never fighting a pan.
   function doRecenter() {
@@ -395,9 +524,10 @@
     signalledReady = true;
     // One frame of slack: `load` fires *before* the browser has composited that
     // first frame, so revealing synchronously can dissolve to a blank canvas.
-    requestAnimationFrame(() =>
-      root?.dispatchEvent(new CustomEvent("rosm:map-ready", { bubbles: true })),
-    );
+    requestAnimationFrame(() => {
+      root?.dispatchEvent(new CustomEvent("rosm:map-ready", { bubbles: true }));
+      onReady?.();
+    });
   }
 
   // Keep the canvas the same size as the box it sits in.
@@ -488,14 +618,14 @@
       popScale = 0;
       return;
     }
-    if (motionMs(POP_MS) === 0) {
+    if (motionMs(MARKER_POP_MS) === 0) {
       popScale = 1;
       return;
     }
     popScale = 0;
     const start = performance.now();
     let raf = requestAnimationFrame(function tick(now) {
-      const t = Math.min(1, (now - start) / POP_MS);
+      const t = Math.min(1, (now - start) / MARKER_POP_MS);
       popScale = easeOutBack(t);
       if (t < 1) raf = requestAnimationFrame(tick);
     });
@@ -756,15 +886,25 @@
     {/if}
 
     {#if lineData}
-      <GeoJSONSource data={lineData}>
-        <LineLayer
-          layout={{ "line-cap": "round", "line-join": "round" }}
-          paint={{ "line-color": "#2563eb", "line-width": 5, "line-opacity": 0.8 }}
-        />
+      <GeoJSONSource data={lineData} lineMetrics={lineProgress !== undefined}>
+        {#if lineUpcoming}
+          <!-- Listed first, so it is added first and the drawn line paints
+               over it wherever the two overlap. Faint, not dashed: a loading
+               frame drawn without the engine can match a solid line exactly,
+               but not where MapLibre's dashes fall, and the two would visibly
+               shift at the hand-off. -->
+          <LineLayer layout={LINE_LAYOUT} paint={UPCOMING_PAINT} />
+        {/if}
+        <LineLayer layout={LINE_LAYOUT} paint={linePaint} />
       </GeoJSONSource>
     {/if}
 
-    <GeoJSONSource id={MARKERS_SOURCE} data={markerData}>
+    <!-- `promoteId` makes each feature's id its `mid`, which is what
+         `setFeatureState` addresses a pulse to. -->
+    <GeoJSONSource id={MARKERS_SOURCE} data={markerData} promoteId="mid">
+      {#if pulses}
+        <CircleLayer id={PULSE_LAYER} paint={pulsePaint(markerRadius)} />
+      {/if}
       <CircleLayer
         id={MARKERS_LAYER}
         paint={{
@@ -783,17 +923,31 @@
     {#each labeled as m (m.id)}
       <Marker lnglat={[m.lon, m.lat]} style={{ pointerEvents: "none" }}>
         {#snippet content()}
-          <span
-            class="marker-pop-label"
-            style="color:#fff; font-size:11px; font-weight:700; line-height:1; opacity:{m.dimmed
-              ? 0.45
-              : 1}; text-shadow:0 1px 1px rgba(0,0,0,.35);"
-          >
-            {m.label}
-          </span>
+          <!-- Keyed so a caller can replay the pop by changing `popKey`; the
+               keyframe runs on mount. -->
+          {#key m.popKey}
+            <span
+              class="marker-pop-label"
+              style="color:#fff; font-size:11px; font-weight:700; line-height:1; opacity:{m.dimmed
+                ? 0.45
+                : 1}; text-shadow:0 1px 1px rgba(0,0,0,.35);"
+            >
+              {m.label}
+            </span>
+          {/key}
         {/snippet}
       </Marker>
     {/each}
+
+    {#if runner}
+      <!-- After the labels, so it passes over them rather than under. -->
+      <Marker lnglat={[runner[1], runner[0]]} style={{ pointerEvents: "none" }}>
+        {#snippet content()}
+          <span class="runner-dot" style="--route-line-color: {ROUTE_LINE.color}" aria-hidden="true"
+          ></span>
+        {/snippet}
+      </Marker>
+    {/if}
 
     {#if selectedMarker && markerPopup && !selectedMarker.noPopup}
       <Popup
@@ -853,6 +1007,19 @@
   .map-view-root :global(.maplibregl-ctrl-bottom-left),
   .map-view-root :global(.maplibregl-ctrl-bottom-right) {
     bottom: var(--map-ctrl-inset-bottom, 0);
+  }
+
+  /* The `runner` dot: the line's own blue, ringed in white like the stops but
+     smaller than one, so it reads as moving along the route rather than as
+     another stop on it. */
+  .runner-dot {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--route-line-color);
+    border: 2.5px solid #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   }
 
   /* MapLibre's cooperative-gestures screen: a 40% black wash with a message,

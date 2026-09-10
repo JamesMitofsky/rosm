@@ -336,9 +336,12 @@ export const STATUS_COLOR: Record<StopStatus, string> = {
   skipped: "#6b7280",
 };
 
-// The demo joins the run "mid-way": the first stops are already surveyed so a
-// visitor immediately sees done vs. upcoming, and the runner dot sits on the
-// approach to the next target.
+// The run the hero replays. The first stops have been surveyed and the rest
+// are still to come, so a visitor sees done against upcoming — and the replay
+// (`DemoRunMap`, geometry in `demoRun.ts`) ends with the runner on the
+// approach to the first stop *not* listed here. These are the statuses the
+// replay reveals as the line reaches each stop, not what the map shows on
+// load: every stop starts pending, and only flips once the runner gets there.
 export const SEED_STATUSES: Record<number, StopStatus> = {
   1: "confirm",
   2: "confirm",
