@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { z } from "zod";
 import { FountainsRequest } from "@rosm/core/schemas";
 import { fetchFountains, OverpassError } from "@/lib/overpass";
 import { writeJson } from "@/lib/db";
@@ -8,7 +9,7 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request }) => {
   const parsed = FountainsRequest.safeParse(await request.json());
   if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+    return Response.json({ error: z.flattenError(parsed.error) }, { status: 400 });
   }
   const { lat, lon, radiusM, bounds, tag, recencyMode, recencyMonths, includeDisused } =
     parsed.data;

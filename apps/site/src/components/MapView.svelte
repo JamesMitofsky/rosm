@@ -546,11 +546,15 @@
     // actually settled on.
     applyViewLock();
     emitView(false);
-    const attrEl = map?.getContainer().querySelector('.maplibregl-ctrl-attrib');
-    attrEl?.classList.remove('maplibregl-compact-show');
+    const attrEl = map?.getContainer().querySelector(".maplibregl-ctrl-attrib");
+    attrEl?.classList.remove("maplibregl-compact-show");
     if (hidePlaceLabels && map) {
       for (const layer of map.getStyle().layers) {
-        if (layer.type === "symbol" && "source-layer" in layer && layer["source-layer"] === "place") {
+        if (
+          layer.type === "symbol" &&
+          "source-layer" in layer &&
+          layer["source-layer"] === "place"
+        ) {
           map.setLayoutProperty(layer.id, "visibility", "none");
         }
       }
@@ -595,10 +599,16 @@
         stroke="currentColor"
         stroke-width="1.75"
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.34 3.94l-8.4 14.55A1.5 1.5 0 003.24 21h17.52a1.5 1.5 0 001.3-2.51L13.66 3.94a1.5 1.5 0 00-2.6 0z" />
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 9v3.75m0 3.75h.008M10.34 3.94l-8.4 14.55A1.5 1.5 0 003.24 21h17.52a1.5 1.5 0 001.3-2.51L13.66 3.94a1.5 1.5 0 00-2.6 0z"
+        />
       </svg>
       <p style="margin: 0; font-weight: 700; font-size: 0.95rem;">Map couldn't load</p>
-      <p style="margin: 0; font-size: 0.8rem; opacity: 0.85;">Check your connection and try again.</p>
+      <p style="margin: 0; font-size: 0.8rem; opacity: 0.85;">
+        Check your connection and try again.
+      </p>
     </div>
   {/if}
   <!-- Fully opaque throughout, and deliberately not faded in. The map used to

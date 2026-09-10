@@ -17,7 +17,7 @@
  */
 
 /** Identifies one map *in one place on the site*. See {@link MapFrameSpec.frame}. */
-export type MapFrameId = "demo-run" | "live-fountains-home" | "live-fountains-dc";
+export type MapFrameId = "demo-run" | "live-fountains-dc";
 
 export type MapFrameVariant = {
   /**
@@ -74,10 +74,24 @@ const LIVE_CENTER: [number, number] = [38.8972, -77.0369];
  * Content width of a `max-w-6xl px-5` column at a given viewport width.
  *
  * `max-w-6xl` is 72rem and the site's root font size is the browser default 16,
- * so 1152px; `px-5` takes 20px off each side. Both pages that hold a map lay it
- * out inside exactly this column.
+ * so 1152px; `px-5` takes 20px off each side. The landing page lays its hero
+ * map out inside exactly this column.
  */
 const columnWidth = (viewportWidth: number) => Math.min(viewportWidth, 1152) - 40;
+
+/**
+ * The box the full-screen fountain map opens into: the viewport, less the site
+ * header above it. The header is `py-4` around a 40px logo on desktop and a
+ * 24px menu button with its own padding on mobile — 72px and about 64px.
+ * Representative viewports are a 1280x800 desktop window and a 390x844 phone;
+ * the frame really is the viewport, so on other screens the image is
+ * `cover`-cropped against a map that shows more or less ground instead, and the
+ * residual is seen through the frame's glass — same trade as every other frame.
+ */
+const DESKTOP_HEADER = 72;
+const MOBILE_HEADER = 64;
+const LIVE_WIDE_FRAME = { width: 1280, height: 800 - DESKTOP_HEADER };
+const LIVE_NARROW_FRAME = { width: 390, height: 844 - MOBILE_HEADER };
 
 /**
  * The hero frame, square at both breakpoints. `md:grid-cols-[46%_1fr]` gives
@@ -121,8 +135,8 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
       },
     ],
   },
-  "live-fountains-home": {
-    description: "LiveFountainMap in the Live Map section (index.astro)",
+  "live-fountains-dc": {
+    description: "LiveFountainMap filling the viewport on /public-drinking-fountains",
     variants: [
       {
         // `LiveFountainMap`'s own breakpoint — note it is *not* the same one the
@@ -130,34 +144,13 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
         media: "(max-width: 640px)",
         center: LIVE_CENTER,
         zoom: 7.8,
-        // Full-bleed on a 390px-wide phone.
-        frame: { width: columnWidth(390), height: 340 },
+        frame: LIVE_NARROW_FRAME,
       },
       {
         media: null,
         center: LIVE_CENTER,
         zoom: 11.3,
-        frame: { width: columnWidth(1280), height: 560 },
-      },
-    ],
-  },
-  "live-fountains-dc": {
-    description: "LiveFountainMap on /dc-drinking-fountains",
-    variants: [
-      {
-        media: "(max-width: 640px)",
-        center: LIVE_CENTER,
-        zoom: 7.8,
-        // Roughly 72vh of a 844px-tall phone viewport, which is what this map
-        // filled before the frame's shape became its own.
-        frame: { width: columnWidth(390), height: 607 },
-      },
-      {
-        media: null,
-        center: LIVE_CENTER,
-        zoom: 11.3,
-        // Roughly 72vh of a common 800px-tall desktop window.
-        frame: { width: columnWidth(1280), height: 576 },
+        frame: LIVE_WIDE_FRAME,
       },
     ],
   },

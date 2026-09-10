@@ -63,7 +63,7 @@ export async function watchRunPosition(
         showsBackgroundLocationIndicator: true,
         foregroundService: {
           notificationTitle: "Tracking your run",
-          notificationBody: "ROSM is recording your route and the points you survey.",
+          notificationBody: "Water Run is recording your route and the points you survey.",
         },
       });
     }

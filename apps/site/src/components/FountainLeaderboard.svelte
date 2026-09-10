@@ -28,9 +28,7 @@
     };
   });
 
-  const columns = $derived(
-    [leaders.slice(0, 5), leaders.slice(5, 10)].filter((c) => c.length > 0),
-  );
+  const columns = $derived([leaders.slice(0, 5), leaders.slice(5, 10)].filter((c) => c.length > 0));
 </script>
 
 {#snippet headerRow(extraClass: string)}
@@ -44,9 +42,7 @@
 {/snippet}
 
 {#snippet skeletonRow()}
-  <div
-    class="border-border grid grid-cols-[1.5rem_1fr_auto] items-center gap-3 border-b py-2.5"
-  >
+  <div class="border-border grid grid-cols-[1.5rem_1fr_auto] items-center gap-3 border-b py-2.5">
     <span class="bg-base/10 h-3 w-3 animate-pulse rounded"></span>
     <span class="bg-base/10 h-3 w-28 animate-pulse rounded"></span>
     <span class="bg-base/10 h-3 w-6 animate-pulse justify-self-end rounded"></span>

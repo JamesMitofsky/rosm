@@ -1,6 +1,6 @@
 {
   "appId": "org.rosm.app",
-  "appName": "ROSM",
+  "appName": "Water Run",
   "appTagline": "Running for Open-Sourced Maps",
   "scheme": "rosm",
   "apiBase": "https://rosm.app",

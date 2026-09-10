@@ -10,6 +10,22 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [svelte()],
+  // Prefetch every same-origin link once it scrolls into view, so the next
+  // page is already cached by the time it is tapped. `viewport` rather than
+  // the default `hover` because most visits are on phones, where hover never
+  // fires and the fetch would otherwise start only on tap. Safe here: no
+  // anchor points at an /api route, so nothing with side effects is fetched.
+  // Opt a single link out with `data-astro-prefetch="false"`.
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: "viewport",
+  },
+  // The fountain map was published as a DC page before it became the site's
+  // one map page. Permanent, so anything holding the old URL — search results,
+  // shared links — is told to update it rather than follow it every time.
+  redirects: {
+    "/dc-drinking-fountains": { status: 301, destination: "/public-drinking-fountains" },
+  },
   vite: {
     plugins: [tailwindcss()],
     // Without a stated floor the release minifier reads a prefixed property
@@ -20,6 +36,12 @@ export default defineConfig({
     // Safari 15 is the floor because the iOS app ships through Capacitor.
     build: {
       cssTarget: ["chrome110", "firefox115", "safari15", "edge110"],
+      // The header nav's current-page mask must ride inside the stylesheet as
+      // a data URI, whatever its byte size: as a separate request it paints a
+      // beat after the text it sits behind (see scripts/build-header-assets.ts).
+      // Everything else keeps Vite's default 4 KB threshold.
+      assetsInlineLimit: (filePath, content) =>
+        filePath.endsWith("nav-active-mask.webp") || content.length < 4096,
     },
   },
 });

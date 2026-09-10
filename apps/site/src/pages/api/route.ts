@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { z } from "zod";
 import { RouteRequest } from "@rosm/core/schemas";
 import { footRoute, RouteError } from "@rosm/core/brouter";
 
@@ -7,7 +8,7 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request }) => {
   const parsed = RouteRequest.safeParse(await request.json());
   if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+    return Response.json({ error: z.flattenError(parsed.error) }, { status: 400 });
   }
   const { points, loop } = parsed.data;
   try {

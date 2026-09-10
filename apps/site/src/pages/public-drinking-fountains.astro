@@ -1,0 +1,44 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import LiveFountainMap from "@/components/LiveFountainMap.svelte";
+import FreshnessLegend from "@/components/FreshnessLegend.svelte";
+import MapAssets from "@/components/MapAssets.astro";
+import MapFrame from "@/components/MapFrame.astro";
+
+export const prerender = true;
+---
+
+<Layout
+  title="Public Drinking Fountains — Live Map"
+  description="A live map of public drinking fountains, sourced from OpenStreetMap and graded by how recently each was verified."
+  fullscreen
+>
+  <MapAssets slot="head" />
+  {
+    /* `min-h-0` lets the flex item shrink to the viewport instead of growing to
+      its content, which is what keeps the map's box the screen and not the
+      page. The frame is given an explicit height, so `aspect-ratio` from its
+      spec yields to it — the spec's ratio still shapes the thumbnail. */
+  }
+  <main class="bg-surface font-body relative min-h-0 flex-1 text-base">
+    <MapFrame frame="live-fountains-dc" radius="0" class="h-full w-full">
+      <LiveFountainMap client:only="svelte" />
+    </MapFrame>
+
+    <h1 class="sr-only">Public Drinking Fountains</h1>
+
+    {
+      /* The legend floats over the map rather than sitting above it, so the map
+        keeps the whole box. Bottom-left is the one corner nothing else claims:
+        the map's own controls stack top-right, its retry card sits top-left,
+        and attribution is bottom-right. A sibling of the frame, not a child —
+        the frame isolates its stacking, so this sits over everything in it,
+        loading overlay included. */
+    }
+    <div
+      class="bg-surface/85 border-base/10 pointer-events-none absolute bottom-4 left-4 z-10 max-w-[calc(100%-2rem)] rounded-xl border px-4 py-3 shadow-lg backdrop-blur-md"
+    >
+      <FreshnessLegend client:visible />
+    </div>
+  </main>
+</Layout>

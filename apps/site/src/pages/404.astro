@@ -15,49 +15,34 @@ const lines = Array.from({ length: 9 }, (_, i) => {
 
 <Layout title="Off the map — 404" description="This route doesn't exist yet.">
   <main
-    class="bg-surface font-body text-base relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 text-center"
+    class="bg-surface font-body relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 text-center text-base"
   >
     <svg
-      class="text-base pointer-events-none absolute inset-0 h-full w-full opacity-[0.08]"
+      class="pointer-events-none absolute inset-0 h-full w-full text-base opacity-[0.08]"
       viewBox="0 0 1200 600"
       fill="none"
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
     >
-      {lines.map((l) => (
-        <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
-      ))}
+      {
+        lines.map((l) => (
+          <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
+        ))
+      }
     </svg>
 
     <div class="relative z-10 flex flex-col items-center">
-      <span class="text-muted font-mono text-[0.65rem] font-medium tracking-[0.22em] uppercase">
-        Error 404
-      </span>
-
-      <div class="border-base/10 bg-info mt-6 flex h-16 w-16 items-center justify-center rounded-xl border">
-        <svg viewBox="0 0 256 256" fill="currentColor" class="text-base h-[30px] w-[30px]" aria-hidden="true">
-          <path
-            d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm37.66,69.66-32,80a8,8,0,0,1-4.42,4.42l-80,32a8,8,0,0,1-10.4-10.4l32-80a8,8,0,0,1,4.42-4.42l80-32a8,8,0,0,1,10.4,10.4ZM128,112a16,16,0,1,0,16,16A16,16,0,0,0,128,112Z"
-          ></path>
-        </svg>
-      </div>
-
-      <h1 class="font-display mt-6 text-4xl font-bold sm:text-5xl">Off the map</h1>
-      <p class="text-muted mt-3 max-w-sm text-balance">
-        This route isn't on any survey we know. It may have moved, or never existed.
+      <h1 class="font-display text-4xl font-bold sm:text-5xl">Off the Map</h1>
+      <p class="text-muted mt-3 max-w-xl text-balance">
+        Whoops, this route isn't on any survey we know! It might have moved, or never existed.
       </p>
 
       <a
         href="/"
-        class="group bg-base text-surface mt-8 inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-bold transition hover:gap-3"
+        class="group bg-blue text-surface mt-8 inline-flex items-center gap-2 rounded-xl px-8 py-3.5 font-bold"
       >
-        Back to base
-        <svg
-          viewBox="0 0 256 256"
-          fill="currentColor"
-          class="h-[18px] w-[18px] transition group-hover:translate-x-0.5"
-          aria-hidden="true"
-        >
+        Return Home
+        <svg viewBox="0 0 256 256" fill="currentColor" class="h-[18px] w-[18px]" aria-hidden="true">
           <path
             d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"
           ></path>

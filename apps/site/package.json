@@ -9,15 +9,16 @@
     "preview": "astro preview",
     "lint": "eslint",
     "map:placeholders": "tsx scripts/build-map-placeholders.ts",
+    "header:assets": "tsx scripts/build-header-assets.ts",
     "typecheck": "astro check",
     "test": "vitest run"
   },
   "dependencies": {
     "@astrojs/svelte": "^9.0.1",
-    "@astrojs/vercel": "^11.0.3",
+    "@astrojs/vercel": "^11.0.10",
     "@rosm/core": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
-    "astro": "^7.1.3",
+    "astro": "^7.3.2",
     "canvas-confetti": "^1.9.4",
     "maplibre-gl": "^5.24.0",
     "phosphor-svelte": "^3.1.0",
@@ -27,7 +28,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.9",
+    "@astrojs/check": "^0.9.10",
     "@eslint/js": "^9.39.4",
     "@resvg/resvg-js": "^2.6.2",
     "@rosm/typescript-config": "workspace:*",

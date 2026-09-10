@@ -1,10 +1,12 @@
 import type { APIRoute } from "astro";
 import { getOsmToken } from "@/lib/osmToken";
+import { APP_NAME } from "@/lib/appConfig";
 
 export const prerender = false;
 
 const OSMCHA_BASE = "https://osmcha.org/api/v1";
-const EDITOR = "ROSM";
+// Must match the `created_by` changeset tag written in lib/osm.ts.
+const EDITOR = APP_NAME;
 
 export type OsmChange = {
   id: number;

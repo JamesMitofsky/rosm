@@ -6,13 +6,7 @@
   import { editSummary, todayLocal } from "@rosm/core/editSummary";
   import { celebratePoint } from "@/lib/confetti";
   import { zoomForViewport } from "@/lib/basemap/frames";
-  import {
-    DC_CENTER,
-    DC_FOUNTAINS,
-    DC_ROUTE,
-    STATUS_COLOR,
-    SEED_STATUSES,
-  } from "@/lib/demoRoute";
+  import { DC_CENTER, DC_FOUNTAINS, DC_ROUTE, STATUS_COLOR, SEED_STATUSES } from "@/lib/demoRoute";
 
   // Interactive replica of the run screen for the landing hero. Every tap flows
   // through the real PointPopup, but edits only touch local state — nothing is
@@ -41,8 +35,6 @@
 
   let statuses = $state<Record<number, StopStatus>>({ ...SEED_STATUSES });
   let edits = $state<Record<number, PointEdit>>(seedEdits());
-
-
 
   function record(f: Fountain, action: EditAction, extras?: EditExtras) {
     statuses = { ...statuses, [f.id]: action as StopStatus };

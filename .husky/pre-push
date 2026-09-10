@@ -2,4 +2,14 @@
 # job (.github/workflows/ci.yml) so failures surface here — in seconds — rather
 # than on a red main after Vercel has already deployed. pre-commit + lint-staged
 # only touches *staged* files; this re-checks the whole tree on every push.
-pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+#
+# Check-only on purpose: git resolves the commits it will push *before* this
+# hook runs, so rewriting files here would fix the working tree but still push
+# the unformatted commits. Auto-fixing belongs in pre-commit (lint-staged) and
+# in `pnpm fix`, which the failure message below points at.
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm test || {
+  echo
+  echo "pre-push: quality gate failed."
+  echo "Formatting and most lint errors are auto-fixable: run \`pnpm fix\`, commit, then push again."
+  exit 1
+}
