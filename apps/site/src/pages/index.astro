@@ -195,7 +195,11 @@ const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
           </h1>
 
           <div class="reveal flex flex-col items-start gap-7" style="transition-delay: 0.16s">
-            <p class="text-muted mt-2 max-w-md text-[1.2rem] leading-relaxed font-light">
+            <!-- Narrow screens set this smaller but heavier: it sits over live map
+              now, where a light 1.2rem line thinned out against the tiles. -->
+            <p
+              class="text-muted mt-2 max-w-md text-[1.05rem] leading-snug font-normal md:text-[1.2rem] md:leading-relaxed md:font-light"
+            >
               Is it civic service? Gamified running? A way to get more kudos on Strava? Exactly.
             </p>
           </div>
@@ -399,11 +403,15 @@ const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
       --hero-bar: 5rem;
     }
     .hero-wash {
+      /* Narrow screens never reach either extreme: the top stays short of pure
+       surface so the map reads through the copy, and the fade lands on a thin
+       haze rather than nothing, which keeps the lower map from snapping to full
+       contrast at `--hero-wash-end`. The last stop carries on to the bottom. */
       background: linear-gradient(
         180deg,
-        var(--color-surface) 0%,
-        color-mix(in srgb, var(--color-surface) 88%, transparent) 24%,
-        transparent var(--hero-wash-end)
+        color-mix(in srgb, var(--color-surface) 80%, transparent) 0%,
+        color-mix(in srgb, var(--color-surface) 60%, transparent) 24%,
+        color-mix(in srgb, var(--color-surface) 25%, transparent) var(--hero-wash-end)
       );
     }
     /* The map's visible area (`--map-view-inset-*`, read by `MapView`) and
