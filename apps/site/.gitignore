@@ -6,3 +6,5 @@ dist/
 .vercel/
 # deps
 node_modules/
+# local social-card preview (pnpm og:preview)
+.og-preview.png

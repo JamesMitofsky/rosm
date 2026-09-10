@@ -1,7 +1,11 @@
 # Last local gate before code reaches the remote. Mirrors the CI "Quality"
 # job (.github/workflows/ci.yml) so failures surface here — in seconds — rather
 # than on a red main after Vercel has already deployed. pre-commit + lint-staged
-# only touches *staged* files; this re-checks the whole tree on every push.
+# only touches *staged* files; this re-checks every tracked file on every push.
+#
+# Scope is git-TRACKED files, not the whole working tree: untracked scratch
+# files are never part of a push, so failing on them breaks the invariant that
+# anything committable is pushable. See scripts/format-check-tracked.sh.
 #
 # Check-only on purpose: git resolves the commits it will push *before* this
 # hook runs, so rewriting files here would fix the working tree but still push
