@@ -106,6 +106,18 @@ body {
   a {
     color: var(--color-link);
   }
+  /* The hand cursor on buttons, which nothing else gives us. Browsers' own
+     stylesheets leave a `<button>` on the arrow — only links get the hand —
+     and Tailwind v3's preflight used to paper over that with a `cursor:
+     pointer`, which v4 dropped to follow the browser. So every button on the
+     site sat on the arrow: the popup card's actions, the toggles, the form's
+     submit. This is the snippet v4's own upgrade guide hands you for it.
+     Disabled buttons keep the arrow — nothing happens on click, so the hand
+     would be a promise we don't keep. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
 
 /* iOS safe-area helpers. The app draws edge-to-edge (viewport-fit=cover), so

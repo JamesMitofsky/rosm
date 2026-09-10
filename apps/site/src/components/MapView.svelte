@@ -1158,6 +1158,13 @@
     {/if}
 
     {#if selectedMarker && markerPopup && !selectedMarker.noPopup}
+      <!-- `focusAfterOpen={false}`: MapLibre otherwise focuses the popup's
+        first focusable element the moment it opens (its default), which drops
+        a focus ring on the first action button of a popup the visitor just
+        tapped. The card opens under the pointer and is already where they are
+        looking, so the move buys nothing and the ring reads as a stray
+        selection. Tab order still reaches the card — it is in the DOM after
+        the markers. -->
       <Popup
         lnglat={[selectedMarker.lon, selectedMarker.lat]}
         anchor={selectedMarker.popupAnchor ?? "bottom"}
@@ -1165,6 +1172,7 @@
         closeOnClick={false}
         closeButton={false}
         maxWidth="none"
+        focusAfterOpen={false}
         onclose={() => (selected = null)}
       >
         {@render markerPopup(selectedMarker)}
