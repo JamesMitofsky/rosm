@@ -7,7 +7,8 @@
   // Mobile-only nav. The desktop header renders its links inline; below `sm`
   // those are hidden and this hamburger takes over.
   // `currentPath` marks the row for the page the visitor is on (see Layout).
-  let { inverted = false, currentPath = "" }: { inverted?: boolean; currentPath?: string } = $props();
+  let { inverted = false, currentPath = "" }: { inverted?: boolean; currentPath?: string } =
+    $props();
   let open = $state(false);
 
   // Svelte transitions don't consult the media query on their own, so every

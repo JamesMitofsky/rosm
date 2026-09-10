@@ -105,7 +105,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           = 3x the 48px render so it stays crisp on high-DPI screens. Decoded
           synchronously so it is in the first paint rather than a frame after. */
       }
-      <a href="/" class="nav-brand flex items-center w-fit" aria-label={APP_NAME}>
+      <a href="/" class="nav-brand flex w-fit items-center" aria-label={APP_NAME}>
         <img
           src={logoSrc}
           alt={APP_NAME}
@@ -125,7 +125,7 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
           must be unique per document, hence one per link, and stable across
           pages so the old and new snapshots pair up. */
       }
-      <nav class="font-hero hidden sm:flex items-center gap-12">
+      <nav class="font-hero hidden items-center gap-12 sm:flex">
         <a
           href="/"
           class="nav-link"
