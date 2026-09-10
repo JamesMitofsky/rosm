@@ -1,48 +1,60 @@
 // Frozen demo data for the landing hero run map (extracted verbatim from the
 // original DemoRunMap): a real DC foot loop of roughly 23.5 km + its OSM
-// fountains.
+// fountains. The loop starts and ends at Meridian Hill Park, which is drawn
+// as the start flag rather than listed as a stop: a run's start is a place,
+// not a point to survey.
 import type { Fountain } from "@rosm/core/schemas";
 import type { StopStatus } from "@rosm/core/stores/run";
 
 export const DC_CENTER: [number, number] = [38.9068, -77.0331];
 
+/** Today's date `months` months back, as an OSM `check_date` (YYYY-MM-DD). */
+function isoDateMonthsAgo(months: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
 export const DC_FOUNTAINS: Fountain[] = [
   {
     id: 1,
-    lat: 38.92548,
-    lon: -77.03205,
-    tags: { name: "Meridian Hill Park", check_date: "2019-06-14" },
-  },
-  {
-    id: 2,
     lat: 38.91665,
     lon: -77.02586,
     tags: { name: "LeDroit Park", check_date: "2021-03-02" },
   },
   {
-    id: 3,
+    id: 2,
     lat: 38.90981,
     lon: -77.02821,
     tags: { name: "Logan Circle", check_date: "2018-09-27" },
   },
-  { id: 4, lat: 38.90998, lon: -77.03762, tags: { name: "Stead Park" } },
   {
-    id: 5,
+    id: 3,
+    lat: 38.90998,
+    lon: -77.03762,
+    // The stop the replay hands the visitor (`DEMO_NEXT_STOP`): checked a
+    // while ago, so its popup reads as a point due another look — not so
+    // long that it reads as abandoned. Relative to today rather than a fixed
+    // date, so it does not age.
+    tags: { name: "Stead Park", check_date: isoDateMonthsAgo(5) },
+  },
+  {
+    id: 4,
     lat: 38.88672,
     lon: -76.99649,
     tags: { name: "Lincoln Park", check_date: "2020-05-11" },
   },
-  { id: 6, lat: 38.8831, lon: -76.99871, tags: { name: "Folger Park" } },
+  { id: 5, lat: 38.8831, lon: -76.99871, tags: { name: "Folger Park" } },
   {
-    id: 7,
+    id: 6,
     lat: 38.88887,
     lon: -77.01979,
     tags: { name: "National Mall", check_date: "2017-08-19" },
   },
-  { id: 8, lat: 38.88897, lon: -77.02442, tags: { name: "Smithsonian Castle" } },
-  { id: 9, lat: 38.90495, lon: -77.06792, tags: { name: "Georgetown Waterfront" } },
+  { id: 7, lat: 38.88897, lon: -77.02442, tags: { name: "Smithsonian Castle" } },
+  { id: 8, lat: 38.90495, lon: -77.06792, tags: { name: "Georgetown Waterfront" } },
   {
-    id: 10,
+    id: 9,
     lat: 38.91023,
     lon: -77.06672,
     tags: { name: "Montrose Park", check_date: "2022-11-03" },
@@ -409,18 +421,21 @@ export const STATUS_COLOR: Record<StopStatus, string> = {
   skipped: "#6b7280",
 };
 
-// The run the hero replays. The first stops have been surveyed and the rest
-// are still to come, so a visitor sees done against upcoming — and the replay
-// (`DemoRunMap`, geometry in `demoRun.ts`) ends with the runner on the
-// approach to the first stop *not* listed here. These are the statuses the
-// replay reveals as the line reaches each stop, not what the map shows on
+// The run the hero replays. The first stops have been surveyed; the replay
+// (`DemoRunMap`, geometry in `demoRun.ts`) reveals each of these as the line
+// reaches its stop, then runs on to `DEMO_NEXT_STOP` and halts there with the
+// point's popup open, ready to be marked. These are not what the map shows on
 // load: every stop starts pending, and only flips once the runner gets there.
+//
+// Every stop listed here must come before `DEMO_NEXT_STOP` on the route, and
+// that stop must not be listed: `demoRun.ts` checks both at load.
 export const SEED_STATUSES: Record<number, StopStatus> = {
-  1: "confirm",
-  2: "out_of_order",
-  3: "confirm",
-  4: "confirm",
-  5: "confirm",
-  6: "removed",
-  7: "confirm",
+  1: "out_of_order",
+  2: "confirm",
 };
+
+/**
+ * The stop the replay ends on: the runner arrives here, still unmarked, and
+ * the map opens its popup — the visitor's cue that this is theirs to mark.
+ */
+export const DEMO_NEXT_STOP = 3;

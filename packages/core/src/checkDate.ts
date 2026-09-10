@@ -21,18 +21,33 @@ export function lastCheckedMs(tags: Record<string, string>): number | null {
   return parseCheckDate(raw);
 }
 
-// Compact "Checked Nd/Nmo/Ny ago" label from the most recent survey date, or
-// "Never checked" when none is recorded. `now` is passed in so the caller owns
-// the clock (testable, no hidden Date.now()).
-export function checkedAgoLabel(tags: Record<string, string>, now: number): string {
+// How `checkedAgoLabel` writes its units: "short" is the compact form for a
+// tight popup ("Checked 3w ago"); "long" spells them out for copy that is
+// read rather than scanned ("Checked 3 weeks ago").
+export type AgoStyle = "short" | "long";
+
+// "Checked … ago" label from the most recent survey date, or "Never checked"
+// when none is recorded. Days under a week, then weeks, months, years — each
+// floored, so a point checked 13 days ago was checked "1 week ago", not two.
+// `now` is passed in so the caller owns the clock (testable, no hidden
+// Date.now()).
+export function checkedAgoLabel(
+  tags: Record<string, string>,
+  now: number,
+  style: AgoStyle = "short",
+): string {
   const ms = lastCheckedMs(tags);
   if (ms === null) return "Never checked";
   const days = Math.max(0, Math.floor((now - ms) / 86_400_000));
   if (days === 0) return "Checked today";
-  if (days < 30) return `Checked ${days}d ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `Checked ${months}mo ago`;
-  return `Checked ${Math.floor(days / 365)}y ago`;
+  const unit = (n: number, short: string, long: string) =>
+    style === "long" ? `Checked ${n} ${long}${n === 1 ? "" : "s"} ago` : `Checked ${n}${short} ago`;
+  if (days < 7) return unit(days, "d", "day");
+  if (days < 30) return unit(Math.floor(days / 7), "w", "week");
+  // Bounded by days, not by the month count: day 360 through 364 floor to
+  // twelve months but are not yet a year.
+  if (days < 365) return unit(Math.floor(days / 30), "mo", "month");
+  return unit(Math.floor(days / 365), "y", "year");
 }
 
 // True if a point passes the recency filter. "stale" keeps points last surveyed

@@ -132,7 +132,52 @@ body {
 .maplibregl-popup-content {
   padding: 0.5rem 0.625rem;
   border-radius: 0.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+/* The shadow is cast by the popup as a whole, not the card: the tip is a
+   border-drawn triangle that a `box-shadow` on the card cannot follow, so
+   a `drop-shadow` on their parent traces card and tip as one silhouette.
+   (A drop-shadow's blur is about half a box-shadow's for the same look.) */
+.maplibregl-popup {
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25));
+}
+
+/* A popup springs open from its tip: past full size, back under, settle. The
+   body and the tip are siblings, so each is animated about the point where
+   the tip meets the marker — for a popup above its marker, the body's bottom
+   edge and the tip's bottom point.
+   `.maplibregl-popup` itself is left alone: MapLibre positions it with a
+   transform of its own. Runs once, on mount, which is every opening. */
+@keyframes popup-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.maplibregl-popup-content,
+.maplibregl-popup-tip {
+  transform-origin: 50% 100%;
+  animation: popup-pop 380ms ease-out both;
+}
+/* Opened beneath its marker, the popup meets it at its top edge instead. */
+.maplibregl-popup-anchor-top .maplibregl-popup-content,
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  transform-origin: 50% 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .maplibregl-popup-content,
+  .maplibregl-popup-tip {
+    animation: none;
+  }
 }
 
 @keyframes spin {

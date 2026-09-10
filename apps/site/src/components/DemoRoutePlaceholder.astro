@@ -2,7 +2,8 @@
 import { MAP_FRAMES, offsetFromCenter } from "@/lib/basemap/frames";
 import { DC_FOUNTAINS, DC_ROUTE, STATUS_COLOR } from "@/lib/demoRoute";
 import { DEMO_RUN_END, demoRouteRunBy, demoRunnerAt, demoStatusesAt } from "@/lib/demoRun";
-import { ROUTE_LINE } from "@/lib/basemap/routeLine";
+import { ROUTE_LINE, START_FLAG } from "@/lib/basemap/routeLine";
+import { FlagIcon } from "phosphor-svelte";
 
 /**
  * The hero run drawn into `MapFrame`'s loading state, in the positions the
@@ -68,6 +69,16 @@ const shots = variants.map((variant, index) => {
     viewBox: `0 0 ${variant.frame.width} ${variant.frame.height}`,
     loop: points(DC_ROUTE),
     run: points(demoRouteRunBy(DEMO_RUN_END)),
+    // Where the flag's `<svg>` goes so the base of its pole is on the
+    // route's first vertex (`START_FLAG.pole`).
+    flag: (() => {
+      const [lat, lon] = DC_ROUTE[0];
+      const { x, y } = at({ lat, lon });
+      return {
+        x: r(x - START_FLAG.px * START_FLAG.pole.x),
+        y: r(y - START_FLAG.px * START_FLAG.pole.y),
+      };
+    })(),
     runnerStart: runnerAt(0),
     runnerEnd: runnerAt(DEMO_RUN_END),
     stops: DC_FOUNTAINS.map((fountain, i) => ({
@@ -128,6 +139,26 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
         stroke-linecap="round"
         stroke-linejoin="round"
       />
+      {/* The runner: MapView's runner layer, a 14px disc with a 2.5px white
+          ring. An SVG stroke straddles the edge, so the radius is pulled in
+          by half the ring to land on the same outline. Before the stops, as
+          the live map draws it under them: at the start it sits beneath the
+          first stop, and in the end frame — swapped in under reduced motion —
+          beneath the stop the run ends on. */}
+      <circle
+        class="demo-route__runner demo-route__runner--start"
+        cx={shot.runnerStart.x}
+        cy={shot.runnerStart.y}
+        r="5.75"
+        style={`--route-line-color:${ROUTE_LINE.color}`}
+      />
+      <circle
+        class="demo-route__runner demo-route__runner--end"
+        cx={shot.runnerEnd.x}
+        cy={shot.runnerEnd.y}
+        r="5.75"
+        style={`--route-line-color:${ROUTE_LINE.color}`}
+      />
       {shot.stops.map((stop) => (
         <g>
           {/* `markerRadius` 9 with a 2px white ring — `MapView`'s defaults, which
@@ -147,25 +178,12 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
           </text>
         </g>
       ))}
-      {/* The runner: MapView's `.runner-dot`, a 14px disc whose 2.5px white
-          ring lies inside that. An SVG stroke straddles the edge, so the
-          radius is pulled in by half the ring to land on the same outline.
-          At the start it sits under the first stop; the end frame's copy is
-          swapped in under reduced motion. */}
-      <circle
-        class="demo-route__runner demo-route__runner--start"
-        cx={shot.runnerStart.x}
-        cy={shot.runnerStart.y}
-        r="5.75"
-        style={`--route-line-color:${ROUTE_LINE.color}`}
-      />
-      <circle
-        class="demo-route__runner demo-route__runner--end"
-        cx={shot.runnerEnd.x}
-        cy={shot.runnerEnd.y}
-        r="5.75"
-        style={`--route-line-color:${ROUTE_LINE.color}`}
-      />
+      {/* The start flag: the same phosphor glyph the live map plants, drawn
+          here at build time. Last, so it is over the runner that starts
+          beneath it, as the live map's DOM marker is over the canvas. */}
+      <g class="demo-route__flag" transform={`translate(${shot.flag.x} ${shot.flag.y})`}>
+        <FlagIcon size={START_FLAG.px} weight="fill" color={START_FLAG.color} />
+      </g>
     </svg>
   ))
 }
@@ -191,11 +209,16 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
     dominant-baseline: central;
   }
 
+  /* Haloed in white like the stops' rings — MapView's `.start-flag`. */
+  .demo-route__flag {
+    filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff)
+      drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+  }
+
   .demo-route__runner {
     fill: var(--route-line-color);
     stroke: #fff;
     stroke-width: 2.5;
-    filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
   }
 
   /* The replay's end frame, for a visitor who will not see the replay. */

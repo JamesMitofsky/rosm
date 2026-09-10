@@ -1,7 +1,7 @@
 <script module lang="ts">
   import type { Snippet } from "svelte";
   import type * as maplibregl from "maplibre-gl";
-  import { ROUTE_LINE } from "@/lib/basemap/routeLine";
+  import { ROUTE_LINE, START_FLAG } from "@/lib/basemap/routeLine";
 
   export type MapMarker = {
     id: number | string;
@@ -17,6 +17,11 @@
     data?: unknown;
     // Opt a specific marker out of opening a popup even when `markerPopup` is set.
     noPopup?: boolean;
+    // Which side of the marker its popup opens on: above it (`bottom`, the
+    // popup's anchor is its bottom edge — the default) or below it (`top`).
+    // For a marker whose popup would otherwise open into something the page
+    // paints over the map, or off its top edge.
+    popupAnchor?: "top" | "bottom";
     // Changing this replays the label's pop-in (the `marker-pop` keyframe in
     // globals.css) without touching the marker set — for a marker that has just
     // changed state and should be seen to.
@@ -34,8 +39,22 @@
     bounds: [[number, number], [number, number]];
   };
 
+  /** Gap between a marker and the tip of its popup, in px. */
+  const POPUP_OFFSET_PX = 14;
+
   const MARKERS_SOURCE = "markers";
   const MARKERS_LAYER = "markers-circle";
+  const RUNNER_SOURCE = "runner";
+  const RUNNER_LAYER = "runner-circle";
+  // The runner dot: the line's own blue, ringed in white like the stops but
+  // smaller than one, so it reads as moving along the route rather than as
+  // another stop on it. 14px across, as the loading frame draws it.
+  const RUNNER_PAINT: maplibregl.CircleLayerSpecification["paint"] = {
+    "circle-radius": 7,
+    "circle-color": ROUTE_LINE.color,
+    "circle-stroke-width": 2.5,
+    "circle-stroke-color": "#fff",
+  };
   const PULSE_LAYER = "markers-pulse";
   /**
    * How long a newly appeared dot takes to grow to full size. Exported for a
@@ -207,7 +226,7 @@
     FullScreenControl,
   } from "svelte-maplibre-gl";
   import { setMapPopup } from "@/lib/mapPopup";
-  import { ArrowCounterClockwise } from "phosphor-svelte";
+  import { ArrowCounterClockwise, FlagIcon } from "phosphor-svelte";
 
   type Props = {
     center: [number, number];
@@ -219,7 +238,13 @@
     // never drag more than a margin past the ground the first frame showed (see
     // `LOCK_SLACK`). Overrides `minZoom`.
     lockToOpeningView?: boolean;
+    // Whether the visitor can move the map or tap its markers. Off, every
+    // gesture handler is disabled, taps on markers and on the ground are
+    // ignored, and the view controls are disabled — the map is a picture
+    // until it is turned back on. Reactive: a page can lock the map while
+    // it is showing something (the hero's replay) and unlock it after.
     interactive?: boolean;
+    // Defaults to `interactive`.
     scrollWheelZoom?: boolean;
     // MapLibre's cooperative gestures: the wheel scrolls the page unless a
     // modifier is held, and one finger scrolls the page while two move the map.
@@ -248,8 +273,14 @@
     // Draw the whole of `line` faintly beneath the drawn part — the route
     // still to come, under a `lineProgress` that has not reached it.
     lineUpcoming?: boolean;
-    // A `[lat, lon]` to mark with a small dot: the runner's position. A DOM
-    // marker, so moving it every frame is one transform write.
+    // A `[lat, lon]` to plant the start flag on (`START_FLAG`): where a route
+    // begins. Decoration — no popup, not tappable, and not a marker.
+    start?: [number, number];
+    // A `[lat, lon]` to mark with a small dot: the runner's position. Drawn
+    // as a circle layer *under* the markers, so on reaching a stop it tucks
+    // in beneath the stop's dot and the label stays clean; a DOM marker would
+    // ride over everything on the canvas. One point in its own source, so a
+    // frame's move is one tiny `setData`.
     runner?: [number, number];
     // Marker id → 0–1: a ping the marker gives off, at that point in its life.
     // Per-frame state travels here rather than inside `markers`, so a pulse
@@ -257,9 +288,12 @@
     pulses?: Record<string, number>;
     onViewChange?: (view: MapViewState, userInitiated: boolean) => void;
     recenterKey?: string;
-    // The tapped marker, by id. Bindable so a parent can both read the
-    // selection (to show a route to it, put it in the URL) and set it (to open
-    // a marker from a link). `null` closes the popup.
+    // The marker whose popup is open, by its own id, or null for none.
+    // Bindable: a tap on a marker sets it and a tap elsewhere clears it, and a
+    // page can read it (to route to it, to put it in the URL) or set it to
+    // open a marker's popup itself — from a link, or when the hero's replay
+    // brings the runner to a stop. Under `centerOnSelect` a selection made
+    // either way brings the marker in.
     selectedId?: MapMarker["id"] | null;
     // Fly the camera somewhere. A request, not state: the map keeps moving
     // after it lands, so the parent bumps `key` to send it again — the same
@@ -302,7 +336,7 @@
     maxZoom,
     lockToOpeningView = false,
     interactive = true,
-    scrollWheelZoom = interactive,
+    scrollWheelZoom,
     cooperativeGestures = false,
     showLocate = false,
     showFullscreen = false,
@@ -311,6 +345,7 @@
     line,
     lineProgress,
     lineUpcoming = false,
+    start,
     runner,
     pulses,
     onViewChange,
@@ -345,6 +380,9 @@
   const mapStyle = structuredClone(rawMapStyle) as maplibregl.StyleSpecification;
 
   let map = $state<maplibregl.Map | undefined>();
+  // Tracked here rather than as the prop's fallback so it follows a change
+  // to `interactive` after mount.
+  const wheelZoom = $derived(scrollWheelZoom ?? interactive);
   // 0 → 1 grow factor for the pop-in.
   let popScale = $state(1);
 
@@ -516,6 +554,16 @@
   // fires only when points actually appear.
   const markerIdSig = $derived(markers.map((m) => m.id).join("|"));
   const labeled = $derived(markers.filter((m) => m.label));
+  const runnerData = $derived<GeoJSON.Feature | null>(
+    runner
+      ? {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [runner[1], runner[0]] },
+          properties: {},
+        }
+      : null,
+  );
+
   const lineData = $derived<GeoJSON.Feature | null>(
     line && line.length > 1
       ? {
@@ -833,11 +881,16 @@
     ];
   }
 
-  // Bring a tapped marker to the middle of the visible area (demo maps opt in
-  // via `centerOnSelect`). The marker itself, not the marker-and-popup pair:
-  // this used to aim half the popup's height above the marker so the pair sat
-  // centred, which put the marker itself well below centre — and what the
-  // visitor tapped is the marker.
+  // Bring a tapped marker's popup to the middle of the visible area (demo
+  // maps opt in via `centerOnSelect`): the card, not the marker. The card is
+  // what the visitor reads next, and centring the marker leaves the card
+  // pushed up toward the edge — or, for a popup that opens beneath its
+  // marker, down. The marker sits a card's half-height off centre, on
+  // whichever side its popup opens.
+  //
+  // Measured off the popup's DOM a frame after it mounts: `offsetHeight`,
+  // which the pop-in's transform does not touch. If the popup is not there
+  // yet (or the marker opens none) the marker itself is centred.
   //
   // `easeTo`, not `flyTo`: flyTo flies an arc that pulls the camera back and in
   // again, which over a couple of hundred pixels is mostly swoop — and under a
@@ -848,22 +901,40 @@
     if (!centerOnSelect || !map) return;
     const m = untrack(() => selectedMarker);
     if (!m) return;
-    // Where the map's own centre must be for the marker to sit at the visible
-    // area's centre (`boxCentreOffset`), worked out in map coordinates rather
-    // than handed to `easeTo` as `offset`: the destination has to be a real
-    // centre before it can be clamped against the pen, and `easeTo` clamps
-    // whatever it is given as the centre, so given anything else it would
-    // clamp the wrong point.
-    const worldPx = WORLD_TILE_PX * 2 ** map.getZoom();
-    const [ox, oy] = untrack(boxCentreOffset);
-    const [lat, lon] = untrack(() =>
-      clampToPen(yToLat(latToY(m.lat) + oy / worldPx), xToLon(lonToX(m.lon) + ox / worldPx)),
-    );
-    map.easeTo({
-      center: [lon, lat],
-      duration: motionMs(600),
-      essential: true,
+    const mapInst = map;
+    const raf = requestAnimationFrame(() => {
+      const popupEl = mapInst.getContainer().querySelector<HTMLElement>(".maplibregl-popup");
+      const card = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-content");
+      const tip = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-tip");
+      // How far the card's centre is from the marker on screen, in px,
+      // positive downward: the gap the popup keeps from the marker, the tip,
+      // then half the card — on the side the popup opens.
+      let cardDy = 0;
+      if (card) {
+        const reach = POPUP_OFFSET_PX + (tip?.offsetHeight ?? 0) + card.offsetHeight / 2;
+        cardDy = (m.popupAnchor ?? "bottom") === "bottom" ? -reach : reach;
+      }
+      // Where the map's own centre must be for the card to sit at the visible
+      // area's centre (`boxCentreOffset`), worked out in map coordinates
+      // rather than handed to `easeTo` as `offset`: the destination has to be
+      // a real centre before it can be clamped against the pen, and `easeTo`
+      // clamps whatever it is given as the centre, so given anything else it
+      // would clamp the wrong point.
+      const worldPx = WORLD_TILE_PX * 2 ** mapInst.getZoom();
+      const [ox, oy] = untrack(boxCentreOffset);
+      const [lat, lon] = untrack(() =>
+        clampToPen(
+          yToLat(latToY(m.lat) + (oy + cardDy) / worldPx),
+          xToLon(lonToX(m.lon) + ox / worldPx),
+        ),
+      );
+      mapInst.easeTo({
+        center: [lon, lat],
+        duration: motionMs(600),
+        essential: true,
+      });
     });
+    return () => cancelAnimationFrame(raf);
   });
 
   function emitView(userInitiated: boolean) {
@@ -915,7 +986,7 @@
   }
 
   function handleClick(ev: maplibregl.MapMouseEvent) {
-    if (!map) return;
+    if (!map || !interactive) return;
     const feats = map.queryRenderedFeatures(ev.point, { layers: [MARKERS_LAYER] });
     const f = feats[0];
     if (f) {
@@ -1000,7 +1071,7 @@
     dragRotate={false}
     pitchWithRotate={false}
     touchPitch={false}
-    scrollZoom={scrollWheelZoom}
+    scrollZoom={wheelZoom}
     {cooperativeGestures}
     doubleClickZoom={interactive}
     touchZoomRotate={interactive}
@@ -1027,6 +1098,7 @@
             class="view-controls__reset"
             title="Reset view"
             aria-label="Reset view"
+            disabled={!interactive}
             onclick={resetView}
           >
             <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
@@ -1038,7 +1110,7 @@
             class="maplibregl-ctrl-zoom-out"
             title="Zoom out"
             aria-label="Zoom out"
-            disabled={atMinZoom}
+            disabled={!interactive || atMinZoom}
             onclick={() => map?.zoomOut({ around: visibleCentre(), duration: motionMs(300) })}
           >
             <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
@@ -1048,7 +1120,7 @@
             class="maplibregl-ctrl-zoom-in"
             title="Zoom in"
             aria-label="Zoom in"
-            disabled={atMaxZoom}
+            disabled={!interactive || atMaxZoom}
             onclick={() => map?.zoomIn({ around: visibleCentre(), duration: motionMs(300) })}
           >
             <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
@@ -1111,10 +1183,18 @@
           "circle-stroke-color": "#fff",
           "circle-stroke-opacity": ["case", ["get", "dimmed"], 0.45, 1],
         }}
-        onmouseenter={() => setCursor("pointer")}
+        onmouseenter={() => interactive && setCursor("pointer")}
         onmouseleave={() => setCursor("")}
       />
     </GeoJSONSource>
+
+    {#if runnerData}
+      <!-- Mounted after the markers so `beforeId` has a layer to slot in
+           front of: under the stops' dots, over their pulse rings. -->
+      <GeoJSONSource id={RUNNER_SOURCE} data={runnerData}>
+        <CircleLayer id={RUNNER_LAYER} beforeId={MARKERS_LAYER} paint={RUNNER_PAINT} />
+      </GeoJSONSource>
+    {/if}
 
     {#each labeled as m (m.id)}
       <Marker lnglat={[m.lon, m.lat]} style={{ pointerEvents: "none" }}>
@@ -1135,12 +1215,20 @@
       </Marker>
     {/each}
 
-    {#if runner}
-      <!-- After the labels, so it passes over them rather than under. -->
-      <Marker lnglat={[runner[1], runner[0]]} style={{ pointerEvents: "none" }}>
+    {#if start}
+      <!-- Anchored at its centre by the marker, then shifted so the base of
+           the pole is on the point (see `START_FLAG.pole`). -->
+      <Marker lnglat={[start[1], start[0]]} style={{ pointerEvents: "none" }}>
         {#snippet content()}
-          <span class="runner-dot" style="--route-line-color: {ROUTE_LINE.color}" aria-hidden="true"
-          ></span>
+          <span
+            class="marker-pop-label start-flag"
+            style="--flag-color: {START_FLAG.color}; --flag-dx: {START_FLAG.px *
+              (0.5 - START_FLAG.pole.x)}px; --flag-dy: {START_FLAG.px *
+              (0.5 - START_FLAG.pole.y)}px;"
+            aria-hidden="true"
+          >
+            <FlagIcon size={START_FLAG.px} weight="fill" />
+          </span>
         {/snippet}
       </Marker>
     {/if}
@@ -1148,8 +1236,8 @@
     {#if selectedMarker && markerPopup && !selectedMarker.noPopup}
       <Popup
         lnglat={[selectedMarker.lon, selectedMarker.lat]}
-        anchor="bottom"
-        offset={14}
+        anchor={selectedMarker.popupAnchor ?? "bottom"}
+        offset={POPUP_OFFSET_PX}
         closeOnClick={false}
         closeButton={false}
         maxWidth="none"
@@ -1215,17 +1303,16 @@
     pointer-events: none;
   }
 
-  /* The `runner` dot: the line's own blue, ringed in white like the stops but
-     smaller than one, so it reads as moving along the route rather than as
-     another stop on it. */
-  .runner-dot {
+  /* The start flag: the glyph in its own green, haloed in white like the
+     stops' rings so it reads against any ground. The shift puts the pole's
+     base on the point; `transform-origin` keeps the pop-in growing from it. */
+  .start-flag {
     display: block;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--route-line-color);
-    border: 2.5px solid #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color: var(--flag-color);
+    translate: var(--flag-dx) var(--flag-dy);
+    transform-origin: calc(50% - var(--flag-dx)) calc(50% - var(--flag-dy));
+    filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff)
+      drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
   }
 
   /* MapLibre's cooperative-gestures screen: a 40% black wash with a message,
