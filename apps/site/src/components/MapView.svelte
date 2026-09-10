@@ -20,7 +20,9 @@
     // Which side of the marker its popup opens on: above it (`bottom`, the
     // popup's anchor is its bottom edge — the default) or below it (`top`).
     // For a marker whose popup would otherwise open into something the page
-    // paints over the map, or off its top edge.
+    // paints over the map, or off its top edge. Under `centerOnSelect` this is
+    // a preference: honoured whenever the card fits there once the camera has
+    // moved, overruled when only the other side can hold it (`popupSide`).
     popupAnchor?: "top" | "bottom";
     // Changing this replays the label's pop-in (the `marker-pop` keyframe in
     // globals.css) without touching the marker set — for a marker that has just
@@ -818,6 +820,30 @@
     ];
   }
 
+  // Which side of its marker the open popup is on. The marker's `popupAnchor`
+  // is a preference, not a verdict: it says which side the page would rather
+  // the card opened on, and it is honoured whenever the card fits there. What
+  // decides is the effect below, once the card has a measured height — a tall
+  // card on a marker near the floor of the visible area has to open upward
+  // however the page would like it, or it opens into the furniture below.
+  // `null` until that runs, when the preference is what is drawn.
+  let popupSide = $state<"top" | "bottom" | null>(null);
+  const popupAnchor = $derived(popupSide ?? selectedMarker?.popupAnchor ?? "bottom");
+  // A new selection is a fresh decision; the side the last card settled on
+  // says nothing about this one.
+  $effect(() => {
+    selected;
+    popupSide = null;
+    sidedFor = null;
+  });
+  // Which selection's card has had its side settled. The side is chosen once,
+  // off the card's first measured height, and then left alone: choosing it
+  // again when the card resizes would move a card the visitor is working in
+  // from under their thumb, and — since the side is what the popup is keyed on
+  // — rebuild the card mid-interaction. Later resizes still re-centre it; only
+  // the side is fixed.
+  let sidedFor: string | null = null;
+
   // Bring a tapped marker's popup to the middle of the visible area (demo
   // maps opt in via `centerOnSelect`): the card, not the marker. The card is
   // what the visitor reads next, and centring the marker leaves the card
@@ -825,9 +851,22 @@
   // marker, down. The marker sits a card's half-height off centre, on
   // whichever side its popup opens.
   //
-  // Measured off the popup's DOM a frame after it mounts: `offsetHeight`,
-  // which the pop-in's transform does not touch. If the popup is not there
-  // yet (or the marker opens none) the marker itself is centred.
+  // Which side that is, and where the camera goes, are one decision: the offset
+  // that centres the card is the card's whole reach on the side it opens, so
+  // the two sides ask for camera destinations a card-height apart. Both are
+  // costed here — the page's preferred side first — against the pen, because
+  // near the pen's edge the camera cannot travel the whole way: the card lands
+  // where the clamp left it, and one that was only ever going to fit on the
+  // other side hangs out of the frame with its marker looking disconnected.
+  //
+  // Re-run on every change of the card's size, not once on open: these cards
+  // are as tall as their content and their content changes under the visitor —
+  // an action turns a four-button grid into a confirmation — and a card that
+  // fitted below its marker at one height does not at the next.
+  //
+  // `offsetHeight`, which the pop-in's scale does not touch. If the popup never
+  // appears (or the marker opens none) the marker itself is centred and the
+  // preferred side stands.
   //
   // `easeTo`, not `flyTo`: flyTo flies an arc that pulls the camera back and in
   // again, which over a couple of hundred pixels is mostly swoop — and under a
@@ -835,43 +874,105 @@
   // curve. easeTo just moves.
   $effect(() => {
     selected; // track
+    // A flip rebuilds the popup (see the `{#key}` on it), so the element this
+    // watches is gone: re-run and re-attach to the new one.
+    popupSide;
     if (!centerOnSelect || !map) return;
     const m = untrack(() => selectedMarker);
     if (!m) return;
     const mapInst = map;
-    const raf = requestAnimationFrame(() => {
-      const popupEl = mapInst.getContainer().querySelector<HTMLElement>(".maplibregl-popup");
-      const card = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-content");
-      const tip = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-tip");
-      // How far the card's centre is from the marker on screen, in px,
-      // positive downward: the gap the popup keeps from the marker, the tip,
-      // then half the card — on the side the popup opens.
-      let cardDy = 0;
-      if (card) {
-        const reach = POPUP_OFFSET_PX + (tip?.offsetHeight ?? 0) + card.offsetHeight / 2;
-        cardDy = (m.popupAnchor ?? "bottom") === "bottom" ? -reach : reach;
-      }
+
+    const place = (card?: HTMLElement, tip?: HTMLElement) => {
+      const worldPx = WORLD_TILE_PX * 2 ** mapInst.getZoom();
+      const [ox, oy] = untrack(boxCentreOffset);
+      const { clientHeight: h } = mapInst.getContainer();
+      const inset = untrack(() => visibleInset);
       // Where the map's own centre must be for the card to sit at the visible
       // area's centre (`boxCentreOffset`), worked out in map coordinates
       // rather than handed to `easeTo` as `offset`: the destination has to be
       // a real centre before it can be clamped against the pen, and `easeTo`
       // clamps whatever it is given as the centre, so given anything else it
       // would clamp the wrong point.
-      const worldPx = WORLD_TILE_PX * 2 ** mapInst.getZoom();
-      const [ox, oy] = untrack(boxCentreOffset);
-      const [lat, lon] = untrack(() =>
-        clampToPen(
-          yToLat(latToY(m.lat) + (oy + cardDy) / worldPx),
-          xToLon(lonToX(m.lon) + ox / worldPx),
-        ),
-      );
+      //
+      // `cardDy` is how far the card's centre is from the marker on screen, in
+      // px, positive downward: the gap the popup keeps from the marker, the
+      // tip, then half the card — on the side the popup opens.
+      const plan = (side: "top" | "bottom") => {
+        const half = (card?.offsetHeight ?? 0) / 2;
+        const reach = card ? POPUP_OFFSET_PX + (tip?.offsetHeight ?? 0) + half : 0;
+        const cardDy = side === "bottom" ? -reach : reach;
+        const [lat, lon] = untrack(() =>
+          clampToPen(
+            yToLat(latToY(m.lat) + (oy + cardDy) / worldPx),
+            xToLon(lonToX(m.lon) + ox / worldPx),
+          ),
+        );
+        // Where the card actually lands, given a centre the pen may have cut
+        // short: the marker's screen position after the move, plus the reach.
+        // Measured against the visible area, so "fits" means fits where the
+        // page says the map can be seen — not merely inside the canvas.
+        const cardCentreY = h / 2 + (latToY(m.lat) - latToY(lat)) * worldPx + cardDy;
+        const slack = Math.min(
+          cardCentreY - half - inset.top,
+          h - inset.bottom - (cardCentreY + half),
+        );
+        return { side, lat, lon, slack };
+      };
+      // Settled already: the card keeps its side, and this pass only re-centres
+      // it at whatever height it now is.
+      let best: ReturnType<typeof plan>;
+      if (sidedFor === selected && popupSide) {
+        best = plan(popupSide);
+      } else {
+        const preferred = m.popupAnchor ?? "bottom";
+        const first = plan(preferred);
+        const second = plan(preferred === "top" ? "bottom" : "top");
+        // The preference wherever it fits; otherwise whichever side holds more
+        // of the card, so a card too tall for either overflows the softer edge.
+        best = first.slack >= 0 || first.slack >= second.slack ? first : second;
+        sidedFor = selected;
+        popupSide = best.side;
+      }
+      // Only move for a move worth making: a resize that leaves the camera
+      // where it already is (or all but) must not restart the ease under a
+      // card the visitor is reading.
+      const c = mapInst.getCenter();
+      const dx = Math.abs(lonToX(best.lon) - lonToX(c.lng)) * worldPx;
+      const dy = Math.abs(latToY(best.lat) - latToY(c.lat)) * worldPx;
+      if (Math.max(dx, dy) < 1) return;
       mapInst.easeTo({
-        center: [lon, lat],
+        center: [best.lon, best.lat],
         duration: motionMs(600),
         essential: true,
       });
-    });
-    return () => cancelAnimationFrame(raf);
+    };
+
+    // The popup is added to the DOM by MapLibre, a beat after this effect runs,
+    // so it is waited for rather than assumed. A handful of frames, then the
+    // marker is centred on its own — a popup that never arrives must not leave
+    // the camera parked where the tap found it.
+    let ro: ResizeObserver | undefined;
+    let raf = 0;
+    let waited = 0;
+    const attach = () => {
+      const popupEl = mapInst.getContainer().querySelector<HTMLElement>(".maplibregl-popup");
+      const card = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-content");
+      if (!card) {
+        if (waited++ < 10) raf = requestAnimationFrame(attach);
+        else place();
+        return;
+      }
+      const tip = popupEl?.querySelector<HTMLElement>(".maplibregl-popup-tip") ?? undefined;
+      // Fires once on observe with the size it has now, and again on every
+      // change — the initial placement and the re-fits are the same code path.
+      ro = new ResizeObserver(() => place(card, tip));
+      ro.observe(card);
+    };
+    raf = requestAnimationFrame(attach);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+    };
   });
 
   function emitView(userInitiated: boolean) {
@@ -1158,17 +1259,36 @@
     {/if}
 
     {#if selectedMarker && markerPopup && !selectedMarker.noPopup}
-      <Popup
-        lnglat={[selectedMarker.lon, selectedMarker.lat]}
-        anchor={selectedMarker.popupAnchor ?? "bottom"}
-        offset={POPUP_OFFSET_PX}
-        closeOnClick={false}
-        closeButton={false}
-        maxWidth="none"
-        onclose={() => (selected = null)}
-      >
-        {@render markerPopup(selectedMarker)}
-      </Popup>
+      <!-- Keyed on the side the card opens on, because `anchor` is a
+        construction-time option: `svelte-maplibre-gl` passes it into
+        `new maplibregl.Popup(...)` once and never again (there is no setter to
+        pass it to), so a plain prop change is silently dropped and every popup
+        after the first keeps the first one's side — the map's own popup
+        instance is reused as the selection moves from marker to marker. The
+        key makes the side a real change: a new Popup, built with it.
+        `selected` is in the key too, so a fresh marker also gets a fresh pop-in
+        rather than the card sliding across the map. -->
+      {#key `${selected}:${popupAnchor}`}
+        <!-- `focusAfterOpen={false}`: MapLibre otherwise focuses the popup's
+          first focusable element the moment it opens (its default), which drops
+          a focus ring on the first action button of a popup the visitor just
+          tapped. The card opens under the pointer and is already where they are
+          looking, so the move buys nothing and the ring reads as a stray
+          selection. Tab order still reaches the card — it is in the DOM after
+          the markers. -->
+        <Popup
+          lnglat={[selectedMarker.lon, selectedMarker.lat]}
+          anchor={popupAnchor}
+          offset={POPUP_OFFSET_PX}
+          closeOnClick={false}
+          closeButton={false}
+          maxWidth="none"
+          focusAfterOpen={false}
+          onclose={() => (selected = null)}
+        >
+          {@render markerPopup(selectedMarker)}
+        </Popup>
+      {/key}
     {/if}
   </MapLibre>
 </div>
