@@ -297,10 +297,13 @@ body {
     mask-repeat: no-repeat;
     -webkit-mask-position: center;
     mask-position: center;
-    /* The file is grayscale, no alpha; the default mode reads alpha and would
-       show the whole box. Old WebKit spelt this `-webkit-mask-source-type`. */
-    -webkit-mask-source-type: luminance;
-    mask-mode: luminance;
+    /* No `mask-mode`: the file carries the chalk in its alpha channel, which is
+       what every engine masks with by default. Both site masks were luminance
+       masks until iOS painted the hero one as a solid rectangle — WebKit drops
+       the luminance flag once the mask's pattern tile passes 512 x 512 device
+       pixels (webkit.org/b/282530). This splotch is small enough that it never
+       tripped the limit, but it is the same fragile dependency, so it went to
+       alpha with the headline. */
   }
   @media (prefers-reduced-motion: reduce) {
     &::before {
