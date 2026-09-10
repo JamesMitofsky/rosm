@@ -6,6 +6,7 @@ import MobileNav from "@/components/MobileNav.svelte";
 // beat after the header text and popped in. Derived by scripts/build-header-assets.ts.
 import logoSrc from "@/assets/logo-144.png?inline";
 import { APP_NAME } from "@/lib/appConfig";
+import { OG_ALT, OG_SIZE } from "@/lib/og/card";
 // Which nav item is the page the visitor is on. Trailing slash stripped so
 // `/public-drinking-fountains/` and `/public-drinking-fountains` count as the same page.
 const currentPath = Astro.url.pathname.replace(/(.)\/$/, "$1");
@@ -14,14 +15,6 @@ const isCurrent = (href: string) => (currentPath === href ? "page" : undefined);
 
 const APP_DESCRIPTION =
   "Turn your run into open-map fieldwork. Plan a route past unverified OpenStreetMap points, run it with turn-by-turn cues, and fix the map from the ground.";
-
-// Absolute base for resolving OG/twitter image URLs. Prefer an explicit site URL,
-// fall back to the Vercel production domain, then the known deploy target.
-const SITE_URL =
-  import.meta.env.PUBLIC_SITE_URL ??
-  (import.meta.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${import.meta.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "https://rosm.vercel.app");
 
 interface Props {
   title?: string;
@@ -58,8 +51,14 @@ const {
   overlayHeader = false,
 } = Astro.props;
 
-// Editorial social card, rendered to a static PNG at build time (Satori + resvg).
-const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
+// Social card, rendered to a static PNG at build time by
+// `pages/opengraph-image.png.ts`. Crawlers need an absolute URL, resolved
+// against the canonical origin (`site` in astro.config) rather than whatever
+// host served this page: the production card is the one every share should
+// show, and it is the only one guaranteed to exist next month. Its size is
+// stated alongside so Facebook and friends can lay the preview out before
+// they have fetched the image.
+const ogImage = new URL("/opengraph-image.png", Astro.site).href;
 ---
 
 <!doctype html>
@@ -95,8 +94,12 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content={String(OG_SIZE.width)} />
+    <meta property="og:image:height" content={String(OG_SIZE.height)} />
+    <meta property="og:image:alt" content={OG_ALT} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={OG_ALT} />
   </head>
   <!-- Flex column so a page's `main` can `flex-1` to the viewport floor without
        double-counting the header (a `min-h-dvh` on `main` overflows by exactly

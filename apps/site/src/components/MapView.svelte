@@ -130,10 +130,12 @@
     Marker,
     Popup,
     AttributionControl,
+    CustomControl,
     GeolocateControl,
     FullScreenControl,
   } from "svelte-maplibre-gl";
   import { setMapPopup } from "@/lib/mapPopup";
+  import { ArrowCounterClockwise } from "phosphor-svelte";
 
   type Props = {
     center: [number, number];
@@ -148,10 +150,13 @@
     interactive?: boolean;
     scrollWheelZoom?: boolean;
     // MapLibre's cooperative gestures: the wheel scrolls the page unless a
-    // modifier is held, and one finger scrolls the page while two move the map,
-    // with MapLibre's own hint overlay explaining both. For a map that fills
-    // the width of a page that continues below it — without this, the map is
-    // a scroll trap the size of the screen.
+    // modifier is held, and one finger scrolls the page while two move the map.
+    // For a map that fills the width of a page that continues below it —
+    // without this, the map is a scroll trap the size of the screen.
+    // MapLibre's own explanation — a dimming screen that flashes over the whole
+    // map on every wheel tick — is suppressed (see the style block); the view
+    // controls in the bottom-left corner (zoom in, zoom out, reset) are the
+    // visible way to move the map instead.
     cooperativeGestures?: boolean;
     // Add MapLibre's GeolocateControl: a "locate me" button that drops a blue
     // dot at the visitor's position, an accuracy halo, and — where the device
@@ -267,6 +272,43 @@
     return true;
   }
 
+  // Duration for a camera move this component starts: the given length, or a
+  // cut when the visitor has asked for reduced motion.
+  const motionMs = (ms: number) =>
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
+
+  // The view controls (see `cooperativeGestures`). MapLibre's own
+  // NavigationControl is not used because it cannot take a third button, and
+  // three buttons in one group read as one control where two groups read as
+  // two. Zoom in/out borrow MapLibre's button classes so they get its icons
+  // and disabled styling; reset is ours.
+  //
+  // Whether either zoom button has anything left to do. Read off the map at
+  // every zoom rather than derived from the props: the map's own limits are
+  // the truth (`lockToOpeningView` sets the floor from `zoom`, and MapLibre
+  // may clamp `maxZoom` against the style).
+  let atMinZoom = $state(false);
+  let atMaxZoom = $state(false);
+  function trackZoomLimits() {
+    if (!map) return;
+    const z = map.getZoom();
+    atMinZoom = z <= map.getMinZoom();
+    atMaxZoom = z >= map.getMaxZoom();
+  }
+
+  // Back to the view the map opened on — the configured `center`/`zoom`, the
+  // same pair the loading frame was drawn at, not wherever the camera was when
+  // it loaded. Under `lockToOpeningView` that view is inside the pen by
+  // construction, so this move never has to be clamped.
+  function resetView() {
+    map?.easeTo({
+      center: [center[1], center[0]],
+      zoom,
+      duration: motionMs(600),
+      essential: true,
+    });
+  }
+
   const markerData = $derived(markersToFeatures(markers));
   const markerById = $derived(new Map(markers.map((m) => [String(m.id), m])));
   // Signature of the marker *set* (ids only): recolors keep ids, so the pop-in
@@ -324,7 +366,7 @@
       m.flyTo({
         center: [target.lon, target.lat],
         zoom: target.zoom ?? m.getZoom(),
-        duration: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 900,
+        duration: motionMs(900),
         essential: true,
       });
     });
@@ -512,7 +554,7 @@
       popScale = 0;
       return;
     }
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if (motionMs(POP_MS) === 0) {
       popScale = 1;
       return;
     }
@@ -584,7 +626,7 @@
       );
       mapInst.easeTo({
         center: [lon, lat],
-        duration: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 600,
+        duration: motionMs(600),
         essential: true,
       });
     });
@@ -619,6 +661,7 @@
     // After `doRecenter`, so the pen is measured around the view the map
     // actually settled on.
     applyViewLock();
+    trackZoomLimits();
     emitView(false);
     const attrEl = map?.getContainer().querySelector(".maplibregl-ctrl-attrib");
     attrEl?.classList.remove("maplibregl-compact-show");
@@ -717,12 +760,55 @@
     boxZoom={interactive}
     keyboard={interactive}
     onload={handleLoad}
+    onzoom={trackZoomLimits}
     onidle={signalReady}
     onerror={handleError}
     onclick={handleClick}
     onmoveend={(ev) => emitView(!!(ev as { originalEvent?: unknown }).originalEvent)}
   >
     <AttributionControl customAttribution={ATTRIBUTION} compact />
+
+    {#if cooperativeGestures}
+      <!-- View controls in place of MapLibre's flashing screen: with the wheel
+           handed to the page, these are the visible way to move the map.
+           Bottom-left is lifted clear of anything the page lays over the map's
+           lower edge by `--map-ctrl-inset-bottom`. -->
+      <CustomControl position="bottom-left" group={false} class="view-controls">
+        <div class="maplibregl-ctrl-group">
+          <button
+            type="button"
+            class="maplibregl-ctrl-zoom-in"
+            title="Zoom in"
+            aria-label="Zoom in"
+            disabled={atMaxZoom}
+            onclick={() => map?.zoomIn({ duration: motionMs(300) })}
+          >
+            <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
+          </button>
+          <button
+            type="button"
+            class="maplibregl-ctrl-zoom-out"
+            title="Zoom out"
+            aria-label="Zoom out"
+            disabled={atMinZoom}
+            onclick={() => map?.zoomOut({ duration: motionMs(300) })}
+          >
+            <span class="maplibregl-ctrl-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="maplibregl-ctrl-group">
+          <button
+            type="button"
+            class="view-controls__reset"
+            title="Reset view"
+            aria-label="Reset view"
+            onclick={resetView}
+          >
+            <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
+          </button>
+        </div>
+      </CustomControl>
+    {/if}
 
     {#if showFullscreen}
       <FullScreenControl position="top-right" />
@@ -846,5 +932,44 @@
   .map-view-root :global(.maplibregl-ctrl-bottom-left),
   .map-view-root :global(.maplibregl-ctrl-bottom-right) {
     bottom: var(--map-ctrl-inset-bottom, 0);
+  }
+
+  /* MapLibre's cooperative-gestures screen: a 40% black wash with a message,
+     thrown over the whole map for a second on every wheel tick that arrives
+     without the modifier. On a map that is the page's hero that is the hero
+     going dark every time the visitor scrolls past it. Hidden outright; the
+     handler still does its job (page scrolls, map does not), and the view
+     controls in the corner are the way to move the map instead. */
+  .map-view-root :global(.maplibregl-cooperative-gesture-screen) {
+    display: none;
+  }
+
+  /* Two pills in a row: the zoom pair joined, the reset standing a step to
+     the right on its own. The control itself is not a group (`group={false}`)
+     — the pills inside carry MapLibre's group class, so each gets its own
+     paper and shadow. MapLibre draws the seam between buttons on the top edge
+     for its stacked groups; in a row the seam goes on the left instead, same
+     colour as its own (`#ddd`). */
+  .map-view-root :global(.view-controls) {
+    display: flex;
+    gap: 6px;
+  }
+
+  .map-view-root :global(.view-controls .maplibregl-ctrl-group) {
+    display: flex;
+  }
+
+  .map-view-root :global(.view-controls button + button) {
+    border-top: 0;
+    border-left: 1px solid #ddd;
+  }
+
+  /* The reset button carries an inline SVG where MapLibre's own buttons carry
+     a background-image span, so it centres its glyph itself. Colour matches
+     the fill MapLibre paints its zoom glyphs in. */
+  .map-view-root :global(.view-controls__reset) {
+    display: grid;
+    place-items: center;
+    color: #333;
   }
 </style>

@@ -562,17 +562,13 @@
       : { padding: [4, 4] as [number, number], maxZoom: mobile.current ? 14 : 18 },
   );
 
-  // Location-specific play-by-play for the fetch.
+  // Play-by-play for the fetch. Names no place: the opening frame is only
+  // DC until the visitor is located, and the copy is read by both.
   const loadingSteps = $derived.by<LoadingStep[]>(() => {
-    const where =
-      lastRequest?.origin === "user"
-        ? "around you"
-        : lastRequest?.origin === "default"
-          ? "around Washington, DC"
-          : "in this area";
+    const where = lastRequest?.origin === "user" ? " around you" : "";
     return [
       { text: "Opening a socket to OpenStreetMap servers…", ms: 5000 },
-      { text: `Scanning drinking-water nodes ${where}…`, ms: 5000 },
+      { text: `Scanning drinking-water nodes${where}…`, ms: 5000 },
       { text: "Reading check_date tags to grade recency…", ms: 5000 },
     ];
   });
