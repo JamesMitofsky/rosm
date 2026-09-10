@@ -120,101 +120,61 @@ const topBand = bandPath(topWave, "top");
 const bottomBand = bandPath(bottomWave, "bottom");
 const mobileTopBand = bandPath(mobileTopWave, "top");
 const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
-
-// Faint topographic contour lines in the hero foreshadow The Problem below:
-// every line traces the same crest/trough silhouette as the manifesto plate's
-// torn top edge, stacked and fading in as they descend toward it. The plate
-// swaps to a simpler `mobileTopWave` under 768px (see the clip-path media query),
-// so the hero builds a matching contour set from each wave and CSS shows the one
-// that lines up at the current breakpoint.
-const contourRows = 10;
-const mobileContourRows = 14; // fewer waves, gap left unwidened so buffer grows instead of overlapping
-const waveTopY = 135; // y of the highest contour line, in the 0..600 viewBox
-const mobileWaveTopY = 150; // shifted down so the last line lands the same 60-unit buffer above blue as desktop
-const waveGap = 45; // vertical spacing between stacked lines (desktop)
-const mobileWaveGap = 30; // vertical spacing between stacked lines (mobile) — kept unwidened
-const waveAmp = 24; // px crest height (wave dips reach 0.03 of its box)
-// Build stacked contour lines that echo a given torn-edge wave. x maps straight
-// to width fractions (viewBox is 1200 wide, drawn with preserveAspectRatio="none"
-// so 0..1200 = 0..width), so each crest sits at the same x as the manifesto torn
-// edge below; y offset by the normalized crest depth so the line echoes it.
-// The opacity fade runs relative to this stack's own rows (first row = minOpacity,
-// last row = maxOpacity) rather than each line's absolute y position — row counts
-// are tuned so no row falls past viewBoxHeight, so there's no off-screen tail to
-// throw off the ramp, and the fade always starts faint right at the first row
-// regardless of where topY places it.
-const contoursFor = (
-  wave: { x: number; y: number }[],
-  rows: number,
-  topY: number,
-  gap: number,
-  minOpacity: number,
-  maxOpacity: number,
-) => {
-  const waveMax = Math.max(...wave.map((p) => p.y));
-  return Array.from({ length: rows }, (_, i) => {
-    const baseY = topY + i * gap;
-    const pts = wave.map((p) => ({
-      x: r(p.x * 1200),
-      y: r(baseY + (p.y / waveMax) * waveAmp),
-    }));
-    const fade = i / (rows - 1);
-    return {
-      d: waveThrough(pts),
-      opacity: minOpacity + (maxOpacity - minOpacity) * fade,
-    };
-  });
-};
-const contourLines = contoursFor(topWave, contourRows, waveTopY, waveGap, 0.005, 0.16);
-const mobileContourLines = contoursFor(
-  mobileTopWave,
-  mobileContourRows,
-  mobileWaveTopY,
-  mobileWaveGap,
-  0.002,
-  0.2,
-);
 ---
 
-<Layout>
+{/* The header floats over the hero map rather than sitting on a white bar above it. */}
+<Layout overlayHeader>
   <MapAssets slot="head" />
   <main class="bg-surface font-body relative text-base">
-    {/* HERO */}
-    <section class="relative overflow-hidden">
-      <svg
-        class="pointer-events-none absolute inset-0 h-full w-full"
-        style="color: #0E85C6"
-        viewBox="0 0 1200 600"
-        fill="none"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <g class="contours-desktop">
-          {
-            contourLines.map((l) => (
-              <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
-            ))
-          }
-        </g>
-        <g class="contours-mobile">
-          {
-            mobileContourLines.map((l) => (
-              <path d={l.d} stroke="currentColor" stroke-width="1" opacity={l.opacity} />
-            ))
-          }
-        </g>
-      </svg>
+    {
+      /* HERO — the demo map *is* the section. It fills the first screen edge to
+        edge and runs on under the manifesto plate's wave; the headline and
+        subtitle are painted over it. */
+    }
+    <section class="hero relative flex overflow-hidden">
+      {
+        /* Interactive demo of the run + edit flow. Deliberately not a `.reveal`
+          block: that starts at opacity 0 and waits for the scroll observer,
+          which would hide the map's own loading frame for exactly the window
+          the frame exists to fill. Its dissolve is the entrance.
 
-      <div class="relative mx-auto max-w-6xl px-5 pt-8 pb-16 md:pt-12 md:pb-24">
+          The map reaches the section's bottom edge, and the plate below is
+          pulled up over that edge (`-my-6` on its wrapper) with its wave band
+          hanging higher still — so the map's last strip is seen through the
+          crests, and the plate's drop-shadow falls on the map. The attribution
+          is lifted by the same amount so it never goes under with it. */
+      }
+      <div class="absolute inset-0" style="--map-ctrl-inset-bottom: var(--hero-under-plate)">
         {
-          /* Mobile: title -> subtitle -> map, in source order (flex column).
-            Desktop: map spans the left column, title + subtitle stack in the
-            right column (grid), where the explicit col/row placement makes
-            source order irrelevant. */
+          /* The loading state is `MapFrame`'s, not the island's: a picture of
+            this exact opening view, server-rendered and inline, so it is up
+            in the first paint rather than after the island hydrates. */
         }
-        <div
-          class="flex flex-col items-start gap-2 md:grid md:grid-cols-[46%_1fr] md:items-center md:gap-x-12 md:gap-y-2"
-        >
+        <MapFrame frame="demo-run" radius="0" class="hero-map h-full w-full">
+          <DemoRoutePlaceholder slot="placeholder" />
+          <DemoRunMap client:only="svelte" />
+        </MapFrame>
+      </div>
+
+      {
+        /* Page white washed over the map where the copy sits — the right half
+          on desktop, the top on mobile — fading to nothing over the route. The
+          map's opening view is shifted to match, so the route sits in the clear
+          half rather than under the veil (see `frames.ts`). No pointer events:
+          the map stays live underneath. */
+      }
+      <div class="hero-wash pointer-events-none absolute inset-0" aria-hidden="true"></div>
+
+      {
+        /* Mobile: title -> subtitle at the top, map below in the clear. Desktop:
+          copy in the right half, vertically centred, map showing in the left.
+          The column passes pointer events through to the map; only the copy
+          block itself takes them, so its text stays selectable. */
+      }
+      <div
+        class="pointer-events-none relative mx-auto flex w-full max-w-6xl flex-col px-5 pt-28 pb-28 md:justify-center md:pt-20 md:pb-32"
+      >
+        <div class="pointer-events-auto flex flex-col items-start gap-2 md:ml-auto md:w-1/2">
           {
             /* The title is hand-lettered ink, drawn as a mask on the `<h1>` itself
               (see `.hero-mark` below), so the page still has a real heading;
@@ -224,39 +184,15 @@ const mobileContourLines = contoursFor(
           <h1
             role="img"
             aria-label="An accurate map of nearby drinking fountains made by your friendly neighborhood runners"
-            class="hero-mark reveal bg-hero-ink w-full max-w-xl md:col-start-2 md:row-start-1 md:max-w-none md:self-end"
+            class="hero-mark reveal bg-hero-ink w-full max-w-xl md:max-w-none"
             style={`transition-delay: 0.1s; --hero-mask: url(${heroMask}); aspect-ratio: ${HERO_MASK_SIZE.width} / ${HERO_MASK_SIZE.height}`}
           >
           </h1>
 
-          <div
-            class="reveal flex flex-col items-start gap-7 md:col-start-2 md:row-start-2 md:self-start"
-            style="transition-delay: 0.16s"
-          >
+          <div class="reveal flex flex-col items-start gap-7" style="transition-delay: 0.16s">
             <p class="text-muted mt-2 max-w-md text-[1.2rem] leading-relaxed font-light">
               Is it civic service? Gamified running? A way to get more kudos on Strava? Exactly.
             </p>
-          </div>
-
-          {
-            /* Interactive demo of the run + edit flow, framed like a print plate.
-              Deliberately not a `.reveal` block: that starts at opacity 0 and
-              waits for the scroll observer, which would hide the map's own
-              loading frame for exactly the window the frame exists to fill. Its
-              dissolve is the entrance. */
-          }
-          <div
-            class="relative mt-8 w-full overflow-hidden rounded-xl shadow-lg md:col-start-1 md:row-span-2 md:mt-0 md:self-center"
-          >
-            {
-              /* The loading state is `MapFrame`'s, not the island's: a picture of
-                this exact opening view, server-rendered and inline, so it is up
-                in the first paint rather than after the island hydrates. */
-            }
-            <MapFrame frame="demo-run" class="hero-map z-0 w-full">
-              <DemoRoutePlaceholder slot="placeholder" />
-              <DemoRunMap client:only="svelte" />
-            </MapFrame>
           </div>
         </div>
       </div>
@@ -432,12 +368,46 @@ const mobileContourLines = contoursFor(
       -webkit-mask-source-type: luminance;
       mask-mode: luminance;
     }
+    /* The first screen, less the strip the plate's wave takes back from the
+     bottom — so the crests are in view at the fold rather than just under it.
+     The header floats over this section (`overlayHeader`), so the section
+     starts at the top of the document and the copy pads itself clear of the
+     bar. Floored so a short window still has room for the copy and the route;
+     capped so a tall one does not become a wall of map. The frame spec in
+     `frames.ts` is measured at this height; change one, re-check the other. */
+    .hero {
+      min-height: clamp(36rem, 100svh - 2.5rem, 52rem);
+      /* How far the plate reaches up over the map: its wrapper's `-my-6` plus
+       the wave band hanging above its top edge (`--edge`, below). */
+      --hero-under-plate: calc(1.5rem + var(--edge));
+    }
+    .hero-wash {
+      background: linear-gradient(
+        180deg,
+        var(--color-surface) 0%,
+        color-mix(in srgb, var(--color-surface) 88%, transparent) 24%,
+        transparent 46%
+      );
+    }
+    @media (min-width: 768px) {
+      .hero-wash {
+        background: linear-gradient(
+          90deg,
+          transparent 40%,
+          color-mix(in srgb, var(--color-surface) 82%, transparent) 58%,
+          color-mix(in srgb, var(--color-surface) 90%, transparent) 100%
+        );
+      }
+    }
     /* Crest depth, in px. A px value is the whole point of the bands: it is what
      the old objectBoundingBox clip could not express (see `bandPath`). Set to
      roughly the depth the fractional wave used to resolve to at this section's
-     usual height, so the plate looks the same — it just stops moving. */
-    .manifesto-plate {
+     usual height, so the plate looks the same — it just stops moving. Declared
+     on `main` so the hero above the plate can read it too. */
+    main {
       --edge: 14px;
+    }
+    .manifesto-plate {
       position: relative;
     }
     .manifesto-edge {
@@ -466,11 +436,8 @@ const mobileContourLines = contoursFor(
         padding-block: calc(7rem - var(--edge));
       }
     }
-    /* Hero contours mirror the manifesto top edge; show the set matching the wave
-     the plate uses at this breakpoint (swap point must match the band media
-     query below). */
-    .edge-mobile,
-    .contours-mobile {
+    /* Show the band matching the wave the plate uses at this breakpoint. */
+    .edge-mobile {
       display: none;
     }
     @media (max-width: 767px) {
@@ -479,12 +446,6 @@ const mobileContourLines = contoursFor(
       }
       .edge-mobile {
         display: block;
-      }
-      .contours-desktop {
-        display: none;
-      }
-      .contours-mobile {
-        display: inline;
       }
     }
   </style>

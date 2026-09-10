@@ -48,19 +48,18 @@ const shots = MAP_PLACEHOLDERS[frame];
 const sources = shots.filter((s) => s.media !== null);
 const fallback = shots.find((s) => s.media === null) ?? shots[shots.length - 1];
 
-// The frame's own aspect ratio, taken from the same variant specs the
-// thumbnails were rendered at.
+// The picture is drawn at its variant's own CSS size, centred, and the box
+// crops it — never scaled to fit. That is what keeps the picture and the live
+// map showing the same ground: a map at a fixed zoom shows a fixed amount of
+// ground per pixel and lets the box crop it, so the picture must do exactly the
+// same. Scaled to the box instead, the two disagreed by whatever the box's size
+// differed from the picture's, and a route drawn off-centre landed off by that
+// factor times its offset. The variant's size is also emitted as the frame's
+// `aspect-ratio`, for a caller that gives it only a width.
 //
-// This is what keeps the picture and the live map showing the same ground.
-// A thumbnail is `object-fit: cover`d, so it always shows *its* view scaled to
-// whatever box it lands in; a map at a fixed zoom shows a fixed amount of
-// ground and lets the box crop it. Give the two different shapes and they
-// disagree on one axis by however much the shapes differ — which is what the
-// dissolve was showing.
-//
-// Deriving it here rather than letting callers state a height is the point:
-// a height in the caller and a reference size in `frames.ts` are two numbers
-// free to drift apart, and nothing catches it when they do.
+// Sizes come from `frames.ts` rather than from callers on purpose: a size in
+// the caller and a reference size in the spec are two numbers free to drift
+// apart, and nothing catches it when they do.
 const variants = MAP_FRAMES[frame].variants;
 const base = variants.find((v) => v.media === null) ?? variants[variants.length - 1];
 const ratio = (v: (typeof variants)[number]) => `${v.frame.width}/${v.frame.height}`;
@@ -73,6 +72,28 @@ const aspectCss = [
     .filter((v) => v.media !== null)
     .map((v) => `@media ${v.media}{${selector}{aspect-ratio:${ratio(v)}}}`),
 ].join("");
+// The spinner sits over the map's subject, not necessarily the frame's centre:
+// a frame whose opening view is shifted (see `MapFrameVariant.subject`) has
+// its subject — and the clear space around it — off to one side, and the
+// page may well have put copy where the centre is. Same base-then-media order
+// as the aspect rules, for the same reason.
+const ordered = [base, ...variants.filter((v) => v.media !== null)];
+const perVariant = (rule: (v: (typeof variants)[number]) => string | null) =>
+  ordered
+    .map((v) => {
+      const r = rule(v);
+      return r === null ? "" : v.media === null ? r : `@media ${v.media}{${r}}`;
+    })
+    .join("");
+const sizeCss = perVariant(
+  (v) =>
+    `${selector} .map-frame__shot,${selector} .map-frame__content` +
+    `{width:${v.frame.width}px;height:${v.frame.height}px}`,
+);
+const spinnerCss = perVariant((v) =>
+  v.subject ? `${selector} .map-frame__spinner{translate:${v.subject.x}px ${v.subject.y}px}` : null,
+);
+const frameCss = aspectCss + sizeCss + spinnerCss;
 ---
 
 {
@@ -80,7 +101,7 @@ const aspectCss = [
     frames of this kind, and Astro dedupes the identical block emitted by a
     second map of the same kind on the page. */
 }
-<style is:global set:html={aspectCss}></style>
+<style is:global set:html={frameCss}></style>
 
 {
   /* The basemap's paper colour reaches the stylesheet as one custom property on
@@ -244,22 +265,26 @@ const aspectCss = [
     background: var(--basemap-background);
   }
 
-  .map-frame__shot {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    /* `cover`, not `fill`: the frames are `clamp()`-sized so their real aspect
-       slides with the viewport, and stretching each axis independently would
-       shear the city. Cover keeps the ground scale exact on whichever axis
-       constrains and crops the other. */
-    object-fit: cover;
-    max-width: none;
-  }
-
+  /* The picture and the shapes drawn over it, at the variant's own CSS size
+     (set per variant in the global block above), centred in the box and
+     cropped by it. Not `inset: 0`: stretched to the box, the picture would be
+     at a different scale from the map it dissolves into — see the note on
+     `frame` in `frames.ts`. The box is `overflow: hidden`, so what falls
+     outside is simply not drawn. */
+  .map-frame__shot,
   .map-frame__content {
     position: absolute;
-    inset: 0;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+  }
+
+  .map-frame__shot {
+    /* The element is the exact shape of the image, so this is an identity —
+       stated so a rounding difference between the two can only crop a pixel,
+       never stretch one. */
+    object-fit: cover;
+    max-width: none;
   }
 
   .map-frame__glass {

@@ -39,6 +39,15 @@ interface Props {
    * and a map pinned to it would leave a strip of page under the toolbar.
    */
   fullscreen?: boolean;
+  /**
+   * Float the header over the page instead of stacking above it: no
+   * background, absolutely positioned at the top, so whatever the page puts
+   * first — the landing page's full-bleed map — shows through behind the logo
+   * and nav. The page then owns the space under the header: its first section
+   * starts at the top of the document and must pad its own content clear of
+   * the bar (`py-4` around a 48px logo, so 80px).
+   */
+  overlayHeader?: boolean;
 }
 
 const {
@@ -46,6 +55,7 @@ const {
   description = APP_DESCRIPTION,
   noindex = false,
   fullscreen = false,
+  overlayHeader = false,
 } = Astro.props;
 
 // Editorial social card, rendered to a static PNG at build time (Satori + resvg).
@@ -99,7 +109,12 @@ const ogImage = new URL("/opengraph-image.png", SITE_URL).href;
         page a horizontal scrollbar. Below `sm` the nav is hidden, so the bar
         keeps the 20px the page content uses. */
     }
-    <header class="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
+    <header
+      class:list={[
+        "flex shrink-0 items-center justify-between px-5 py-4 sm:px-6",
+        overlayHeader && "absolute inset-x-0 top-0 z-20",
+      ]}
+    >
       {
         /* Logo sits top-left at every width and is the way home. 144px source
           = 3x the 48px render so it stays crisp on high-DPI screens. Decoded
