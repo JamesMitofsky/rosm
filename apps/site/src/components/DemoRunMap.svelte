@@ -138,7 +138,7 @@
 
   // The marker whose popup is open, bound to the map's own selection so a tap
   // on the map (which sets or clears it) and the replay (below) share it.
-  let selected = $state<string | null>(null);
+  let selected = $state<MapMarker["id"] | null>(null);
 
   // Once the runner halts, open the next stop's popup after `POPUP_DELAY_MS`.
   // Also the path under reduced motion, where the map opens on the end frame
@@ -147,7 +147,7 @@
   // it reopen on the next render.
   $effect(() => {
     if (phase !== "done") return;
-    const timer = setTimeout(() => (selected = String(DEMO_NEXT_STOP)), POPUP_DELAY_MS);
+    const timer = setTimeout(() => (selected = DEMO_NEXT_STOP), POPUP_DELAY_MS);
     return () => clearTimeout(timer);
   });
 
@@ -250,7 +250,7 @@
     {markers}
     {pulses}
     centerOnSelect
-    bind:selected
+    bind:selectedId={selected}
     hidePlaceLabels
     onReady={() => (ready = true)}
     {markerPopup}

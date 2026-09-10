@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyHide,
   countBy,
+  HIDE_KEYS,
+  hideCounts,
   fountainDotStyle,
   isDogWater,
   isOutOfService,
@@ -116,5 +119,34 @@ describe("toggled", () => {
     expect(toggled(base, "b")).toEqual(new Set(["a", "b"]));
     expect(toggled(base, "a")).toEqual(new Set());
     expect(base).toEqual(new Set(["a"]));
+  });
+});
+
+describe("hide filters", () => {
+  const fs = [
+    f(1, 0, 0),
+    f(2, 0, 0, { drinking_water: "no" }),
+    f(3, 0, 0, { disused: "yes" }),
+    // Both out of order and dog water: hidden by either key.
+    f(4, 0, 0, { disused: "yes", drinking_water: "no" }),
+  ];
+
+  it("lists both keys in display order", () => {
+    expect(HIDE_KEYS).toEqual(["out_of_order", "dog_water"]);
+  });
+
+  it("counts what each key would hide, over the full set", () => {
+    expect(hideCounts(fs)).toEqual({ out_of_order: 2, dog_water: 2 });
+    expect(hideCounts([])).toEqual({ out_of_order: 0, dog_water: 0 });
+  });
+
+  it("returns the same array when nothing is hidden", () => {
+    expect(applyHide(fs, new Set())).toBe(fs);
+  });
+
+  it("drops fountains matching any hidden key", () => {
+    expect(applyHide(fs, new Set(["out_of_order"])).map((x) => x.id)).toEqual([1, 2]);
+    expect(applyHide(fs, new Set(["dog_water"])).map((x) => x.id)).toEqual([1, 3]);
+    expect(applyHide(fs, new Set(["out_of_order", "dog_water"])).map((x) => x.id)).toEqual([1]);
   });
 });
