@@ -25,6 +25,17 @@
 
   const MARKERS_SOURCE = "markers";
   const MARKERS_LAYER = "markers-circle";
+  const RUNNER_SOURCE = "runner";
+  const RUNNER_LAYER = "runner-circle";
+  // The runner dot: the line's own blue, ringed in white like the stops but
+  // smaller than one, so it reads as moving along the route rather than as
+  // another stop on it. 14px across, as the loading frame draws it.
+  const RUNNER_PAINT: maplibregl.CircleLayerSpecification["paint"] = {
+    "circle-radius": 7,
+    "circle-color": ROUTE_LINE.color,
+    "circle-stroke-width": 2.5,
+    "circle-stroke-color": "#fff",
+  };
   const PULSE_LAYER = "markers-pulse";
   /**
    * How long a newly appeared dot takes to grow to full size. Exported for a
@@ -237,8 +248,11 @@
     // Draw the whole of `line` faintly beneath the drawn part — the route
     // still to come, under a `lineProgress` that has not reached it.
     lineUpcoming?: boolean;
-    // A `[lat, lon]` to mark with a small dot: the runner's position. A DOM
-    // marker, so moving it every frame is one transform write.
+    // A `[lat, lon]` to mark with a small dot: the runner's position. Drawn
+    // as a circle layer *under* the markers, so on reaching a stop it tucks
+    // in beneath the stop's dot and the label stays clean; a DOM marker would
+    // ride over everything on the canvas. One point in its own source, so a
+    // frame's move is one tiny `setData`.
     runner?: [number, number];
     // Marker id → 0–1: a ping the marker gives off, at that point in its life.
     // Per-frame state travels here rather than inside `markers`, so a pulse
@@ -257,6 +271,12 @@
     fitPoints?: [number, number][];
     fitOptions?: { padding?: [number, number]; maxZoom?: number };
     centerOnSelect?: boolean;
+    // The id of the marker whose popup is open, as a string, or null for none.
+    // Bindable: a tap on a marker sets it and a tap elsewhere clears it, and a
+    // page can set it to open a marker's popup itself — the hero's replay
+    // does, when the runner arrives at a stop. Under `centerOnSelect` a
+    // selection made either way brings the marker in.
+    selected?: string | null;
     class?: string;
     // Hide the basemap's place-name labels (city/town/suburb/etc). Demo map
     // opts in so the fixed DC region doesn't read as a real, named place.
@@ -296,6 +316,7 @@
     fitPoints,
     fitOptions,
     centerOnSelect = false,
+    selected = $bindable(null),
     class: className,
     hidePlaceLabels = false,
     onError,
@@ -318,7 +339,6 @@
   const mapStyle = structuredClone(rawMapStyle) as maplibregl.StyleSpecification;
 
   let map = $state<maplibregl.Map | undefined>();
-  let selected = $state<string | null>(null);
   // 0 → 1 grow factor for the pop-in.
   let popScale = $state(1);
 
@@ -472,6 +492,16 @@
   // fires only when points actually appear.
   const markerIdSig = $derived(markers.map((m) => m.id).join("|"));
   const labeled = $derived(markers.filter((m) => m.label));
+  const runnerData = $derived<GeoJSON.Feature | null>(
+    runner
+      ? {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [runner[1], runner[0]] },
+          properties: {},
+        }
+      : null,
+  );
+
   const lineData = $derived<GeoJSON.Feature | null>(
     line && line.length > 1
       ? {
@@ -1037,6 +1067,14 @@
       />
     </GeoJSONSource>
 
+    {#if runnerData}
+      <!-- Mounted after the markers so `beforeId` has a layer to slot in
+           front of: under the stops' dots, over their pulse rings. -->
+      <GeoJSONSource id={RUNNER_SOURCE} data={runnerData}>
+        <CircleLayer id={RUNNER_LAYER} beforeId={MARKERS_LAYER} paint={RUNNER_PAINT} />
+      </GeoJSONSource>
+    {/if}
+
     {#each labeled as m (m.id)}
       <Marker lnglat={[m.lon, m.lat]} style={{ pointerEvents: "none" }}>
         {#snippet content()}
@@ -1055,16 +1093,6 @@
         {/snippet}
       </Marker>
     {/each}
-
-    {#if runner}
-      <!-- After the labels, so it passes over them rather than under. -->
-      <Marker lnglat={[runner[1], runner[0]]} style={{ pointerEvents: "none" }}>
-        {#snippet content()}
-          <span class="runner-dot" style="--route-line-color: {ROUTE_LINE.color}" aria-hidden="true"
-          ></span>
-        {/snippet}
-      </Marker>
-    {/if}
 
     {#if selectedMarker && markerPopup && !selectedMarker.noPopup}
       <Popup
@@ -1134,19 +1162,6 @@
     left: var(--map-view-inset-left, 0);
     visibility: hidden;
     pointer-events: none;
-  }
-
-  /* The `runner` dot: the line's own blue, ringed in white like the stops but
-     smaller than one, so it reads as moving along the route rather than as
-     another stop on it. */
-  .runner-dot {
-    display: block;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--route-line-color);
-    border: 2.5px solid #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   }
 
   /* MapLibre's cooperative-gestures screen: a 40% black wash with a message,

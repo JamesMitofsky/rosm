@@ -409,18 +409,22 @@ export const STATUS_COLOR: Record<StopStatus, string> = {
   skipped: "#6b7280",
 };
 
-// The run the hero replays. The first stops have been surveyed and the rest
-// are still to come, so a visitor sees done against upcoming — and the replay
-// (`DemoRunMap`, geometry in `demoRun.ts`) ends with the runner on the
-// approach to the first stop *not* listed here. These are the statuses the
-// replay reveals as the line reaches each stop, not what the map shows on
+// The run the hero replays. The first stops have been surveyed; the replay
+// (`DemoRunMap`, geometry in `demoRun.ts`) reveals each of these as the line
+// reaches its stop, then runs on to `DEMO_NEXT_STOP` and halts there with the
+// point's popup open, ready to be marked. These are not what the map shows on
 // load: every stop starts pending, and only flips once the runner gets there.
+//
+// Every stop listed here must come before `DEMO_NEXT_STOP` on the route, and
+// that stop must not be listed: `demoRun.ts` checks both at load.
 export const SEED_STATUSES: Record<number, StopStatus> = {
   1: "confirm",
   2: "out_of_order",
   3: "confirm",
-  4: "confirm",
-  5: "confirm",
-  6: "removed",
-  7: "confirm",
 };
+
+/**
+ * The stop the replay ends on: the runner arrives here, still unmarked, and
+ * the map opens its popup — the visitor's cue that this is theirs to mark.
+ */
+export const DEMO_NEXT_STOP = 4;

@@ -6,25 +6,35 @@
   import { editSummary, todayLocal } from "@rosm/core/editSummary";
   import { celebratePoint } from "@/lib/confetti";
   import { MAP_REVEAL_MS, openingViewForViewport } from "@/lib/basemap/frames";
-  import { DC_FOUNTAINS, DC_ROUTE, STATUS_COLOR, SEED_STATUSES } from "@/lib/demoRoute";
+  import {
+    DC_FOUNTAINS,
+    DC_ROUTE,
+    DEMO_NEXT_STOP,
+    STATUS_COLOR,
+    SEED_STATUSES,
+  } from "@/lib/demoRoute";
   import {
     DEMO_ARRIVALS,
+    DEMO_CHECKPOINTS,
     DEMO_ROUTE_LENGTHS,
-    DEMO_RUN_END,
     DEMO_SEEDED_IN_ORDER,
     demoRunnerAt,
   } from "@/lib/demoRun";
+  import { arrivalMs, legSchedule, lengthAt } from "@/lib/runReplay";
 
   // Interactive replica of the run screen for the landing hero. Every tap flows
   // through the real PointPopup, but edits only touch local state — nothing is
   // sent to OSM, queued in the outbox, or persisted anywhere.
   //
   // On load it replays the run so far: the line draws itself from the first
-  // stop with the runner at its tip, each surveyed stop flips from pending to
-  // its status as the runner reaches it, and the run ends where the seed data
-  // says the runner is (`DEMO_RUN_END`), with the rest of the loop left faint
-  // as the plan. The replay is presentation only; the seeded statuses it
-  // reveals are the same ones the map used to show from the first frame.
+  // stop with the runner at its tip, slowing into each surveyed stop — which
+  // flips from pending to its status as the runner reaches it — and setting
+  // off again, until it halts at the next stop (`DEMO_NEXT_STOP`, at
+  // `DEMO_RUN_END`) with the rest of the loop left faint as the plan. The
+  // moment it stops there, that stop's popup springs open, unmarked: the
+  // visitor is handed the run exactly where a runner would reach for their
+  // phone. The replay is presentation only; the seeded statuses it reveals
+  // are the same ones the map used to show from the first frame.
   let { class: className = "" }: { class?: string } = $props();
 
   // The opening view is initial-only, so pick it once at mount. Read from the
@@ -35,8 +45,13 @@
   // map (see `frames.ts`).
   const { center, zoom } = openingViewForViewport("demo-run");
 
-  /** How long the replay takes to run from the first stop to `DEMO_RUN_END`. */
-  const RUN_MS = 4500;
+  /**
+   * How long the replay takes to run from the first stop to `DEMO_RUN_END`.
+   * Short: the hero's copy is what the visitor came for, and the popup that
+   * opens at the end is the replay's point, so the run is a prelude, not a
+   * feature.
+   */
+  const RUN_MS = 2200;
   /**
    * Pause between the loading frame clearing and the replay starting, so the
    * visitor sees a settled map before anything on it moves: the frame's
@@ -47,30 +62,16 @@
   const PULSE_MS = 550;
 
   /**
-   * Distance run as a fraction of `DEMO_RUN_END`, for a fraction of `RUN_MS`
-   * elapsed. A short run-up to a constant pace and no slowing at the end: a
-   * runner does not ease out, and the last stops would crawl if the line did.
-   * `EASE_IN` is the fraction of the time spent getting up to pace.
+   * The replay's clock: one leg per stretch between checkpoints, each eased
+   * in and out so the runner leaves a stop, gets up to pace, and slows into
+   * the next (`runReplay.ts`). The time is shared out by distance, so the
+   * pace is the same on every leg.
    */
-  const EASE_IN = 0.08;
-  const PACE = 1 / (1 - EASE_IN / 2);
-  const ease = (t: number) =>
-    t <= 0
-      ? 0
-      : t >= 1
-        ? 1
-        : t < EASE_IN
-          ? (PACE * t * t) / (2 * EASE_IN)
-          : PACE * (t - EASE_IN / 2);
-  /** Inverse of `ease`: when a given fraction of the distance has been run. */
-  const easeInverse = (s: number) => {
-    const kneeDist = (PACE * EASE_IN) / 2;
-    return s < kneeDist ? Math.sqrt((2 * EASE_IN * s) / PACE) : s / PACE + EASE_IN / 2;
-  };
+  const LEGS = legSchedule(DEMO_CHECKPOINTS, RUN_MS);
 
   /** When, in ms after the replay starts, the runner reaches each surveyed stop. */
   const ARRIVAL_MS: Record<number, number> = Object.fromEntries(
-    DEMO_SEEDED_IN_ORDER.map((id) => [id, easeInverse(DEMO_ARRIVALS[id] / DEMO_RUN_END) * RUN_MS]),
+    DEMO_SEEDED_IN_ORDER.map((id) => [id, arrivalMs(LEGS, DEMO_ARRIVALS[id]) ?? 0]),
   );
 
   const seededEdit = (id: number): PointEdit => ({
@@ -128,10 +129,24 @@
     return () => cancelAnimationFrame(raf);
   });
 
+  // The marker whose popup is open, bound to the map's own selection so a tap
+  // on the map (which sets or clears it) and the replay (below) share it.
+  let selected = $state<string | null>(null);
+
+  // The moment the runner halts, open the next stop's popup — no beat between
+  // the two, so the popup reads as the arrival itself, not a consequence of
+  // it. Also the path under reduced motion, where the map opens on the end
+  // frame with the popup already up. Depends on `phase` alone, so it runs
+  // once per arrival: a visitor who closes the popup does not have it reopen
+  // on the next render.
+  $effect(() => {
+    if (phase === "done") selected = String(DEMO_NEXT_STOP);
+  });
+
   // Per-frame values. Everything the map redraws every frame hangs off these
   // and *only* these — see `markers` below for what must not.
   const runElapsed = $derived(phase === "done" ? RUN_MS : phase === "idle" ? 0 : elapsed);
-  const runLength = $derived(ease(runElapsed / RUN_MS) * DEMO_RUN_END);
+  const runLength = $derived(lengthAt(LEGS, runElapsed));
   const lineProgress = $derived(runLength / DEMO_ROUTE_LENGTHS.total);
   const runner = $derived(demoRunnerAt(runLength));
 
@@ -222,6 +237,7 @@
     {markers}
     {pulses}
     centerOnSelect
+    bind:selected
     hidePlaceLabels
     onReady={() => (ready = true)}
     {markerPopup}

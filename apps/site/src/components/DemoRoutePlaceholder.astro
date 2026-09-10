@@ -128,6 +128,26 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
         stroke-linecap="round"
         stroke-linejoin="round"
       />
+      {/* The runner: MapView's runner layer, a 14px disc with a 2.5px white
+          ring. An SVG stroke straddles the edge, so the radius is pulled in
+          by half the ring to land on the same outline. Before the stops, as
+          the live map draws it under them: at the start it sits beneath the
+          first stop, and in the end frame — swapped in under reduced motion —
+          beneath the stop the run ends on. */}
+      <circle
+        class="demo-route__runner demo-route__runner--start"
+        cx={shot.runnerStart.x}
+        cy={shot.runnerStart.y}
+        r="5.75"
+        style={`--route-line-color:${ROUTE_LINE.color}`}
+      />
+      <circle
+        class="demo-route__runner demo-route__runner--end"
+        cx={shot.runnerEnd.x}
+        cy={shot.runnerEnd.y}
+        r="5.75"
+        style={`--route-line-color:${ROUTE_LINE.color}`}
+      />
       {shot.stops.map((stop) => (
         <g>
           {/* `markerRadius` 9 with a 2px white ring — `MapView`'s defaults, which
@@ -147,25 +167,6 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
           </text>
         </g>
       ))}
-      {/* The runner: MapView's `.runner-dot`, a 14px disc whose 2.5px white
-          ring lies inside that. An SVG stroke straddles the edge, so the
-          radius is pulled in by half the ring to land on the same outline.
-          At the start it sits under the first stop; the end frame's copy is
-          swapped in under reduced motion. */}
-      <circle
-        class="demo-route__runner demo-route__runner--start"
-        cx={shot.runnerStart.x}
-        cy={shot.runnerStart.y}
-        r="5.75"
-        style={`--route-line-color:${ROUTE_LINE.color}`}
-      />
-      <circle
-        class="demo-route__runner demo-route__runner--end"
-        cx={shot.runnerEnd.x}
-        cy={shot.runnerEnd.y}
-        r="5.75"
-        style={`--route-line-color:${ROUTE_LINE.color}`}
-      />
     </svg>
   ))
 }
@@ -195,7 +196,6 @@ const css = `[data-map-shot]{display:none}[data-map-shot="${fallback.id}"]{displ
     fill: var(--route-line-color);
     stroke: #fff;
     stroke-width: 2.5;
-    filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
   }
 
   /* The replay's end frame, for a visitor who will not see the replay. */

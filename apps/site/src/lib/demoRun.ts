@@ -11,7 +11,7 @@
  */
 
 import type { StopStatus } from "@rosm/core/stores/run";
-import { DC_FOUNTAINS, DC_ROUTE, SEED_STATUSES } from "./demoRoute";
+import { DC_FOUNTAINS, DC_ROUTE, DEMO_NEXT_STOP, SEED_STATUSES } from "./demoRoute";
 import { arrivalLengths, pointAt, routeLengths, routePrefix, type Route } from "./routeProgress";
 
 /** Cumulative lengths of `DC_ROUTE`, in the unit `routeProgress` measures. */
@@ -29,24 +29,39 @@ const IN_ROUTE_ORDER = DC_FOUNTAINS.map((f) => f.id).sort(
 export const DEMO_SEEDED_IN_ORDER = IN_ROUTE_ORDER.filter((id) => id in SEED_STATUSES);
 
 /**
- * How far along the leg after the last surveyed stop the runner has got: the
- * replay ends here. Past the stop, so it is clearly done, and well short of
- * the next, so that one is clearly still to come.
- */
-const LEG_FRACTION = 0.35;
-
-/**
- * Where the run has got to, as a length along `DC_ROUTE`. Everything before
- * it is drawn as run; everything after is the plan.
+ * Where the run has got to, as a length along `DC_ROUTE`: the runner's
+ * arrival at `DEMO_NEXT_STOP`. Everything before it is drawn as run;
+ * everything after is the plan. The replay halts exactly here, at the stop,
+ * and opens its popup.
+ *
+ * The seed data is checked against the route at load rather than trusted: a
+ * surveyed stop the runner has not reached, or a next stop that is already
+ * surveyed, would replay as a run that marks a point before getting to it.
  */
 export const DEMO_RUN_END = (() => {
-  const last = DEMO_SEEDED_IN_ORDER[DEMO_SEEDED_IN_ORDER.length - 1];
-  if (last === undefined) return 0;
-  const next = IN_ROUTE_ORDER.find((id) => DEMO_ARRIVALS[id] > DEMO_ARRIVALS[last]);
-  const from = DEMO_ARRIVALS[last];
-  const to = next === undefined ? DEMO_ROUTE_LENGTHS.total : DEMO_ARRIVALS[next];
-  return from + (to - from) * LEG_FRACTION;
+  const end = DEMO_ARRIVALS[DEMO_NEXT_STOP];
+  if (end === undefined) {
+    throw new Error(`DEMO_NEXT_STOP ${DEMO_NEXT_STOP} is not one of DC_FOUNTAINS`);
+  }
+  if (DEMO_NEXT_STOP in SEED_STATUSES) {
+    throw new Error(`DEMO_NEXT_STOP ${DEMO_NEXT_STOP} must not be in SEED_STATUSES`);
+  }
+  for (const id of DEMO_SEEDED_IN_ORDER) {
+    if (DEMO_ARRIVALS[id] >= end) {
+      throw new Error(`surveyed stop ${id} comes after DEMO_NEXT_STOP ${DEMO_NEXT_STOP}`);
+    }
+  }
+  return end;
 })();
+
+/**
+ * The lengths the replay comes to rest at, ascending: the start, every
+ * surveyed stop, and the end at `DEMO_NEXT_STOP`. A runner sets off from
+ * each and slows into the next — see `runReplay.ts` for the clock.
+ */
+export const DEMO_CHECKPOINTS: number[] = [
+  ...new Set([0, ...DEMO_SEEDED_IN_ORDER.map((id) => DEMO_ARRIVALS[id]), DEMO_RUN_END]),
+].sort((a, b) => a - b);
 
 /** The runner's `[lat, lon]` when the run has got `length` along the route. */
 export function demoRunnerAt(length: number): [number, number] {
