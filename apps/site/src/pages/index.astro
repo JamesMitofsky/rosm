@@ -4,6 +4,7 @@ import DemoRunMap from "@/components/DemoRunMap.svelte";
 import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
 import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
+import HeartIcon from "@/components/icons/HeartIcon.svelte";
 // The handwritten headline is one flat ink over a textured alpha, so it ships
 // as a luminance mask (hand-authored, see scripts/build-header-assets.ts) that
 // CSS fills with `hero-ink`. Inlined: it is the LCP element and sits inside
@@ -177,7 +178,7 @@ const mobileContourLines = contoursFor(
 
 <Layout>
   <MapAssets slot="head" />
-  <main class="bg-surface font-body text-base relative">
+  <main class="bg-surface font-body relative text-base">
     {/* HERO */}
     <section class="relative overflow-hidden">
       <svg
@@ -232,8 +233,8 @@ const mobileContourLines = contoursFor(
             class="reveal flex flex-col items-start gap-7 md:col-start-2 md:row-start-2 md:self-start"
             style="transition-delay: 0.16s"
           >
-            <p class="text-muted max-w-md mt-5 text-lg leading-relaxed">
-              Is it civic service? Gamified running? A way to get more kudos on Strava? Yes.
+            <p class="text-muted mt-2 max-w-md text-[1.2rem] leading-relaxed font-light">
+              Is it civic service? Gamified running? A way to get more kudos on Strava? Exactly.
             </p>
           </div>
 
@@ -245,7 +246,7 @@ const mobileContourLines = contoursFor(
               dissolve is the entrance. */
           }
           <div
-            class="relative mt-8 w-full overflow-hidden rounded-xl shadow-lg md:mt-0 md:col-start-1 md:row-span-2 md:self-center"
+            class="relative mt-8 w-full overflow-hidden rounded-xl shadow-lg md:col-start-1 md:row-span-2 md:mt-0 md:self-center"
           >
             {
               /* The loading state is `MapFrame`'s, not the island's: a picture of
@@ -295,7 +296,7 @@ const mobileContourLines = contoursFor(
         <section class="bg-blue">
           <div class="reveal manifesto-body mx-auto max-w-3xl px-5">
             <h2
-              class="font-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight text-light"
+              class="font-hero text-light text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight"
             >
               What's the Deal?
             </h2>
@@ -353,17 +354,15 @@ const mobileContourLines = contoursFor(
         </h2>
         <p class="text-muted mt-6 text-lg leading-relaxed">
           This map is made by runners, for... everyone! By routing runners past fountains that
-          haven't been checked in a while, we can regularly canvas the areas where drinking
-          fountains are most densely placed.
+          haven't been checked in a while, we regularly canvas where drinking fountains are most
+          densely placed.
         </p>
         <p class="text-muted mt-6 text-lg leading-relaxed">
-          But why runners? Why not walkers or cyclists? Well, first of all: good point! If you're
-          more into strutting than jogging, more power to ya! The reason why runners represent the
-          core contingent though is because they occupy a sort of goldilocks zone of movement. They
-          cover more ground than walkers (verifying more points in the same time), and they don't
-          have the hassel of regularly dismounting a bike to just to check a fountain. That said,
-          walkers and cyclists really do present unique opportunities to better index our world's
-          drinking fountains, and refining their experience is definitely a long-term goal.
+          But why runners? Runners are able to quickly test if a fountain works and move on. Compare
+          this with cycling, for example, which lends itself to longer stretches in the saddle. Or
+          walking, which tends not to cover much distance at one time. Each end of this
+          pedestrian-spectrum has something to offer, but we're currently optimized for the biggest
+          impact on the places where fountains are most dense: cities.
         </p>
       </div>
     </section>
@@ -371,10 +370,12 @@ const mobileContourLines = contoursFor(
     {/* FOOTER */}
     <footer>
       <div
-        class="text-muted mx-auto flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm"
+        class="text-muted mx-auto mt-8 flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm"
       >
         <span>
-          Created by <a
+          Hydrated with <HeartIcon size={14} class="text-blue inline-block align-[-2px]" /><span
+            class="sr-only">love</span
+          > by <a
             href="https://jamesm.it/about"
             target="_blank"
             rel="noopener noreferrer"
