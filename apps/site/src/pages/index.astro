@@ -142,9 +142,14 @@ const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
           pulled up over that edge (`-my-6` on its wrapper) with its wave band
           hanging higher still — so the map's last strip is seen through the
           crests, and the plate's drop-shadow falls on the map. The attribution
-          is lifted by the same amount so it never goes under with it. */
+          is lifted by the same amount so it never goes under with it.
+
+          `.hero-map-box` also tells the map which part of it is in the clear
+          (see the style block), so a tapped marker is centred in the map the
+          visitor can see rather than in the middle of the section, half of
+          which is under the wash and the copy. */
       }
-      <div class="absolute inset-0" style="--map-ctrl-inset-bottom: var(--hero-under-plate)">
+      <div class="hero-map-box absolute inset-0">
         {
           /* The loading state is `MapFrame`'s, not the island's: a picture of
             this exact opening view, server-rendered and inline, so it is up
@@ -380,23 +385,52 @@ const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
       /* How far the plate reaches up over the map: its wrapper's `-my-6` plus
        the wave band hanging above its top edge (`--edge`, below). */
       --hero-under-plate: calc(1.5rem + var(--edge));
+      /* The wash's stops. Narrow screens: it fades out downward and is gone at
+       `--hero-wash-end`. Wide: it fades in rightward from `--hero-wash-start`
+       and is (all but) full from `--hero-wash-full`. Read by both the wash
+       gradient and the map's visible-area insets on `.hero-map-box`, so the
+       map's idea of "in the clear" cannot drift from the wash. */
+      --hero-wash-end: 46%;
+      --hero-wash-start: 40%;
+      --hero-wash-full: 58%;
+      /* The header floating over the section (`overlayHeader`): logo `h-12`
+       plus `py-4`. Its strip is the map's on wide screens, where the wash does
+       not cover it; the copy's `md:pt-20` clears the same bar. */
+      --hero-bar: 5rem;
     }
     .hero-wash {
       background: linear-gradient(
         180deg,
         var(--color-surface) 0%,
         color-mix(in srgb, var(--color-surface) 88%, transparent) 24%,
-        transparent 46%
+        transparent var(--hero-wash-end)
       );
+    }
+    /* The map's visible area (`--map-view-inset-*`, read by `MapView`) and
+     the corner its controls are lifted to. Narrow: the wash and copy cover the
+     top — right down to where the wash ends, since the copy sits over the
+     fade — and the plate the bottom. Wide: the copy takes the right, but only
+     from the middle of the fade, where the wash passes half strength; the map
+     is still mostly seen through the lighter half, and centring a marker in
+     the fully clear strip alone pushed it hard against the left edge. The
+     header bar takes the top. */
+    .hero-map-box {
+      --map-ctrl-inset-bottom: var(--hero-under-plate);
+      --map-view-inset-top: var(--hero-wash-end);
+      --map-view-inset-bottom: var(--hero-under-plate);
     }
     @media (min-width: 768px) {
       .hero-wash {
         background: linear-gradient(
           90deg,
-          transparent 40%,
-          color-mix(in srgb, var(--color-surface) 82%, transparent) 58%,
+          transparent var(--hero-wash-start),
+          color-mix(in srgb, var(--color-surface) 82%, transparent) var(--hero-wash-full),
           color-mix(in srgb, var(--color-surface) 90%, transparent) 100%
         );
+      }
+      .hero-map-box {
+        --map-view-inset-top: var(--hero-bar);
+        --map-view-inset-right: calc(100% - (var(--hero-wash-start) + var(--hero-wash-full)) / 2);
       }
     }
     /* Crest depth, in px. A px value is the whole point of the bands: it is what
