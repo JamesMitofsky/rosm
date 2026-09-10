@@ -20,11 +20,21 @@
  *   headline. `index.astro` inlines it into the `<h1>` and fills it with a
  *   colour token.
  *
- * Both are luminance masks: white where the artwork is ink, black elsewhere,
- * grayscale in between. Each was one flat colour over a textured alpha, so the
- * alpha was the only information, and the painted originals were retired once
- * the masks replaced them. Re-crop or repaint the WebP directly, then re-run
- * this script so the recorded size follows.
+ * Both are alpha masks: opaque where the artwork is ink, transparent
+ * elsewhere, partial in between. Each was one flat colour over a textured
+ * alpha, so the alpha was the only information, and the painted originals were
+ * retired once the masks replaced them. Re-crop or repaint the WebP directly,
+ * then re-run this script so the recorded size follows.
+ *
+ * They must stay *alpha* masks, not the luminance masks (white ink on black,
+ * `mask-mode: luminance`) they started as. WebKit turns the luminance flag off
+ * whenever a mask's pattern tile exceeds 512 x 512 device pixels on iOS
+ * (2048 x 2048 on desktop) — see webkit.org/b/282530 — which a full-width
+ * headline on a 3x phone always is, so iOS painted the `<h1>` as a solid blue
+ * rectangle while every desktop browser looked right. Alpha is the default
+ * masking mode everywhere and goes nowhere near that code path. Exporting one
+ * of these as opaque grayscale again would reinstate the bug silently, so
+ * `assertAlphaMask` below fails the build instead.
  *
  * Why inline, and why this small: the header is on every page, and every page
  * is a fresh document (no client router), so each navigation paints from
@@ -35,17 +45,18 @@
  * on screen in the same frame as the text beside it. That is only affordable
  * if the bytes stay small, which is what the format choices below are for.
  *
- * Why a mask beats a picture for the two blue images: WebP compresses a lossy
- * alpha channel badly, but the same texture as luminance is a fraction of the
- * bytes (the headline: ~20 KB at 1280px, against 31–277 KB for the five
- * responsive WebPs the image pipeline used to emit). One file then serves
- * every breakpoint, and the colour becomes a CSS token rather than baked
- * pixels. Lossy grain is fine: chalk grain and ink edges are noise, and
- * banding in a mask reads as more chalk or more ink. Sizes to keep to when
- * re-exporting: the splotch is stretched (`mask-size: 100% 100%`) over a nav
- * item of roughly 130 x 36 CSS px, so 320 wide covers a 2x display with
- * headroom; the headline renders at most 36rem (576 CSS px) wide, so 1280 is
- * over 2x and still generous at 3x. Quality 70 is plenty for either.
+ * Why a mask beats a picture for the two blue images: one file serves every
+ * breakpoint, and the colour becomes a CSS token rather than baked pixels (the
+ * headline: ~27 KB at 1280px, against 31–277 KB for the five responsive WebPs
+ * the image pipeline used to emit). Lossy grain is fine: chalk grain and ink
+ * edges are noise, and banding in a mask reads as more chalk or more ink.
+ * Sizes to keep to when re-exporting: the splotch is stretched
+ * (`mask-size: 100% 100%`) over a nav item of roughly 130 x 36 CSS px, so 320
+ * wide covers a 2x display with headroom; the headline renders at most 36rem
+ * (576 CSS px) wide, so 1280 is over 2x and still generous at 3x. Quality 70
+ * is plenty for either — and export the alpha lossy too (`alphaQuality: 70`):
+ * WebP keeps an alpha channel lossless by default, which more than doubles
+ * these files for grain no one can see.
  *
  * All emitted files are committed.
  */
@@ -80,6 +91,26 @@ async function buildLogo() {
   );
 }
 
+/**
+ * Guards the one property of these files that no reviewer can see: the ink has
+ * to live in the alpha channel. A luminance re-export (opaque, white on black)
+ * still *looks* like a mask in a preview and still passes every check the CSS
+ * makes, but it masks nothing on iOS — see the note at the top of this file.
+ * An opaque file would mask nothing anywhere, so this is a cheap total check
+ * rather than a heuristic.
+ */
+async function assertAlphaMask(name: string) {
+  const file = asset(name);
+  const { hasAlpha } = await sharp(file).metadata();
+  if (!hasAlpha) {
+    throw new Error(
+      `${relative(file)} has no alpha channel. The masks carry their ink in ` +
+        `alpha, not luminance; re-export it with transparency (see the note at ` +
+        `the top of this script).`,
+    );
+  }
+}
+
 /** Records the hero mask's pixel size so the `<h1>` box can reserve its aspect ratio. */
 async function writeHeroMaskSize() {
   const maskFile = asset("hero-handwriting-mask.webp");
@@ -99,7 +130,12 @@ export const HERO_MASK_SIZE = { width: ${width}, height: ${height} } as const;
   console.log(`wrote ${relative(outFile)} — ${width}x${height}`);
 }
 
-void Promise.all([buildLogo(), writeHeroMaskSize()]).catch((error: unknown) => {
+void Promise.all([
+  buildLogo(),
+  writeHeroMaskSize(),
+  assertAlphaMask("hero-handwriting-mask.webp"),
+  assertAlphaMask("nav-active-mask.webp"),
+]).catch((error: unknown) => {
   console.error(error);
   process.exitCode = 1;
 });

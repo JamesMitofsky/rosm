@@ -6,7 +6,7 @@ import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
 import HeartIcon from "@/components/icons/HeartIcon.svelte";
 // The handwritten headline is one flat ink over a textured alpha, so it ships
-// as a luminance mask (hand-authored, see scripts/build-header-assets.ts) that
+// as an alpha mask (hand-authored, see scripts/build-header-assets.ts) that
 // CSS fills with `hero-ink`. Inlined: it is the LCP element and sits inside
 // the `.reveal` entrance, and as a separate request it landed mid-animation
 // and popped in.
@@ -372,10 +372,15 @@ const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
       mask-size: 100% 100%;
       -webkit-mask-repeat: no-repeat;
       mask-repeat: no-repeat;
-      /* The file is grayscale, no alpha; the default mode reads alpha and would
-       show the whole box. Old WebKit spelt this `-webkit-mask-source-type`. */
-      -webkit-mask-source-type: luminance;
-      mask-mode: luminance;
+      /* No `mask-mode`: the file carries the ink in its alpha channel, which is
+       what every engine masks with by default. It used to be a luminance mask
+       (white ink on black, `mask-mode: luminance`), and that is what iOS
+       rendered as a solid blue rectangle — WebKit drops the luminance flag
+       whenever the mask's pattern tile is bigger than 512 x 512 device pixels,
+       which a full-width headline on a 3x phone always is (webkit.org/b/282530).
+       The desktop limit is 2048 x 2048, so it only ever broke on the phone.
+       Keep any future re-export alpha; see scripts/build-header-assets.ts,
+       which fails the build if the alpha channel goes missing. */
     }
     /* The first screen, less the strip the plate's wave takes back from the
      bottom — so the crests are in view at the fold rather than just under it.
