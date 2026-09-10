@@ -17,6 +17,17 @@
     noPopup?: boolean;
   };
 
+  // What `onViewChange` reports after the camera settles: where it is, how far
+  // it sees (centre → corner, in metres) and the exact rectangle on screen as
+  // [[south, west], [north, east]].
+  export type MapViewState = {
+    lat: number;
+    lon: number;
+    zoom: number;
+    radiusM: number;
+    bounds: [[number, number], [number, number]];
+  };
+
   const MARKERS_SOURCE = "markers";
   const MARKERS_LAYER = "markers-circle";
   const POP_MS = 340;
@@ -152,18 +163,29 @@
     markers?: MapMarker[];
     markerRadius?: number;
     line?: [number, number][];
-    onViewChange?: (
-      view: {
-        lat: number;
-        lon: number;
-        radiusM: number;
-        bounds: [[number, number], [number, number]];
-      },
-      userInitiated: boolean,
-    ) => void;
+    onViewChange?: (view: MapViewState, userInitiated: boolean) => void;
     recenterKey?: string;
+    // The tapped marker, by id. Bindable so a parent can both read the
+    // selection (to show a route to it, put it in the URL) and set it (to open
+    // a marker from a link). `null` closes the popup.
+    selectedId?: MapMarker["id"] | null;
+    // Fly the camera somewhere. A request, not state: the map keeps moving
+    // after it lands, so the parent bumps `key` to send it again — the same
+    // shape as `recenterKey`. `zoom` defaults to wherever the camera is.
+    flyTo?: { lat: number; lon: number; zoom?: number; key: string };
+    // Tuning for the locate control. `timeoutMs` bounds how long a fix may
+    // take before `onlocateError` fires with a timeout; `maxZoom` caps how far
+    // the control zooms in on the first fix.
+    locateOptions?: { timeoutMs?: number; maxZoom?: number };
+    // A fix from the locate control, in the same lat/lon shape as everything
+    // else here. Fires on the first fix and on every update while tracking.
+    ongeolocate?: (pos: { lat: number; lon: number; accuracyM: number }) => void;
+    // The control could not get a fix: denied, unavailable, or timed out.
+    onlocateError?: (err: GeolocationPositionError) => void;
     fitPoints?: [number, number][];
-    fitOptions?: { padding?: [number, number]; maxZoom?: number };
+    // `duration` 0 (the default) snaps; a fit that answers a tap — "show me
+    // the route" — reads better animated.
+    fitOptions?: { padding?: [number, number]; maxZoom?: number; duration?: number };
     centerOnSelect?: boolean;
     class?: string;
     // Hide the basemap's place-name labels (city/town/suburb/etc). Demo map
@@ -192,6 +214,11 @@
     line,
     onViewChange,
     recenterKey,
+    selectedId = $bindable(null),
+    flyTo,
+    locateOptions,
+    ongeolocate,
+    onlocateError,
     fitPoints,
     fitOptions,
     centerOnSelect = false,
@@ -216,12 +243,29 @@
   const mapStyle = structuredClone(rawMapStyle) as maplibregl.StyleSpecification;
 
   let map = $state<maplibregl.Map | undefined>();
-  let selected = $state<string | null>(null);
   // 0 → 1 grow factor for the pop-in.
   let popScale = $state(1);
 
   // Popup content dismisses itself through this context (was useMapPopup).
-  setMapPopup({ close: () => (selected = null) });
+  setMapPopup({ close: () => (selectedId = null) });
+
+  // The locate control instance, for `locate()` below.
+  let geolocate = $state<maplibregl.GeolocateControl | undefined>();
+
+  /**
+   * Ask the locate control for a fix — exactly what tapping its button does.
+   *
+   * Exported so a parent's own "find me" affordance goes through the *same*
+   * control rather than calling `navigator.geolocation` itself: one permission
+   * prompt, one blue dot, one accuracy circle, and the control's tracking state
+   * stays truthful. Returns false when the control isn't mounted (`showLocate`
+   * off, or the map not yet built).
+   */
+  export function locate(): boolean {
+    if (!geolocate) return false;
+    geolocate.trigger();
+    return true;
+  }
 
   const markerData = $derived(markersToFeatures(markers));
   const markerById = $derived(new Map(markers.map((m) => [String(m.id), m])));
@@ -238,7 +282,9 @@
         }
       : null,
   );
-  const selectedMarker = $derived(selected != null ? markerById.get(selected) : undefined);
+  const selectedMarker = $derived(
+    selectedId != null ? markerById.get(String(selectedId)) : undefined,
+  );
 
   const radius = $derived(Math.max(0, markerRadius * popScale));
   const strokeW = $derived(Math.max(0, 2 * popScale));
@@ -251,7 +297,7 @@
       map.fitBounds(boundsOf(fitPoints), {
         padding: { top: padY, bottom: padY, left: padX, right: padX },
         maxZoom: fitOptions?.maxZoom ?? 16,
-        duration: 0,
+        duration: fitOptions?.duration ?? 0,
       });
     } else {
       map.jumpTo({ center: [center[1], center[0]] });
@@ -262,6 +308,26 @@
     recenterKey; // track
     if (!map) return;
     untrack(doRecenter);
+  });
+
+  // Fly on request (see `flyTo`). `flyTo` rather than `easeTo` here, unlike the
+  // centre-on-select move below: this is the long hop — from the opening view
+  // to the visitor's street, or to a fountain from a link — and the pull-back-
+  // and-swoop is what keeps a jump across a city legible. `essential` so it
+  // still lands under reduced motion; the duration is what drops to zero.
+  $effect(() => {
+    flyTo?.key; // track
+    const target = flyTo;
+    if (!map || !target) return;
+    const m = map;
+    untrack(() => {
+      m.flyTo({
+        center: [target.lon, target.lat],
+        zoom: target.zoom ?? m.getZoom(),
+        duration: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 900,
+        essential: true,
+      });
+    });
   });
 
   // Confine the camera to the opening view (see `lockToOpeningView`).
@@ -498,7 +564,7 @@
   // `minZoom` floor it cannot even perform the pull-back, so it fights its own
   // curve. easeTo just moves.
   $effect(() => {
-    selected; // track
+    selectedId; // track
     if (!centerOnSelect || !map) return;
     const m = untrack(() => selectedMarker);
     if (!m) return;
@@ -535,6 +601,7 @@
       {
         lat: c.lat,
         lon: c.lng,
+        zoom: map.getZoom(),
         radiusM: c.distanceTo(ne),
         bounds: [
           [sw.lat, sw.lng],
@@ -576,11 +643,14 @@
     if (f) {
       const mid = f.properties?.mid as string | undefined;
       const m = mid != null ? markerById.get(mid) : undefined;
-      if (m && markerPopup && !m.noPopup) selected = mid ?? null;
+      // Hand back the marker's own id (number or string as given), not the
+      // stringified feature property, so a parent comparing against its data
+      // gets a strict-equality match.
+      if (m && markerPopup && !m.noPopup) selectedId = m.id;
       else m?.onClick?.();
       return;
     }
-    selected = null;
+    selectedId = null;
   }
 
   function setCursor(v: string) {
@@ -660,12 +730,21 @@
 
     {#if showLocate}
       <GeolocateControl
+        bind:control={geolocate}
         position="top-right"
-        positionOptions={{ enableHighAccuracy: true }}
+        positionOptions={{ enableHighAccuracy: true, timeout: locateOptions?.timeoutMs ?? 10_000 }}
+        fitBoundsOptions={{ maxZoom: locateOptions?.maxZoom ?? 16 }}
         trackUserLocation
         showAccuracyCircle
         showUserLocation
         showUserHeading
+        ongeolocate={(ev) =>
+          ongeolocate?.({
+            lat: ev.coords.latitude,
+            lon: ev.coords.longitude,
+            accuracyM: ev.coords.accuracy,
+          })}
+        onerror={(ev) => onlocateError?.(ev)}
       />
     {/if}
 
@@ -717,7 +796,7 @@
         closeOnClick={false}
         closeButton={false}
         maxWidth="none"
-        onclose={() => (selected = null)}
+        onclose={() => (selectedId = null)}
       >
         {@render markerPopup(selectedMarker)}
       </Popup>
