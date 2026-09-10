@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CHECK_DATE_KEYS, lastCheckedMs, matchesRecency, parseCheckDate } from "../src/checkDate";
+import {
+  CHECK_DATE_KEYS,
+  checkedAgoLabel,
+  lastCheckedMs,
+  matchesRecency,
+  parseCheckDate,
+} from "../src/checkDate";
 
 describe("parseCheckDate", () => {
   it("parses a full YYYY-MM-DD date", () => {
@@ -71,5 +77,44 @@ describe("matchesRecency", () => {
     expect(matchesRecency({}, "fresh", cutoff)).toBe(false);
     expect(matchesRecency({ check_date: "2025-12-31" }, "fresh", cutoff)).toBe(false);
     expect(matchesRecency({ check_date: "2026-01-01" }, "fresh", cutoff)).toBe(true);
+  });
+});
+
+describe("checkedAgoLabel", () => {
+  const now = Date.UTC(2026, 8, 10);
+  const daysAgo = (n: number) => ({ check_date: new Date(now - n * 86_400_000).toISOString() });
+
+  it("says so when a point has never been checked", () => {
+    expect(checkedAgoLabel({}, now)).toBe("Never checked");
+    expect(checkedAgoLabel({ name: "x" }, now, "long")).toBe("Never checked");
+  });
+
+  it("is 'today' inside the first day", () => {
+    expect(checkedAgoLabel(daysAgo(0), now)).toBe("Checked today");
+    expect(checkedAgoLabel(daysAgo(0), now, "long")).toBe("Checked today");
+  });
+
+  it("counts days, then weeks, months and years, in the short style", () => {
+    expect(checkedAgoLabel(daysAgo(1), now)).toBe("Checked 1d ago");
+    expect(checkedAgoLabel(daysAgo(6), now)).toBe("Checked 6d ago");
+    expect(checkedAgoLabel(daysAgo(7), now)).toBe("Checked 1w ago");
+    expect(checkedAgoLabel(daysAgo(29), now)).toBe("Checked 4w ago");
+    expect(checkedAgoLabel(daysAgo(30), now)).toBe("Checked 1mo ago");
+    expect(checkedAgoLabel(daysAgo(155), now)).toBe("Checked 5mo ago");
+    expect(checkedAgoLabel(daysAgo(364), now)).toBe("Checked 12mo ago");
+    expect(checkedAgoLabel(daysAgo(365), now)).toBe("Checked 1y ago");
+  });
+
+  it("spells the units out, singular and plural, in the long style", () => {
+    expect(checkedAgoLabel(daysAgo(1), now, "long")).toBe("Checked 1 day ago");
+    expect(checkedAgoLabel(daysAgo(3), now, "long")).toBe("Checked 3 days ago");
+    expect(checkedAgoLabel(daysAgo(7), now, "long")).toBe("Checked 1 week ago");
+    expect(checkedAgoLabel(daysAgo(21), now, "long")).toBe("Checked 3 weeks ago");
+    expect(checkedAgoLabel(daysAgo(155), now, "long")).toBe("Checked 5 months ago");
+    expect(checkedAgoLabel(daysAgo(800), now, "long")).toBe("Checked 2 years ago");
+  });
+
+  it("never counts a future date as negative", () => {
+    expect(checkedAgoLabel(daysAgo(-3), now)).toBe("Checked today");
   });
 });

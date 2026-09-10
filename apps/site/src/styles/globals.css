@@ -137,7 +137,8 @@ body {
 
 /* A popup springs open from its tip: past full size, back under, settle. The
    body and the tip are siblings, so each is animated about the point where
-   the tip meets the marker — the body's bottom edge, the tip's bottom point.
+   the tip meets the marker — for a popup above its marker, the body's bottom
+   edge and the tip's bottom point.
    `.maplibregl-popup` itself is left alone: MapLibre positions it with a
    transform of its own. Runs once, on mount, which is every opening. */
 @keyframes popup-pop {
@@ -160,6 +161,11 @@ body {
 .maplibregl-popup-tip {
   transform-origin: 50% 100%;
   animation: popup-pop 380ms ease-out both;
+}
+/* Opened beneath its marker, the popup meets it at its top edge instead. */
+.maplibregl-popup-anchor-top .maplibregl-popup-content,
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  transform-origin: 50% 0;
 }
 @media (prefers-reduced-motion: reduce) {
   .maplibregl-popup-content,

@@ -99,9 +99,11 @@ describe("arrivalLengths", () => {
   const arrivals = arrivalLengths(DC_ROUTE, DC_FOUNTAINS);
   const lengths = routeLengths(DC_ROUTE);
 
-  it("reaches the first stop at the start of the loop, not after a lap", () => {
-    // Stop 1 sits where the loop starts and ends; the earlier pass must win.
-    expect(arrivals[1]).toBeLessThan(lengths.total * 0.01);
+  it("reaches the first stop early in the loop, not after a lap", () => {
+    // The loop starts and ends at the same place; stop 1 is a short way
+    // along it, and the first pass must win.
+    expect(arrivals[1]).toBeGreaterThan(0);
+    expect(arrivals[1]).toBeLessThan(lengths.total * 0.1);
   });
 
   it("visits the stops in the order they are numbered", () => {

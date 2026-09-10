@@ -1,7 +1,7 @@
 <script module lang="ts">
   import type { Snippet } from "svelte";
   import type * as maplibregl from "maplibre-gl";
-  import { ROUTE_LINE } from "@/lib/basemap/routeLine";
+  import { ROUTE_LINE, START_FLAG } from "@/lib/basemap/routeLine";
 
   export type MapMarker = {
     id: number | string;
@@ -17,6 +17,11 @@
     data?: unknown;
     // Opt a specific marker out of opening a popup even when `markerPopup` is set.
     noPopup?: boolean;
+    // Which side of the marker its popup opens on: above it (`bottom`, the
+    // popup's anchor is its bottom edge — the default) or below it (`top`).
+    // For a marker whose popup would otherwise open into something the page
+    // paints over the map, or off its top edge.
+    popupAnchor?: "top" | "bottom";
     // Changing this replays the label's pop-in (the `marker-pop` keyframe in
     // globals.css) without touching the marker set — for a marker that has just
     // changed state and should be seen to.
@@ -207,7 +212,7 @@
     FullScreenControl,
   } from "svelte-maplibre-gl";
   import { setMapPopup } from "@/lib/mapPopup";
-  import { ArrowCounterClockwise } from "phosphor-svelte";
+  import { ArrowCounterClockwise, FlagIcon } from "phosphor-svelte";
 
   type Props = {
     center: [number, number];
@@ -254,6 +259,9 @@
     // Draw the whole of `line` faintly beneath the drawn part — the route
     // still to come, under a `lineProgress` that has not reached it.
     lineUpcoming?: boolean;
+    // A `[lat, lon]` to plant the start flag on (`START_FLAG`): where a route
+    // begins. Decoration — no popup, not tappable, and not a marker.
+    start?: [number, number];
     // A `[lat, lon]` to mark with a small dot: the runner's position. Drawn
     // as a circle layer *under* the markers, so on reaching a stop it tucks
     // in beneath the stop's dot and the label stays clean; a DOM marker would
@@ -315,6 +323,7 @@
     line,
     lineProgress,
     lineUpcoming = false,
+    start,
     runner,
     pulses,
     onViewChange,
@@ -1104,10 +1113,28 @@
       </Marker>
     {/each}
 
+    {#if start}
+      <!-- Anchored at its centre by the marker, then shifted so the base of
+           the pole is on the point (see `START_FLAG.pole`). -->
+      <Marker lnglat={[start[1], start[0]]} style={{ pointerEvents: "none" }}>
+        {#snippet content()}
+          <span
+            class="marker-pop-label start-flag"
+            style="--flag-color: {START_FLAG.color}; --flag-dx: {START_FLAG.px *
+              (0.5 - START_FLAG.pole.x)}px; --flag-dy: {START_FLAG.px *
+              (0.5 - START_FLAG.pole.y)}px;"
+            aria-hidden="true"
+          >
+            <FlagIcon size={START_FLAG.px} weight="fill" />
+          </span>
+        {/snippet}
+      </Marker>
+    {/if}
+
     {#if selectedMarker && markerPopup && !selectedMarker.noPopup}
       <Popup
         lnglat={[selectedMarker.lon, selectedMarker.lat]}
-        anchor="bottom"
+        anchor={selectedMarker.popupAnchor ?? "bottom"}
         offset={14}
         closeOnClick={false}
         closeButton={false}
@@ -1172,6 +1199,18 @@
     left: var(--map-view-inset-left, 0);
     visibility: hidden;
     pointer-events: none;
+  }
+
+  /* The start flag: the glyph in its own green, haloed in white like the
+     stops' rings so it reads against any ground. The shift puts the pole's
+     base on the point; `transform-origin` keeps the pop-in growing from it. */
+  .start-flag {
+    display: block;
+    color: var(--flag-color);
+    translate: var(--flag-dx) var(--flag-dy);
+    transform-origin: calc(50% - var(--flag-dx)) calc(50% - var(--flag-dy));
+    filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff)
+      drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
   }
 
   /* MapLibre's cooperative-gestures screen: a 40% black wash with a message,
