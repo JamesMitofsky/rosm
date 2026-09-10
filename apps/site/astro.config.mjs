@@ -7,6 +7,11 @@ import tailwindcss from "@tailwindcss/vite";
 // Server output (API endpoints under src/pages/api). Static pages are still
 // prerendered by default; only routes/endpoints that opt out run on-demand.
 export default defineConfig({
+  // The canonical origin. Anything that must be an absolute URL — the social
+  // card, sitemaps, canonical links — resolves against `Astro.site`, so a
+  // preview deployment still points crawlers at the production image rather
+  // than at a URL that only exists for the life of the preview.
+  site: "https://waterrun.app",
   output: "server",
   adapter: vercel(),
   integrations: [svelte()],

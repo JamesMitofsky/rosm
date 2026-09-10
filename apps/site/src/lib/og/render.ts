@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
+import { OG_SIZE, type OgCopy } from "./card";
 
 /*
  * Shared Open Graph card — an editorial-paper social card styled from the app
@@ -9,18 +10,20 @@ import { Resvg } from "@resvg/resvg-js";
  * be rendered at build time (prerender) into a static PNG. Since the site is a
  * single landing page, one card is emitted.
  *
- * Palette + type mirror globals.css (@theme) and the landing page:
- *   surface #f4f6f8 · base #0c0d0a · muted #4d5c6a · border #c6cfd8 · link #4fafd4
+ * Palette + type mirror globals.css (`@theme`) and the landing page. Restated
+ * here rather than read from the stylesheet: Satori takes literal colours, and
+ * a build-time parse of Tailwind's theme block for five values is more
+ * machinery than five constants. Re-check these when the theme changes.
+ *   surface #ffffff · base #0f0e0c · muted #5a5a5a · border #e0e0e0
+ *   accent = `hero` #0b6fa7, the headline blue every display heading uses
  *   display = Space Grotesk (uppercase, tight) · body = Inter
  */
 
-export const OG_SIZE = { width: 1200, height: 630 };
-
-const SURFACE = "#f4f6f8";
-const BORDER = "#c6cfd8";
-const BASE = "#0c0d0a";
-const MUTED = "#4d5c6a";
-const LINK = "#4fafd4";
+const SURFACE = "#ffffff";
+const BORDER = "#e0e0e0";
+const BASE = "#0f0e0c";
+const MUTED = "#5a5a5a";
+const ACCENT = "#0b6fa7";
 
 // Assets are read once from disk at module load (build time) and reused.
 const fontDir = join(process.cwd(), "src", "lib", "og", "fonts");
@@ -60,7 +63,7 @@ const logo = `data:image/png;base64,${readFileSync(
 
 // Faint topographic contour field, echoing the landing hero.
 const contours = (() => {
-  const stroke = "%230c0d0a";
+  const stroke = "%230f0e0c";
   const lines = Array.from({ length: 9 }, (_, i) => {
     const o = i * 34;
     const op = (0.1 - i * 0.009).toFixed(3);
@@ -70,22 +73,21 @@ const contours = (() => {
   return `data:image/svg+xml,${svg}`;
 })();
 
-export type OgCopy = {
-  title: string;
-  highlight?: string;
-  subtitle: string;
-};
-
-// Split `title` around `highlight` so the matched run can be colored.
-function splitTitle(title: string, highlight?: string) {
-  if (!highlight) return [{ text: title, accent: false }];
-  const at = title.toLowerCase().indexOf(highlight.toLowerCase());
-  if (at === -1) return [{ text: title, accent: false }];
-  return [
-    { text: title.slice(0, at), accent: false },
-    { text: title.slice(at, at + highlight.length), accent: true },
-    { text: title.slice(at + highlight.length), accent: false },
-  ].filter((s) => s.text.length > 0);
+// The title, one entry per word, each flagged if it falls inside `highlight`
+// so it can be set in the accent colour. Words rather than three runs split
+// around the highlight: Satori trims the whitespace at either end of an inline
+// span, so a run ending in a space met the next run with no space at all
+// ("RUNVERIFIED"). Each word is its own span and the gap between them is the
+// flex container's, which nothing trims.
+function titleWords(title: string, highlight?: string) {
+  const at = highlight ? title.toLowerCase().indexOf(highlight.toLowerCase()) : -1;
+  const end = highlight && at !== -1 ? at + highlight.length : -1;
+  const words: { text: string; accent: boolean }[] = [];
+  for (const match of title.matchAll(/\S+/g)) {
+    const start = match.index;
+    words.push({ text: match[0], accent: start >= at && start < end });
+  }
+  return words;
 }
 
 // Minimal hyperscript for Satori's element tree (no JSX runtime here).
@@ -95,7 +97,7 @@ function h(type: string, style: Record<string, unknown>, children?: unknown): El
 }
 
 export async function renderOgPng({ title, highlight, subtitle }: OgCopy): Promise<Buffer> {
-  const titleParts = splitTitle(title, highlight);
+  const words = titleWords(title, highlight);
 
   const children = [
     {
@@ -107,9 +109,14 @@ export async function renderOgPng({ title, highlight, subtitle }: OgCopy): Promi
         style: { position: "absolute", top: 0, left: 0 },
       },
     },
+    // Sized out explicitly: Satori does not read `inset`, and an absolutely
+    // positioned box with no size renders as a 0×0 speck of border.
     h("div", {
       position: "absolute",
-      inset: 28,
+      top: 28,
+      left: 28,
+      width: OG_SIZE.width - 56,
+      height: OG_SIZE.height - 56,
       border: `2px solid ${BORDER}`,
       borderRadius: 20,
     }),
@@ -123,6 +130,7 @@ export async function renderOgPng({ title, highlight, subtitle }: OgCopy): Promi
             {
               display: "flex",
               flexWrap: "wrap",
+              columnGap: 22,
               fontFamily: "Space Grotesk",
               fontWeight: 700,
               fontSize: 92,
@@ -131,7 +139,7 @@ export async function renderOgPng({ title, highlight, subtitle }: OgCopy): Promi
               textTransform: "uppercase",
               color: BASE,
             },
-            titleParts.map((part) => h("span", { color: part.accent ? LINK : BASE }, part.text)),
+            words.map((word) => h("span", { color: word.accent ? ACCENT : BASE }, word.text)),
           ),
           h(
             "div",
