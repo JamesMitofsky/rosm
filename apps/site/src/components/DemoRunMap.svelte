@@ -208,8 +208,10 @@
         lon: f.lon,
         color: STATUS_COLOR[edit?.status ?? "pending"],
         label: String(i + 1),
-        // The stop the replay ends on opens its popup beneath the marker:
-        // opened above, it would rise into the hero copy over the map.
+        // Where each stop would rather open. The stop the replay ends on asks
+        // for beneath the marker: opened above, it would rise into the hero
+        // copy over the map. A preference only — `MapView` opens the card on
+        // the other side when this one cannot hold it (see `popupSide`).
         popupAnchor: f.id === DEMO_NEXT_STOP ? "top" : "bottom",
         // The label pops again the moment the stop gets a status.
         popKey: edit ? 1 : 0,
