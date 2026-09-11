@@ -49,18 +49,17 @@
   const PULSE_LAYER = "markers-pulse";
   /** The white ring around every stop's dot, at full size. */
   const MARKER_STROKE_PX = 2;
-  /** The steady ring in the route's blue that a beckoning marker wears. */
-  const BECKON_HALO_PX = 3;
   /**
-   * How far past its halo a beckon's wave travels before it has faded out.
+   * How far past the dot's white ring a beckon's wave travels before it has
+   * faded out.
    *
    * Set by the neighbours rather than by taste. The wave is DOM laid over the
    * canvas, so it washes over anything it reaches — dot, white ring and label
    * alike — and on the landing hero's narrow layout the stop before the one
-   * beckoning is under 40px away, centre to centre. 12px ends the wave just
+   * beckoning is under 40px away, centre to centre. 15px ends the wave just
    * clear of that stop's white ring.
    */
-  const BECKON_REACH_PX = 12;
+  const BECKON_REACH_PX = 15;
   /**
    * How long a newly appeared dot takes to grow to full size. Exported for a
    * caller timing something to start once the dots have settled.
@@ -292,9 +291,8 @@
     // never causes the marker set — and every label — to be rebuilt.
     pulses?: Record<string, number>;
     // The id of a marker calling for a tap, as a string, or null for none: it
-    // wears a steady ring in the route's blue and lets a soft wave of the same
-    // blue out from under it, one at a time with a rest between, until the
-    // caller clears it. A call to action, not a status — louder than a
+    // lets a soft wave in the route's blue out from under its dot, one at a
+    // time with a rest between, until the caller clears it. A call to action, not a status — louder than a
     // `pulses` ping, and on a loop where a ping marks one moment. Drawn in CSS
     // over the map rather than on the canvas, so the loop costs no repaint.
     beckon?: string | null;
@@ -540,19 +538,18 @@
   const beckonMarker = $derived(
     beckon == null ? undefined : markers.find((m) => String(m.id) === beckon),
   );
-  // The beckon's geometry, as radii from the marker's centre: where the halo
-  // ends (the dot, its white ring, then the halo) and where the wave ends.
-  // The wave is drawn at its full size and scaled down to start at the halo
+  // The beckon's geometry, as radii from the marker's centre: where the dot
+  // ends (white ring included) and where the wave ends. The wave is drawn at
+  // its full size and scaled down to start at the dot's edge
   // (`--beckon-from`), so it grows by transform alone.
   const beckonStyle = $derived.by(() => {
-    const haloR = markerRadius + MARKER_STROKE_PX + BECKON_HALO_PX;
-    const waveR = haloR + BECKON_REACH_PX;
+    const dotR = markerRadius + MARKER_STROKE_PX;
+    const waveR = dotR + BECKON_REACH_PX;
     return [
       `--beckon-color: ${ROUTE_LINE.color}`,
-      `--beckon-halo-w: ${BECKON_HALO_PX}px`,
-      `--beckon-halo-r: ${haloR}px`,
+      `--beckon-dot-r: ${dotR}px`,
       `--beckon-wave-r: ${waveR}px`,
-      `--beckon-from: ${haloR / waveR}`,
+      `--beckon-from: ${dotR / waveR}`,
     ].join("; ");
   });
   const runnerData = $derived<GeoJSON.Feature | null>(
@@ -1452,10 +1449,10 @@
     color: #333;
   }
 
-  /* The beckon (`beckon`): a steady halo in the route's blue hugging the dot,
-     and a soft wave of the same blue let out from under it — one wave, then
-     the stop sits still, every 3.2s. A breath rather than an alarm: the wave
-     takes 1.8s to travel out and fade, and is gone well before the next.
+  /* The beckon (`beckon`): a soft wave in the route's blue let out from under
+     the dot — one wave, then the stop sits still, every 3.2s. A breath rather
+     than an alarm: the wave takes 1.8s to travel out and fade, and is gone
+     well before the next.
 
      - One colour. The route's blue is what marks this stop as the run's next;
        a second one adds noise, not meaning.
@@ -1466,35 +1463,36 @@
        outward rather than a disc inflating.
      - Masked clear of the dot. The wave is laid over the canvas and would
        tint the dot and its label. The mask is on the unscaled `.beckon-wave`
-       box, so the hole stays at the halo's edge while the fill grows through
-       it: each wave is born hidden under the halo and emerges from it.
+       box, so the hole stays at the dot's edge while the fill grows through
+       it: each wave is born hidden under the dot and emerges from it.
      - Short (`BECKON_REACH_PX`), so it ends before the nearest neighbour.
 
-     The wave grows under 2x (halo edge to reach), where plain `scale()`
-     interpolation is near enough even in apparent growth; a longer reach
-     would need the keyframes to step the scale geometrically. The growth
-     starts at rest and settles slowly; the fade holds the wave full for its
-     first stretch, so it is seen leaving the halo before it thins out. */
+     The wave grows about 2.4x, far enough that interpolating `scale()`
+     directly would burst out of the dot and then crawl. So the scale is
+     stepped geometrically, `from^(1 - p)`, off a progress `--beckon-p` that
+     the animation drives: geometry in the `transform`, timing in the curve
+     on `--beckon-p`. That curve must start at rest — with the growth already
+     even to the eye, an ease-out would front-load it all over again. The
+     fade holds the wave full for its first stretch, so it is seen leaving
+     the dot before it thins out. */
+  @property --beckon-p {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 0;
+  }
   .beckon {
     position: absolute;
     left: 50%;
     top: 50%;
     pointer-events: none;
   }
-  .beckon::before {
-    content: "";
-    position: absolute;
-    inset: calc(-1 * var(--beckon-halo-r));
-    border: var(--beckon-halo-w) solid var(--beckon-color);
-    border-radius: 50%;
-  }
   .beckon-wave {
     position: absolute;
     inset: calc(-1 * var(--beckon-wave-r));
     mask-image: radial-gradient(
       circle closest-side,
-      transparent calc(var(--beckon-halo-r) - 0.5px),
-      #000 calc(var(--beckon-halo-r) + 0.5px)
+      transparent calc(var(--beckon-dot-r) - 0.5px),
+      #000 calc(var(--beckon-dot-r) + 0.5px)
     );
   }
   .beckon-wave::before {
@@ -1509,6 +1507,7 @@
       color-mix(in srgb, var(--beckon-color) 40%, transparent) calc(100% - 1px),
       transparent
     );
+    transform: scale(pow(var(--beckon-from), 1 - var(--beckon-p)));
     opacity: 0;
     animation:
       beckon-wave-grow 3200ms infinite,
@@ -1519,12 +1518,12 @@
      curve of their own. */
   @keyframes beckon-wave-grow {
     0% {
-      transform: scale(var(--beckon-from));
+      --beckon-p: 0;
       animation-timing-function: cubic-bezier(0.4, 0, 0.3, 1);
     }
     56.25%,
     100% {
-      transform: scale(1);
+      --beckon-p: 1;
     }
   }
   @keyframes beckon-wave-fade {
@@ -1538,11 +1537,12 @@
       opacity: 0;
     }
   }
-  /* Still, the halo carries the call, with the wave held at its full reach
-     so the stop stands out from the others by more than a thin outline. */
+  /* Still, the wave is held at its full reach, faint, so the stop stands out
+     from the others without moving. */
   @media (prefers-reduced-motion: reduce) {
     .beckon-wave::before {
       animation: none;
+      --beckon-p: 1;
       opacity: 0.6;
     }
   }
