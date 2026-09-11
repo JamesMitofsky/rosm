@@ -73,6 +73,16 @@ export type MapFrameVariant = {
 export type MapFrameSpec = {
   /** Human note about which component and which page this frame belongs to. */
   description: string;
+  /**
+   * Radius, in CSS pixels, of the frosted glass `MapFrame.astro` lays over the
+   * picture while the map loads. Raise it for more frost, lower it to show more
+   * of the map; the picture underneath is unchanged either way.
+   *
+   * Per frame rather than one value for the site: a frame whose route is drawn
+   * into the loading state (the hero) wants that route readable through the
+   * glass, while a frame of bare basemap has nothing to lose to heavier frost.
+   */
+  blur: number;
   variants: MapFrameVariant[];
 };
 
@@ -137,6 +147,7 @@ const demoCenter = (zoom: number, subject: { x: number; y: number }) =>
 export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
   "demo-run": {
     description: "DemoRunMap in the landing hero (index.astro)",
+    blur: 4,
     variants: [
       {
         media: "(max-width: 767px)",
@@ -156,6 +167,7 @@ export const MAP_FRAMES: Record<MapFrameId, MapFrameSpec> = {
   },
   "live-fountains-dc": {
     description: "LiveFountainMap filling the viewport on /public-drinking-fountains",
+    blur: 8,
     variants: [
       {
         // `LiveFountainMap`'s own breakpoint — note it is *not* the same one the
@@ -229,10 +241,10 @@ export function openingViewForViewport(id: MapFrameId): Pick<MapFrameVariant, "c
 /**
  * Web Mercator projection into the unit square, north-west origin.
  *
- * Exported because the placeholder generator crops its raster mosaic with the
- * same projection: if the two ever disagreed the picture would be offset from
- * the map it dissolves into, which is the one failure this module exists to
- * prevent.
+ * The same projection MapLibre draws with, so pixel offsets computed here —
+ * where a frame's subject sits, where its route is drawn into the loading
+ * state — land where the live map puts them. Exported for `routeProgress`,
+ * which measures along the route in this space for the same reason.
  */
 export function projectMercator(lon: number, lat: number): [number, number] {
   return [

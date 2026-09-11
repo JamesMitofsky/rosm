@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { OPENFREEMAP_TILEJSON } from "@/lib/basemap/tiles";
 
 export const prerender = false;
 
@@ -8,11 +9,9 @@ export const prerender = false;
 // We proxy the TileJSON and drop that field so only our own OSM credit shows.
 // The `tiles` URLs stay absolute to openfreemap.org, so tiles are served
 // direct and the (periodically rotated) planet version stays current.
-const UPSTREAM = "https://tiles.openfreemap.org/planet";
-
 export const GET: APIRoute = async () => {
   try {
-    const res = await fetch(UPSTREAM);
+    const res = await fetch(OPENFREEMAP_TILEJSON);
     if (!res.ok) {
       return Response.json({ error: { message: `upstream ${res.status}` } }, { status: 502 });
     }
