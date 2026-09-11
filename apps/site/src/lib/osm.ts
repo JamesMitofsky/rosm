@@ -21,7 +21,7 @@ const DRY_RUN_CHANGESET = 999999999;
 const DRY_RUN_NODE_ID = 999999999;
 // OSM `created_by` changeset tag — the editor/app attribution shown on every
 // changeset we open. Client-controlled (nothing OSM-side); we set it here. Uses
-// the brand name so app edits read as "Run Verified Fountains" on osm.org, not the repo slug.
+// the brand name so app edits read as "Water Run" on osm.org, not the repo slug.
 const CREATED_BY = APP_NAME;
 
 // A returnTo is safe only as a same-origin relative path: one leading slash and

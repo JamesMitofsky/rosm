@@ -1,0 +1,119 @@
+---
+// Site footer. Lives as its own component because every page will want it —
+// index is just the first to mount it.
+import HeartIcon from "@/components/icons/HeartIcon.svelte";
+// Same inlined mark as the header (see Layout.astro): a `public/` image is
+// re-validated on every load, and the footer's copy would land before it.
+import logoSrc from "@/assets/logo-144.png?inline";
+import { APP_NAME } from "@/lib/appConfig";
+
+const REPO_URL = "https://github.com/JamesMitofsky/run-for-maps";
+// Explainer rather than osm.org itself: this link is here to answer "what is
+// OpenStreetMap?", and the project's own front page is a map, not an answer.
+const OSM_URL = "https://en.wikipedia.org/wiki/OpenStreetMap";
+
+// One shape for both columns so the markup below stays a loop rather than two
+// hand-kept lists. `external` decides target/rel, not styling.
+const columns: {
+  heading: string;
+  links: { label: string; href: string; external?: boolean }[];
+}[] = [
+  {
+    heading: "Explore",
+    links: [
+      { label: "Home", href: "/" },
+      { label: "Fountain map", href: "/public-drinking-fountains" },
+      { label: "Join the waitlist", href: "/waitlist" },
+    ],
+  },
+  {
+    heading: "Project",
+    links: [
+      { label: "Source on GitHub", href: REPO_URL, external: true },
+      { label: "OpenStreetMap", href: OSM_URL, external: true },
+    ],
+  },
+];
+---
+
+{
+  /* Own top margin, so a page only has to drop `<Footer />` after its last
+    section to get the same breathing room. */
+}
+<footer class="bg-surface-deep border-border mt-20 border-t md:mt-28">
+  <div class="mx-auto max-w-6xl px-5 py-14 md:py-16">
+    <div class="grid gap-10 sm:grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr] md:gap-12">
+      {/* Brand block: mark, then what this is in one line. */}
+      <div class="flex flex-col items-start gap-3">
+        <a href="/" class="flex w-fit items-center" aria-label={APP_NAME}>
+          <img src={logoSrc} alt="" width="144" height="144" class="h-10 w-10" />
+        </a>
+        <p class="text-muted max-w-xs text-sm leading-relaxed">
+          A community-led map of public drinking fountains.
+        </p>
+      </div>
+
+      {
+        columns.map((column) => (
+          <nav aria-labelledby={`footer-${column.heading.toLowerCase()}`}>
+            <h2 id={`footer-${column.heading.toLowerCase()}`} class="font-hero text-[1.05rem]">
+              {column.heading}
+            </h2>
+            <ul class="mt-3 space-y-2 text-sm">
+              {column.links.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    target={link.external ? "_blank" : undefined}
+                    rel={link.external ? "noopener noreferrer" : undefined}
+                    class="footer-link"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+
+    {/* Byline strip. */}
+    <div class="border-border text-muted mt-12 border-t pt-6 text-sm">
+      <p>
+        Hydrated with <HeartIcon size={14} class="text-blue inline-block align-[-2px]" /><span
+          class="sr-only">love</span
+        > by{" "}
+        <a
+          href="https://jamesmitofsky.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="footer-link"
+        >
+          James Mitofsky
+        </a>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  /* Footer links read as body text until pointed at — the column is a list, not
+     a row of calls to action, so colouring every entry would be noise. The
+     underline is always there at half strength so they still announce
+     themselves as links; hover brings it (and the text) up. */
+  .footer-link {
+    color: var(--color-muted);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-muted) 35%, transparent);
+    text-underline-offset: 4px;
+    transition:
+      color 0.2s var(--ease-settle),
+      text-decoration-color 0.2s var(--ease-settle);
+  }
+  .footer-link:hover,
+  .footer-link:focus-visible {
+    color: var(--color-link);
+    text-decoration-color: var(--color-link);
+  }
+</style>

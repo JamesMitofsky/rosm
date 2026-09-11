@@ -4,7 +4,7 @@ import DemoRunMap from "@/components/DemoRunMap.svelte";
 import DemoRoutePlaceholder from "@/components/DemoRoutePlaceholder.astro";
 import MapAssets from "@/components/MapAssets.astro";
 import MapFrame from "@/components/MapFrame.astro";
-import HeartIcon from "@/components/icons/HeartIcon.svelte";
+import Footer from "@/components/Footer.astro";
 // The handwritten headline is one flat ink over a textured alpha, so it ships
 // as an alpha mask (hand-authored, see scripts/build-header-assets.ts) that
 // CSS fills with `hero-ink`. Inlined: it is the LCP element and sits inside
@@ -246,7 +246,7 @@ const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
               What's the Deal?
             </h2>
             <p class="mt-6 text-lg leading-relaxed text-white/85">
-              Water Run is a community-led map of public drinking fountains.
+              Water Run is a runner-sourced map of public drinking fountains.
             </p>
             <p class="mt-6 text-lg leading-relaxed text-white/85">
               It documents fountain location, working status, seasonality, type (eg. bottle-filler,
@@ -313,24 +313,7 @@ const mobileBottomBand = bandPath(mobileBottomWave, "bottom");
     </section>
 
     {/* FOOTER */}
-    <footer>
-      <div
-        class="text-muted mx-auto mt-8 flex max-w-6xl items-center justify-center gap-4 px-5 py-8 text-sm"
-      >
-        <span>
-          Hydrated with <HeartIcon size={14} class="text-blue inline-block align-[-2px]" /><span
-            class="sr-only">love</span
-          > by <a
-            href="https://jamesmitofsky.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-link decoration-link/50 hover:decoration-link font-medium underline underline-offset-4"
-          >
-            James Mitofsky
-          </a>
-        </span>
-      </div>
-    </footer>
+    <Footer />
   </main>
 
   <script>

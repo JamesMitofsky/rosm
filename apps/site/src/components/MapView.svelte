@@ -292,9 +292,9 @@
     centerOnSelect?: boolean;
     // The id of the marker whose popup is open, as a string, or null for none.
     // Bindable: a tap on a marker sets it and a tap elsewhere clears it, and a
-    // page can set it to open a marker's popup itself — the hero's replay
-    // does, when the runner arrives at a stop. Under `centerOnSelect` a
-    // selection made either way brings the marker in.
+    // page can set it to open a marker's popup itself, or read it to learn
+    // which marker the visitor opened. Under `centerOnSelect` a selection
+    // made either way brings the marker in.
     selected?: string | null;
     class?: string;
     // Hide the basemap's place-name labels (city/town/suburb/etc). Demo map

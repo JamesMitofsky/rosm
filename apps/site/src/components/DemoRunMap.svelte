@@ -31,10 +31,12 @@
   // flips from pending to its status as the runner reaches it — and setting
   // off again, until it halts at the next stop (`DEMO_NEXT_STOP`, at
   // `DEMO_RUN_END`) with the rest of the loop left faint as the plan. The
-  // moment it stops there, that stop's popup springs open, unmarked: the
-  // visitor is handed the run exactly where a runner would reach for their
-  // phone. The replay is presentation only; the seeded statuses it reveals
-  // are the same ones the map used to show from the first frame.
+  // moment it stops there, that stop starts pinging, unmarked, and keeps on
+  // until the visitor opens it: the run is handed over exactly where a runner
+  // would reach for their phone, but the tap is left to the visitor — an
+  // invitation to try the map rather than a popup already answering for them.
+  // The replay is presentation only; the seeded statuses it reveals are the
+  // same ones the map used to show from the first frame.
   let { class: className = "" }: { class?: string } = $props();
 
   // The opening view is initial-only, so pick it once at mount. Read from the
@@ -47,8 +49,8 @@
 
   /**
    * How long the replay takes to run from the first stop to `DEMO_RUN_END`.
-   * Short: the hero's copy is what the visitor came for, and the popup that
-   * opens at the end is the replay's point, so the run is a prelude, not a
+   * Short: the hero's copy is what the visitor came for, and the stop left
+   * pinging at the end is the replay's point, so the run is a prelude, not a
    * feature.
    */
   const RUN_MS = 2200;
@@ -60,11 +62,26 @@
   /** How long a stop's ping lasts once the runner reaches it. */
   const PULSE_MS = 550;
   /**
-   * Beat between the runner halting at `DEMO_NEXT_STOP` and its popup
-   * springing open: enough that the halt registers as its own event before
-   * the popup answers it.
+   * One ping of the beckon `DEMO_NEXT_STOP` gives off once the runner halts
+   * there. Slower than an arrival ping (`PULSE_MS`): those mark an event in
+   * passing, this one waits for the visitor, and a quick ping on repeat reads
+   * as an alarm rather than an invitation.
    */
-  const POPUP_DELAY_MS = 150;
+  const BECKON_PING_MS = 1100;
+  /**
+   * Time from one beckon ping starting to the next: the ping, then a rest with
+   * the stop still, so it reads as a call repeated rather than a strobe.
+   */
+  const BECKON_PERIOD_MS = 2000;
+  /**
+   * Under reduced motion the beckon does not move: the stop wears a still ring
+   * instead, held at this point of a ping — clear of the dot, not yet faded.
+   */
+  const BECKON_STILL = 0.35;
+
+  // Read once at mount, like the opening view: the replay and the beckon both
+  // commit to a path from it, and neither can switch paths midway.
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
   /**
    * The replay's clock: one leg per stretch between checkpoints, each eased
@@ -93,14 +110,14 @@
   // passed, `running` while the line draws, `done` after — or at once, under
   // reduced motion, in which case the map opens on the end frame. The map is
   // locked (`interactive`) until `done`: a visitor who dragged or tapped
-  // mid-replay would be fighting the camera and the popup that is coming.
+  // mid-replay would be fighting the camera and the stops still flipping.
   let phase = $state<"idle" | "running" | "done">("idle");
   let elapsed = $state(0);
   let ready = $state(false);
 
   $effect(() => {
     if (!ready || phase !== "idle") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if (reducedMotion) {
       phase = "done";
       return;
     }
@@ -136,19 +153,47 @@
     return () => cancelAnimationFrame(raf);
   });
 
-  // The marker whose popup is open, bound to the map's own selection so a tap
-  // on the map (which sets or clears it) and the replay (below) share it.
+  // The marker whose popup is open, bound to the map's own selection: a tap on
+  // a marker sets it and a tap elsewhere clears it.
   let selected = $state<string | null>(null);
 
-  // Once the runner halts, open the next stop's popup after `POPUP_DELAY_MS`.
-  // Also the path under reduced motion, where the map opens on the end frame
-  // and the popup follows the same beat later. Depends on `phase` alone, so
-  // it runs once per arrival: a visitor who closes the popup does not have
-  // it reopen on the next render.
+  // Whether the visitor has opened `DEMO_NEXT_STOP` yet. Latched in the
+  // binding's setter (see the markup) the moment they do, and never unset:
+  // the beckon has done its job, and one that came back after the popup was
+  // closed would nag.
+  let opened = $state(false);
+  function select(id: string | null) {
+    selected = id;
+    if (id === String(DEMO_NEXT_STOP)) opened = true;
+  }
+
+  // The beckon runs from the runner halting — under reduced motion, from the
+  // end frame the map opens on — until the visitor opens the stop.
+  const beckoning = $derived(phase === "done" && !opened);
+
+  // Whether the map is on screen. The beckon has no end of its own, so it
+  // stands down while the hero is scrolled away rather than repaint a map no
+  // one can see (a background tab needs nothing: it gets no frames at all).
+  let onScreen = $state(true);
+  function trackOnScreen(node: HTMLElement) {
+    const io = new IntersectionObserver(([entry]) => (onScreen = entry.isIntersecting));
+    io.observe(node);
+    return () => io.disconnect();
+  }
+
+  // The beckon's clock. Starts over from a fresh ping each time it resumes, so
+  // a visitor scrolling back up is met by the stop pinging, not by the tail
+  // of a ping that began offscreen.
+  let beckonElapsed = $state(0);
   $effect(() => {
-    if (phase !== "done") return;
-    const timer = setTimeout(() => (selected = String(DEMO_NEXT_STOP)), POPUP_DELAY_MS);
-    return () => clearTimeout(timer);
+    if (!beckoning || reducedMotion || !onScreen) return;
+    const startedAt = performance.now();
+    beckonElapsed = 0;
+    let raf = requestAnimationFrame(function tick(now) {
+      beckonElapsed = now - startedAt;
+      raf = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(raf);
   });
 
   // Per-frame values. Everything the map redraws every frame hangs off these
@@ -220,22 +265,30 @@
     }),
   );
 
-  // The ping each surveyed stop gives off as the runner reaches it: id → how
-  // far through its ping it is. The same object whenever nothing is pinging,
-  // so MapView's feature-state effect has nothing to do on those frames.
+  // The pings on the map: id → how far through its ping each stop is. While
+  // the replay runs, those are the surveyed stops as the runner reaches them;
+  // after it, the beckon on `DEMO_NEXT_STOP`. The same object whenever nothing
+  // is pinging — between the beckon's pings too — so MapView's feature-state
+  // effect has nothing to do on those frames.
   const NO_PULSES: Record<string, number> = {};
+  const BECKON_STILL_PULSES: Record<string, number> = { [DEMO_NEXT_STOP]: BECKON_STILL };
   const pulses = $derived.by<Record<string, number>>(() => {
-    if (phase !== "running") return NO_PULSES;
-    let out: Record<string, number> | undefined;
-    for (const id of DEMO_SEEDED_IN_ORDER) {
-      const t = (elapsed - ARRIVAL_MS[id]) / PULSE_MS;
-      if (t > 0 && t < 1) (out ??= {})[String(id)] = t;
+    if (phase === "running") {
+      let out: Record<string, number> | undefined;
+      for (const id of DEMO_SEEDED_IN_ORDER) {
+        const t = (elapsed - ARRIVAL_MS[id]) / PULSE_MS;
+        if (t > 0 && t < 1) (out ??= {})[String(id)] = t;
+      }
+      return out ?? NO_PULSES;
     }
-    return out ?? NO_PULSES;
+    if (!beckoning) return NO_PULSES;
+    if (reducedMotion) return BECKON_STILL_PULSES;
+    const t = (beckonElapsed % BECKON_PERIOD_MS) / BECKON_PING_MS;
+    return t > 0 && t < 1 ? { [DEMO_NEXT_STOP]: t } : NO_PULSES;
   });
 </script>
 
-<div class="relative h-full w-full {className}">
+<div class="relative h-full w-full {className}" {@attach trackOnScreen}>
   <MapView
     class="hero-map"
     {center}
@@ -252,7 +305,7 @@
     {markers}
     {pulses}
     centerOnSelect
-    bind:selected
+    bind:selected={() => selected, select}
     hidePlaceLabels
     onReady={() => (ready = true)}
     {markerPopup}
