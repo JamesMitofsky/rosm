@@ -291,10 +291,11 @@
     // never causes the marker set — and every label — to be rebuilt.
     pulses?: Record<string, number>;
     // The id of a marker calling for a tap, as a string, or null for none: it
-    // lets a soft wave in the route's blue out from under its dot, one at a
-    // time with a rest between, until the caller clears it. A call to action, not a status — louder than a
-    // `pulses` ping, and on a loop where a ping marks one moment. Drawn in CSS
-    // over the map rather than on the canvas, so the loop costs no repaint.
+    // lets soft waves in the route's blue out from under its dot on a double
+    // beat — two close together, then a rest — until the caller clears it. A
+    // call to action, not a status — louder than a `pulses` ping, and on a
+    // loop where a ping marks one moment. Drawn in CSS over the map rather
+    // than on the canvas, so the loop costs no repaint.
     beckon?: string | null;
     onViewChange?: (
       view: {
@@ -1449,10 +1450,10 @@
     color: #333;
   }
 
-  /* The beckon (`beckon`): a soft wave in the route's blue let out from under
-     the dot — one wave, then the stop sits still, every 3.2s. A breath rather
-     than an alarm: the wave takes 1.8s to travel out and fade, and is gone
-     well before the next.
+  /* The beckon (`beckon`): soft waves in the route's blue let out from under
+     the dot on a double beat — dun dun, rest, dun dun — every 2.08s. The two
+     waves of a beat start 200ms apart; each takes 1.8s to travel out and
+     fade, and the next beat lands 80ms after the second has gone.
 
      - One colour. The route's blue is what marks this stop as the run's next;
        a second one adds noise, not meaning.
@@ -1468,13 +1469,16 @@
      - Short (`BECKON_REACH_PX`), so it ends before the nearest neighbour.
 
      The wave grows about 2.4x, far enough that interpolating `scale()`
-     directly would burst out of the dot and then crawl. So the scale is
+     directly would front-load the growth by its own accord. So the scale is
      stepped geometrically, `from^(1 - p)`, off a progress `--beckon-p` that
      the animation drives: geometry in the `transform`, timing in the curve
-     on `--beckon-p`. That curve must start at rest — with the growth already
-     even to the eye, an ease-out would front-load it all over again. The
-     fade holds the wave full for its first stretch, so it is seen leaving
-     the dot before it thins out. */
+     on `--beckon-p`, and with the growth even to the eye the curve alone
+     decides how the wave moves. It is an attack, on purpose: each wave leaps
+     clear of the dot in its first few hundred ms, then drifts out as it
+     fades. A curve starting at rest would leave the first wave barely past
+     the dot when the second is born 200ms later, and the pair would read as
+     one thick wave instead of two beats. The fade holds each wave full
+     through its leap, so both are seen leaving before they thin out. */
   @property --beckon-p {
     syntax: "<number>";
     inherits: false;
@@ -1495,7 +1499,12 @@
       #000 calc(var(--beckon-dot-r) + 0.5px)
     );
   }
-  .beckon-wave::before {
+  /* The two waves of a beat: `::before` on the beat, `::after` 200ms behind
+     it. A delay offsets only the start, so across iterations of the same
+     length the pair keeps its spacing for as long as the loop runs. Until
+     its delay is up the second wave sits at its base opacity, 0. */
+  .beckon-wave::before,
+  .beckon-wave::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -1510,39 +1519,46 @@
     transform: scale(pow(var(--beckon-from), 1 - var(--beckon-p)));
     opacity: 0;
     animation:
-      beckon-wave-grow 3200ms infinite,
-      beckon-wave-fade 3200ms infinite;
+      beckon-wave-grow 2080ms infinite,
+      beckon-wave-fade 2080ms infinite;
   }
-  /* Both run 3.2s with the wave's 1.8s trip in the first 56.25%, held gone
-     for the rest. Two animations, not one, so growth and fade each keep a
-     curve of their own. */
+  .beckon-wave::after {
+    animation-delay: 200ms;
+  }
+  /* Both run 2.08s — the 200ms between the waves, a wave's 1.8s trip, and an
+     80ms rest — with the trip in the first 86.54%, held gone for the rest;
+     the fade holds full for the first 400ms (19.23%). Two animations,
+     not one, so growth and fade each keep a curve of their own. */
   @keyframes beckon-wave-grow {
     0% {
       --beckon-p: 0;
-      animation-timing-function: cubic-bezier(0.4, 0, 0.3, 1);
+      animation-timing-function: cubic-bezier(0.15, 0.6, 0.3, 1);
     }
-    56.25%,
+    86.54%,
     100% {
       --beckon-p: 1;
     }
   }
   @keyframes beckon-wave-fade {
     0%,
-    20% {
+    19.23% {
       opacity: 1;
       animation-timing-function: linear;
     }
-    56.25%,
+    86.54%,
     100% {
       opacity: 0;
     }
   }
-  /* Still, the wave is held at its full reach, faint, so the stop stands out
-     from the others without moving. */
+  /* Still, one wave is held at its full reach, faint, so the stop stands out
+     from the others without moving. The second stays at its base opacity. */
   @media (prefers-reduced-motion: reduce) {
-    .beckon-wave::before {
+    .beckon-wave::before,
+    .beckon-wave::after {
       animation: none;
       --beckon-p: 1;
+    }
+    .beckon-wave::before {
       opacity: 0.6;
     }
   }
