@@ -1,5 +1,5 @@
 <script lang="ts">
-  import MapView, { type MapMarker } from "@/components/MapView.svelte";
+  import MapView, { pulseVisibleAt, type MapMarker } from "@/components/MapView.svelte";
   import PointPopup, { type PointEdit } from "@/components/PointPopup.svelte";
   import type { EditAction, EditExtras, Fountain } from "@rosm/core/schemas";
   import type { StopStatus } from "@rosm/core/stores/run";
@@ -10,8 +10,8 @@
     DC_FOUNTAINS,
     DC_ROUTE,
     DEMO_NEXT_STOP,
-    STATUS_COLOR,
     SEED_STATUSES,
+    demoStopColor,
   } from "@/lib/demoRoute";
   import {
     DEMO_ARRIVALS,
@@ -61,6 +61,18 @@
   const HOLD_MS = 400;
   /** How long a stop's ping lasts once the runner reaches it. */
   const PULSE_MS = 550;
+  /**
+   * How long after the runner halts at `DEMO_NEXT_STOP` its beckon starts.
+   *
+   * Every surveyed stop changes colour the moment the runner reaches it and
+   * pings from that moment too — but a ping's ring grows out from under the
+   * dot, so it is first seen only once it has cleared the dot's white ring
+   * (`pulseVisibleAt`). A beckon's first wave shows from its first frame.
+   * Started on arrival it would lead every ping before it by that hidden
+   * stretch; started this much later, `DEMO_NEXT_STOP` turns blue on arrival
+   * like the others and its wave shows when a ping's ring would have.
+   */
+  const BECKON_DELAY_MS = PULSE_MS * pulseVisibleAt();
 
   /**
    * The replay's clock: one leg per stretch between checkpoints, each eased
@@ -146,11 +158,23 @@
     if (id === String(DEMO_NEXT_STOP)) opened = true;
   }
 
-  // `DEMO_NEXT_STOP` beckons (MapView's `beckon`) from the very frame the
-  // runner comes to rest there — under reduced motion, from the end frame the
-  // map opens on — until the visitor opens it. The loop itself is CSS, so
-  // there is no clock to run here.
-  const beckon = $derived(phase === "done" && !opened ? String(DEMO_NEXT_STOP) : null);
+  // Whether the run has come to rest at `DEMO_NEXT_STOP`, which from then
+  // until the visitor marks it wears the route's blue (`demoStopColor`). A
+  // boolean of its own, so what hangs off it — `markers` above all — is
+  // rebuilt once when it flips rather than on every change of `phase`.
+  const halted = $derived(phase === "done");
+
+  // `DEMO_NEXT_STOP` beckons (MapView's `beckon`) from `BECKON_DELAY_MS` after
+  // the runner comes to rest there — under reduced motion, after the end
+  // frame the map opens on — until the visitor opens it. The loop itself is
+  // CSS; the only clock here is the wait before it starts.
+  let beckonDue = $state(false);
+  $effect(() => {
+    if (!halted) return;
+    const timer = setTimeout(() => (beckonDue = true), BECKON_DELAY_MS);
+    return () => clearTimeout(timer);
+  });
+  const beckon = $derived(beckonDue && !opened ? String(DEMO_NEXT_STOP) : null);
 
   // Per-frame values. Everything the map redraws every frame hangs off these
   // and *only* these — see `markers` below for what must not.
@@ -196,10 +220,10 @@
     }, 900);
   }
 
-  // Rebuilt only when a stop's state changes (`visibleEdits`), never per frame:
-  // a new marker set makes MapView re-upload the source and re-place every
-  // label. The per-frame motion — the line, the runner, the pings — travels on
-  // its own props.
+  // Rebuilt only when a stop's state changes (`visibleEdits`, `halted`), never
+  // per frame: a new marker set makes MapView re-upload the source and
+  // re-place every label. The per-frame motion — the line, the runner, the
+  // pings — travels on its own props.
   const markers = $derived<MapMarker[]>(
     DC_FOUNTAINS.map((f, i) => {
       const edit = visibleEdits[f.id];
@@ -207,15 +231,16 @@
         id: f.id,
         lat: f.lat,
         lon: f.lon,
-        color: STATUS_COLOR[edit?.status ?? "pending"],
+        color: demoStopColor(f.id, edit?.status, halted),
         label: String(i + 1),
         // Where each stop would rather open. The stop the replay ends on asks
         // for beneath the marker: opened above, it would rise into the hero
         // copy over the map. A preference only — `MapView` opens the card on
         // the other side when this one cannot hold it (see `popupSide`).
         popupAnchor: f.id === DEMO_NEXT_STOP ? "top" : "bottom",
-        // The label pops again the moment the stop gets a status.
-        popKey: edit ? 1 : 0,
+        // The label pops again the moment the stop changes colour: on getting
+        // a status, and — for the stop the run halts at — on turning blue.
+        popKey: edit ? 2 : halted && f.id === DEMO_NEXT_STOP ? 1 : 0,
         data: { f },
       };
     }),

@@ -47,8 +47,12 @@
     "circle-stroke-color": "#fff",
   };
   const PULSE_LAYER = "markers-pulse";
+  /** A dot's radius when the caller gives no `markerRadius`. */
+  const DEFAULT_MARKER_RADIUS = 9;
   /** The white ring around every stop's dot, at full size. */
   const MARKER_STROKE_PX = 2;
+  /** How far a ping's ring grows past the dot's radius, as a multiple of it. */
+  const PULSE_GROWTH = 1.4;
   /**
    * How far past the dot's white ring a beckon's wave travels before it has
    * faded out.
@@ -122,10 +126,21 @@
   function pulsePaint(baseRadius: number): maplibregl.CircleLayerSpecification["paint"] {
     const p: maplibregl.ExpressionSpecification = ["coalesce", ["feature-state", "pulse"], 0];
     return {
-      "circle-radius": ["+", baseRadius, ["*", baseRadius * 1.4, p]],
+      "circle-radius": ["+", baseRadius, ["*", baseRadius * PULSE_GROWTH, p]],
       "circle-color": ["get", "color"],
       "circle-opacity": ["case", [">", p, 0], ["*", 0.5, ["-", 1, p]], 0],
     };
+  }
+
+  /**
+   * How far through a `pulses` ping, 0–1, its ring is first seen. The ring
+   * starts at the dot's own radius and the dot is drawn over it
+   * (`pulsePaint`), so the start of every ping is hidden until the ring has
+   * grown past the dot's white ring. For a caller lining something up with
+   * the moment a ping is seen to start.
+   */
+  export function pulseVisibleAt(markerRadius = DEFAULT_MARKER_RADIUS): number {
+    return MARKER_STROKE_PX / (markerRadius * PULSE_GROWTH);
   }
 
   const ATTRIBUTION =
@@ -344,7 +359,7 @@
     showLocate = false,
     showFullscreen = false,
     markers = [],
-    markerRadius = 9,
+    markerRadius = DEFAULT_MARKER_RADIUS,
     line,
     lineProgress,
     lineUpcoming = false,

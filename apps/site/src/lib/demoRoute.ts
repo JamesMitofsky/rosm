@@ -5,6 +5,7 @@
 // not a point to survey.
 import type { Fountain } from "@rosm/core/schemas";
 import type { StopStatus } from "@rosm/core/stores/run";
+import { ROUTE_LINE } from "@/lib/basemap/routeLine";
 
 export const DC_CENTER: [number, number] = [38.9068, -77.0331];
 
@@ -440,3 +441,17 @@ export const SEED_STATUSES: Record<number, StopStatus> = {
  * mark.
  */
 export const DEMO_NEXT_STOP = 3;
+
+/**
+ * The colour a stop's dot is drawn in. A stop with a status wears its status,
+ * and one without is pending grey — except `DEMO_NEXT_STOP` once the run has
+ * come to rest there (`halted`), which wears the route's blue until it is
+ * marked: the run's own colour, on the one stop the visitor is being handed.
+ *
+ * Shared by the live map (`DemoRunMap`) and its loading frame
+ * (`DemoRoutePlaceholder`), so the two agree on when the stop turns.
+ */
+export function demoStopColor(id: number, status: StopStatus | undefined, halted: boolean): string {
+  if (status) return STATUS_COLOR[status];
+  return halted && id === DEMO_NEXT_STOP ? ROUTE_LINE.color : STATUS_COLOR.pending;
+}
