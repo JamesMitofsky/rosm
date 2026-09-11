@@ -1,0 +1,30 @@
+---
+import Layout from "@/layouts/Layout.astro";
+
+// Shell for the site's plain text/form pages (waitlist, feedback). They share
+// the measure of the landing page's manifesto block and /about — `max-w-3xl`
+// with the same gutter — so a line of prose wraps the same everywhere. Stated
+// once here rather than re-typed per page and left to drift. Anything below
+// the heading is the page's own business.
+interface Props {
+  title: string;
+  description: string;
+  /** Keep the page out of search results. Pair with a Disallow in public/robots.txt. */
+  noindex?: boolean;
+  /** The page's h1. */
+  heading: string;
+}
+
+const { title, description, noindex = false, heading } = Astro.props;
+---
+
+<Layout {title} {description} {noindex}>
+  <main class="bg-surface font-body flex-1 text-base">
+    <section class="mx-auto max-w-3xl px-5 pt-12 pb-20 md:pt-20 md:pb-28">
+      <h1 class="font-hero text-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight">
+        {heading}
+      </h1>
+      <slot />
+    </section>
+  </main>
+</Layout>

@@ -1,26 +1,20 @@
 ---
-import Layout from "@/layouts/Layout.astro";
+import ContentPage from "@/layouts/ContentPage.astro";
 import WaitlistForm from "@/components/WaitlistForm.svelte";
 
 export const prerender = true;
 ---
 
-<Layout
+<ContentPage
   title="Join the waitlist — Water Run"
   description="Access is opening in waves. Add yourself to the waitlist and we'll send an invite when your spot comes up."
+  heading="Join the waitlist"
 >
-  <main class="bg-surface font-body flex-1 text-base">
-    <section class="mx-auto max-w-md px-5 pt-12 pb-20 md:pt-20 md:pb-28">
-      <h1 class="font-hero text-hero text-[clamp(2.5rem,5vw,3.4rem)] leading-[1.05] tracking-tight">
-        Join the waitlist
-      </h1>
-      <p class="text-muted mt-6 text-lg leading-relaxed">
-        We're opening access in waves. Add yourself to the waitlist and we'll send an invite when
-        your spot comes up.
-      </p>
-      <div class="mt-8">
-        <WaitlistForm client:load />
-      </div>
-    </section>
-  </main>
-</Layout>
+  <p class="text-muted mt-6 text-lg leading-relaxed">
+    We're opening access in waves. Add yourself to the waitlist and we'll send an invite when your
+    spot comes up.
+  </p>
+  <div class="mt-8">
+    <WaitlistForm client:load />
+  </div>
+</ContentPage>

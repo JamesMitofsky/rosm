@@ -1,18 +1,12 @@
 <script lang="ts">
-  import { z } from "zod";
   import ErrorNotice from "./ErrorNotice.svelte";
+  import { submitToFormspree } from "@/lib/formspree";
+  import { FIELD_CLASS, LABEL_CLASS, SUBMIT_CLASS } from "@/lib/formClasses";
 
-  // Waitlist sign-up form, rendered on /waitlist. Collects name + email and posts
-  // to Formspree (a hosted form backend), so signups land in the Formspree
-  // dashboard/inbox with no server code of our own. Endpoint comes from a
-  // PUBLIC_ env var so it's swappable per environment.
-  const FORMSPREE = import.meta.env.PUBLIC_FORMSPREE_ENDPOINT as string | undefined;
-
-  // The slice of Formspree's JSON error body we read. Anything else (or a
-  // non-JSON body) falls through to the generic message.
-  const formspreeError = z.object({
-    errors: z.array(z.object({ message: z.string() })).optional(),
-  });
+  // Waitlist sign-up form, rendered on /waitlist. Collects name + email and
+  // posts to Formspree, so signups land in its inbox with no server code of
+  // our own.
+  const ENDPOINT = import.meta.env.PUBLIC_FORMSPREE_ENDPOINT as string | undefined;
 
   let name = $state("");
   let email = $state("");
@@ -21,34 +15,19 @@
 
   async function submit(e: SubmitEvent) {
     e.preventDefault();
-    if (!FORMSPREE) {
-      status = "error";
-      errorMsg = "Sign-up isn't configured yet. Please try again later.";
-      return;
-    }
     status = "submitting";
     errorMsg = "";
-    try {
-      // `Accept: application/json` makes Formspree return JSON instead of
-      // redirecting to its own thank-you page, so the user stays on this page.
-      const res = await fetch(FORMSPREE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ name, email }),
-      });
-      if (res.ok) {
-        status = "success";
-        return;
-      }
-      const parsed = formspreeError.safeParse(await res.json().catch(() => null));
-      status = "error";
-      errorMsg =
-        (parsed.success && parsed.data.errors?.[0]?.message) ||
-        "Something went wrong. Please try again.";
-    } catch {
-      status = "error";
-      errorMsg = "Network error. Please try again.";
+    const result = await submitToFormspree(
+      ENDPOINT,
+      { name, email },
+      "Sign-up isn't configured yet. Please try again later.",
+    );
+    if (result.ok) {
+      status = "success";
+      return;
     }
+    status = "error";
+    errorMsg = result.message;
   }
 </script>
 
@@ -60,36 +39,20 @@
 {:else}
   <form onsubmit={submit} class="flex flex-col gap-4">
     <label class="flex flex-col gap-1.5">
-      <span class="text-base text-sm font-medium">Name</span>
-      <input
-        type="text"
-        bind:value={name}
-        required
-        autocomplete="name"
-        class="bg-surface text-base border-base/15 focus:border-link focus:ring-link/30 rounded-sm border px-4 py-2.5 text-base transition outline-none focus:ring-2"
-      />
+      <span class={LABEL_CLASS}>Name</span>
+      <input type="text" bind:value={name} required autocomplete="name" class={FIELD_CLASS} />
     </label>
 
     <label class="flex flex-col gap-1.5">
-      <span class="text-base text-sm font-medium">Email</span>
-      <input
-        type="email"
-        bind:value={email}
-        required
-        autocomplete="email"
-        class="bg-surface text-base border-base/15 focus:border-link focus:ring-link/30 rounded-sm border px-4 py-2.5 text-base transition outline-none focus:ring-2"
-      />
+      <span class={LABEL_CLASS}>Email</span>
+      <input type="email" bind:value={email} required autocomplete="email" class={FIELD_CLASS} />
     </label>
 
     {#if status === "error"}
       <ErrorNotice message={errorMsg} tone="light" />
     {/if}
 
-    <button
-      type="submit"
-      disabled={status === "submitting"}
-      class="mt-2 inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-blue px-6 py-3 text-lg font-bold text-white transition hover:bg-[#0a6fa3] disabled:opacity-60"
-    >
+    <button type="submit" disabled={status === "submitting"} class={SUBMIT_CLASS}>
       {status === "submitting" ? "Joining…" : "Join the waitlist"}
     </button>
   </form>
