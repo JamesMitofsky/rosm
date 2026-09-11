@@ -8,9 +8,6 @@ import logoSrc from "@/assets/logo-144.png?inline";
 import { APP_NAME } from "@/lib/appConfig";
 
 const REPO_URL = "https://github.com/JamesMitofsky/run-for-maps";
-// Explainer rather than osm.org itself: this link is here to answer "what is
-// OpenStreetMap?", and the project's own front page is a map, not an answer.
-const OSM_URL = "https://en.wikipedia.org/wiki/OpenStreetMap";
 
 // One shape for both columns so the markup below stays a loop rather than two
 // hand-kept lists. `external` decides target/rel, not styling.
@@ -28,10 +25,7 @@ const columns: {
   },
   {
     heading: "Project",
-    links: [
-      { label: "Source on GitHub", href: REPO_URL, external: true },
-      { label: "OpenStreetMap", href: OSM_URL, external: true },
-    ],
+    links: [{ label: "Source on GitHub", href: REPO_URL, external: true }],
   },
 ];
 ---
@@ -41,8 +35,8 @@ const columns: {
     section to get the same breathing room. */
 }
 <footer class="bg-surface-deep border-border mt-20 border-t md:mt-28">
-  <div class="mx-auto max-w-6xl px-5 py-14 md:py-16">
-    <div class="grid gap-10 sm:grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr] md:gap-12">
+  <div class="mx-auto max-w-6xl px-5 py-10 md:py-12">
+    <div class="grid gap-8 sm:grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr] md:gap-12">
       {/* Brand block: mark, then what this is in one line. */}
       <div class="flex flex-col items-start gap-3">
         <a href="/" class="flex w-fit items-center" aria-label={APP_NAME}>
@@ -79,7 +73,7 @@ const columns: {
     </div>
 
     {/* Byline strip. */}
-    <div class="border-border text-muted mt-12 border-t pt-6 text-sm">
+    <div class="border-border text-muted mt-8 border-t pt-5 text-sm">
       <p>
         Hydrated with <HeartIcon size={14} class="text-blue inline-block align-[-2px]" /><span
           class="sr-only">love</span
