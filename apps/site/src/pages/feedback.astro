@@ -1,0 +1,23 @@
+---
+import ContentPage from "@/layouts/ContentPage.astro";
+import FeedbackForm from "@/components/FeedbackForm.svelte";
+import { APP_NAME } from "@/lib/appConfig";
+
+export const prerender = true;
+---
+
+{
+  /* Unlisted like /about: linked from the footer, kept out of search results.
+   `noindex` covers crawlers that reach it anyway; public/robots.txt disallows
+   the fetch in the first place. */
+}
+<ContentPage
+  title={`Share Feedback — ${APP_NAME}`}
+  description="Tell us what's broken, missing, or worth keeping."
+  heading="Share Feedback"
+  noindex
+>
+  <div class="mt-8">
+    <FeedbackForm client:load />
+  </div>
+</ContentPage>

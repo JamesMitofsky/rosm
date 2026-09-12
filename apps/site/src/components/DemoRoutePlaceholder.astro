@@ -1,6 +1,6 @@
 ---
 import { MAP_FRAMES, offsetFromCenter } from "@/lib/basemap/frames";
-import { DC_FOUNTAINS, DC_ROUTE, STATUS_COLOR } from "@/lib/demoRoute";
+import { DC_FOUNTAINS, DC_ROUTE, demoStopColor } from "@/lib/demoRoute";
 import { DEMO_RUN_END, demoRouteRunBy, demoRunnerAt, demoStatusesAt } from "@/lib/demoRun";
 import { ROUTE_LINE, START_FLAG } from "@/lib/basemap/routeLine";
 import { FlagIcon } from "phosphor-svelte";
@@ -20,7 +20,8 @@ import { FlagIcon } from "phosphor-svelte";
  * Under `prefers-reduced-motion` the replay is skipped and the map opens on its
  * *end* frame instead, so the same markup carries that frame too, switched in
  * by the media query: the run so far drawn solid, the reached stops in their
- * colours, the runner where the run ends. Both come from `demoRun.ts`, the
+ * colours, the stop it ends on in the route's blue, the runner where the run
+ * ends. Both come from `demoRun.ts`, the
  * same module the replay reads, so the two cannot disagree.
  *
  * None of it needs the engine. The opening view is fixed at build time, so a
@@ -43,8 +44,10 @@ const r = (n: number) => Math.round(n * 10) / 10;
 
 const openingStatuses = demoStatusesAt(0);
 const endStatuses = demoStatusesAt(DEMO_RUN_END);
-const colorFor = (statuses: Record<number, string>, id: number) =>
-  STATUS_COLOR[(statuses[id] ?? "pending") as keyof typeof STATUS_COLOR];
+// `halted`: whether the frame shows the run come to rest at `DEMO_NEXT_STOP`,
+// which is what turns that stop blue — true of the end frame only.
+const colorFor = (statuses: ReturnType<typeof demoStatusesAt>, id: number, halted: boolean) =>
+  demoStopColor(id, statuses[id], halted);
 
 const shots = variants.map((variant, index) => {
   const cx = variant.frame.width / 2;
@@ -84,8 +87,8 @@ const shots = variants.map((variant, index) => {
     stops: DC_FOUNTAINS.map((fountain, i) => ({
       ...at(fountain),
       label: String(i + 1),
-      color: colorFor(openingStatuses, fountain.id),
-      endColor: colorFor(endStatuses, fountain.id),
+      color: colorFor(openingStatuses, fountain.id, false),
+      endColor: colorFor(endStatuses, fountain.id, true),
     })),
   };
 });

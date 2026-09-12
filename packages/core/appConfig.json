@@ -1,7 +1,7 @@
 {
   "appId": "org.rosm.app",
   "appName": "Water Run",
-  "appTagline": "Running for Open-Sourced Maps",
+  "appTagline": "Verified public drinking fountains",
   "scheme": "rosm",
   "apiBase": "https://rosm.app",
   "appStoreUrl": "",

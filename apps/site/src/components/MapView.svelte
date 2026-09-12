@@ -47,6 +47,23 @@
     "circle-stroke-color": "#fff",
   };
   const PULSE_LAYER = "markers-pulse";
+  /** A dot's radius when the caller gives no `markerRadius`. */
+  const DEFAULT_MARKER_RADIUS = 9;
+  /** The white ring around every stop's dot, at full size. */
+  const MARKER_STROKE_PX = 2;
+  /** How far a ping's ring grows past the dot's radius, as a multiple of it. */
+  const PULSE_GROWTH = 1.4;
+  /**
+   * How far past the dot's white ring a beckon's wave travels before it has
+   * faded out.
+   *
+   * Set by the neighbours rather than by taste. The wave is DOM laid over the
+   * canvas, so it washes over anything it reaches — dot, white ring and label
+   * alike — and on the landing hero's narrow layout the stop before the one
+   * beckoning is under 40px away, centre to centre. 15px ends the wave just
+   * clear of that stop's white ring.
+   */
+  const BECKON_REACH_PX = 15;
   /**
    * How long a newly appeared dot takes to grow to full size. Exported for a
    * caller timing something to start once the dots have settled.
@@ -109,10 +126,21 @@
   function pulsePaint(baseRadius: number): maplibregl.CircleLayerSpecification["paint"] {
     const p: maplibregl.ExpressionSpecification = ["coalesce", ["feature-state", "pulse"], 0];
     return {
-      "circle-radius": ["+", baseRadius, ["*", baseRadius * 1.4, p]],
+      "circle-radius": ["+", baseRadius, ["*", baseRadius * PULSE_GROWTH, p]],
       "circle-color": ["get", "color"],
       "circle-opacity": ["case", [">", p, 0], ["*", 0.5, ["-", 1, p]], 0],
     };
+  }
+
+  /**
+   * How far through a `pulses` ping, 0–1, its ring is first seen. The ring
+   * starts at the dot's own radius and the dot is drawn over it
+   * (`pulsePaint`), so the start of every ping is hidden until the ring has
+   * grown past the dot's white ring. For a caller lining something up with
+   * the moment a ping is seen to start.
+   */
+  export function pulseVisibleAt(markerRadius = DEFAULT_MARKER_RADIUS): number {
+    return MARKER_STROKE_PX / (markerRadius * PULSE_GROWTH);
   }
 
   const ATTRIBUTION =
@@ -277,6 +305,13 @@
     // Per-frame state travels here rather than inside `markers`, so a pulse
     // never causes the marker set — and every label — to be rebuilt.
     pulses?: Record<string, number>;
+    // The id of a marker calling for a tap, as a string, or null for none: it
+    // lets soft waves in the route's blue out from under its dot on a double
+    // beat — two close together, then a rest — until the caller clears it. A
+    // call to action, not a status — louder than a `pulses` ping, and on a
+    // loop where a ping marks one moment. Drawn in CSS over the map rather
+    // than on the canvas, so the loop costs no repaint.
+    beckon?: string | null;
     onViewChange?: (
       view: {
         lat: number;
@@ -292,9 +327,9 @@
     centerOnSelect?: boolean;
     // The id of the marker whose popup is open, as a string, or null for none.
     // Bindable: a tap on a marker sets it and a tap elsewhere clears it, and a
-    // page can set it to open a marker's popup itself — the hero's replay
-    // does, when the runner arrives at a stop. Under `centerOnSelect` a
-    // selection made either way brings the marker in.
+    // page can set it to open a marker's popup itself, or read it to learn
+    // which marker the visitor opened. Under `centerOnSelect` a selection
+    // made either way brings the marker in.
     selected?: string | null;
     class?: string;
     // Hide the basemap's place-name labels (city/town/suburb/etc). Demo map
@@ -324,13 +359,14 @@
     showLocate = false,
     showFullscreen = false,
     markers = [],
-    markerRadius = 9,
+    markerRadius = DEFAULT_MARKER_RADIUS,
     line,
     lineProgress,
     lineUpcoming = false,
     start,
     runner,
     pulses,
+    beckon = null,
     onViewChange,
     recenterKey,
     fitPoints,
@@ -515,6 +551,23 @@
   // fires only when points actually appear.
   const markerIdSig = $derived(markers.map((m) => m.id).join("|"));
   const labeled = $derived(markers.filter((m) => m.label));
+  const beckonMarker = $derived(
+    beckon == null ? undefined : markers.find((m) => String(m.id) === beckon),
+  );
+  // The beckon's geometry, as radii from the marker's centre: where the dot
+  // ends (white ring included) and where the wave ends. The wave is drawn at
+  // its full size and scaled down to start at the dot's edge
+  // (`--beckon-from`), so it grows by transform alone.
+  const beckonStyle = $derived.by(() => {
+    const dotR = markerRadius + MARKER_STROKE_PX;
+    const waveR = dotR + BECKON_REACH_PX;
+    return [
+      `--beckon-color: ${ROUTE_LINE.color}`,
+      `--beckon-dot-r: ${dotR}px`,
+      `--beckon-wave-r: ${waveR}px`,
+      `--beckon-from: ${dotR / waveR}`,
+    ].join("; ");
+  });
   const runnerData = $derived<GeoJSON.Feature | null>(
     runner
       ? {
@@ -537,7 +590,7 @@
   const selectedMarker = $derived(selected != null ? markerById.get(selected) : undefined);
 
   const radius = $derived(Math.max(0, markerRadius * popScale));
-  const strokeW = $derived(Math.max(0, 2 * popScale));
+  const strokeW = $derived(Math.max(0, MARKER_STROKE_PX * popScale));
 
   // The drawn line's paint. Under `lineProgress` the gradient is part of it
   // from the first frame, and each change is one `setPaintProperty`: the
@@ -1240,6 +1293,18 @@
       </Marker>
     {/each}
 
+    {#if beckonMarker}
+      <!-- Mounted after the labels, so drawn over them: the wave is masked
+           clear of the dot and its label (see `.beckon-wave`). -->
+      <Marker lnglat={[beckonMarker.lon, beckonMarker.lat]} style={{ pointerEvents: "none" }}>
+        {#snippet content()}
+          <span class="beckon" style={beckonStyle} aria-hidden="true">
+            <span class="beckon-wave"></span>
+          </span>
+        {/snippet}
+      </Marker>
+    {/if}
+
     {#if start}
       <!-- Anchored at its centre by the marker, then shifted so the base of
            the pole is on the point (see `START_FLAG.pole`). -->
@@ -1398,5 +1463,118 @@
     display: grid;
     place-items: center;
     color: #333;
+  }
+
+  /* The beckon (`beckon`): soft waves in the route's blue let out from under
+     the dot on a double beat — dun dun, rest, dun dun — every 2.08s. The two
+     waves of a beat start 200ms apart; each takes 1.8s to travel out and
+     fade, and the next beat lands 80ms after the second has gone.
+
+     - One colour. The route's blue is what marks this stop as the run's next;
+       a second one adds noise, not meaning.
+     - A fill, not a stroke. The wave grows by `transform: scale()`, which
+       scales a border or shadow along with the box — a stroked ring swells
+       into a thick, blurred band on the way out. A fill has no thickness to
+       swell. It is densest at its leading edge, so it reads as a wave moving
+       outward rather than a disc inflating.
+     - Masked clear of the dot. The wave is laid over the canvas and would
+       tint the dot and its label. The mask is on the unscaled `.beckon-wave`
+       box, so the hole stays at the dot's edge while the fill grows through
+       it: each wave is born hidden under the dot and emerges from it.
+     - Short (`BECKON_REACH_PX`), so it ends before the nearest neighbour.
+
+     The wave grows about 2.4x, far enough that interpolating `scale()`
+     directly would front-load the growth by its own accord. So the scale is
+     stepped geometrically, `from^(1 - p)`, off a progress `--beckon-p` that
+     the animation drives: geometry in the `transform`, timing in the curve
+     on `--beckon-p`, and with the growth even to the eye the curve alone
+     decides how the wave moves. It is an attack, on purpose: each wave leaps
+     clear of the dot in its first few hundred ms, then drifts out as it
+     fades. A curve starting at rest would leave the first wave barely past
+     the dot when the second is born 200ms later, and the pair would read as
+     one thick wave instead of two beats. The fade holds each wave full
+     through its leap, so both are seen leaving before they thin out. */
+  @property --beckon-p {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 0;
+  }
+  .beckon {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    pointer-events: none;
+  }
+  .beckon-wave {
+    position: absolute;
+    inset: calc(-1 * var(--beckon-wave-r));
+    mask-image: radial-gradient(
+      circle closest-side,
+      transparent calc(var(--beckon-dot-r) - 0.5px),
+      #000 calc(var(--beckon-dot-r) + 0.5px)
+    );
+  }
+  /* The two waves of a beat: `::before` on the beat, `::after` 200ms behind
+     it. A delay offsets only the start, so across iterations of the same
+     length the pair keeps its spacing for as long as the loop runs. Until
+     its delay is up the second wave sits at its base opacity, 0. */
+  .beckon-wave::before,
+  .beckon-wave::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle closest-side,
+      color-mix(in srgb, var(--beckon-color) 6%, transparent) 50%,
+      color-mix(in srgb, var(--beckon-color) 28%, transparent) 92%,
+      color-mix(in srgb, var(--beckon-color) 40%, transparent) calc(100% - 1px),
+      transparent
+    );
+    transform: scale(pow(var(--beckon-from), 1 - var(--beckon-p)));
+    opacity: 0;
+    animation:
+      beckon-wave-grow 2080ms infinite,
+      beckon-wave-fade 2080ms infinite;
+  }
+  .beckon-wave::after {
+    animation-delay: 200ms;
+  }
+  /* Both run 2.08s — the 200ms between the waves, a wave's 1.8s trip, and an
+     80ms rest — with the trip in the first 86.54%, held gone for the rest;
+     the fade holds full for the first 400ms (19.23%). Two animations,
+     not one, so growth and fade each keep a curve of their own. */
+  @keyframes beckon-wave-grow {
+    0% {
+      --beckon-p: 0;
+      animation-timing-function: cubic-bezier(0.15, 0.6, 0.3, 1);
+    }
+    86.54%,
+    100% {
+      --beckon-p: 1;
+    }
+  }
+  @keyframes beckon-wave-fade {
+    0%,
+    19.23% {
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+    86.54%,
+    100% {
+      opacity: 0;
+    }
+  }
+  /* Still, one wave is held at its full reach, faint, so the stop stands out
+     from the others without moving. The second stays at its base opacity. */
+  @media (prefers-reduced-motion: reduce) {
+    .beckon-wave::before,
+    .beckon-wave::after {
+      animation: none;
+      --beckon-p: 1;
+    }
+    .beckon-wave::before {
+      opacity: 0.6;
+    }
   }
 </style>

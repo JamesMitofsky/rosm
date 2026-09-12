@@ -115,7 +115,7 @@ const frameCss = aspectCss + sizeCss + spinnerCss;
 }
 <div
   class:list={["map-frame", className]}
-  style={`--basemap-background: ${BASEMAP_BACKGROUND}; --map-frame-radius: ${radius}; --map-reveal-ms: ${MAP_REVEAL_MS}ms`}
+  style={`--basemap-background: ${BASEMAP_BACKGROUND}; --map-frame-radius: ${radius}; --map-frame-blur: ${MAP_FRAMES[frame].blur}px; --map-reveal-ms: ${MAP_REVEAL_MS}ms`}
   data-map-frame={frame}
 >
   {
@@ -138,7 +138,7 @@ const frameCss = aspectCss + sizeCss + spinnerCss;
       {
         /* Decoded on the main thread on purpose: this image exists to be in the
           first paint, and `decoding="async"` lets the browser paint a frame
-          without it. It is a few kilobytes and 160px wide, so there is nothing
+          without it. It is a thumbnail of a few kilobytes, so there is nothing
           to gain by deferring it. */
       }
       <img class="map-frame__shot" src={fallback.src} alt="" aria-hidden="true" decoding="sync" />
@@ -293,16 +293,16 @@ const frameCss = aspectCss + sizeCss + spinnerCss;
   .map-frame__glass {
     position: absolute;
     inset: 0;
-    /* The one blur knob. Raise it for more frost, lower it to show more of the
-       route; the picture underneath is unchanged either way.
+    /* The blur radius, `--map-frame-blur`, arrives on the element's inline
+       style from the frame's `blur` in `frames.ts` — that is the knob.
 
        Prefixed first, standard last, and not by convention alone: the release
        minifier reads the two as one property and keeps whichever it sees last,
        so the order here decides which of them survives the build. Standard
        last means Firefox — which has never spoken `-webkit-` — gets the frost.
        Safari has understood the unprefixed property since 18. */
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(var(--map-frame-blur));
+    backdrop-filter: blur(var(--map-frame-blur));
     /* A wash of the basemap's own paper over the frost, so the frame reads as
        one surface rather than as a blurred photograph. Heavier than the blur
        alone needs: a wide gaussian spreads the route's blue and the pins'
