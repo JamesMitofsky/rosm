@@ -104,15 +104,13 @@ capacity, give each IP only a couple of query slots, and see our functions arriv
 addresses shared with other projects. So searches go through a shared cache
 (`apps/site/src/lib/pointCache.ts`, on Vercel's Runtime Cache):
 
-- Answers are kept per 0.1° cell and point type. A cell is fetched again only once it's over an
-  hour old, and all of a search's due cells are fetched in a single Overpass query.
-- When Overpass fails, cells up to a week old are served instead, and the reply says
-  `stale: true`. A search fails only when some cell it needs has never been fetched.
+- Answers are kept for a week per 0.1° cell and point type. A search whose cells all have a copy
+  is answered from them at once, whatever state Overpass is in. Copies over an hour old are then
+  refreshed in the background with a single Overpass query, and the reply says `stale: true`.
+- Only a search touching a cell that has never been fetched waits for Overpass, and fails if
+  Overpass does.
 - Our own OSM writes are laid over the cache for a day, so a volunteer's edit shows on their next
   search even while Overpass lags behind OSM.
-- `/api/cron/warm-points` refreshes the DC fountain cells daily (`vercel.json`). Vercel calls it
-  with `CRON_SECRET`, which must be set in the project's environment variables, or every call
-  is refused.
 - Failover tries each mirror in turn. One that hung or was unreachable goes to the back of the
   line for a minute. Setting `OVERPASS_URL` (for example a paid or self-hosted instance) puts it
   first.

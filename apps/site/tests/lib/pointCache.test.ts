@@ -17,7 +17,9 @@ beforeEach(() => {
   cache.useCellStore(store);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await cache.settleBackgroundRefreshes();
+  cache.resetBackgroundRefreshes();
   vi.useRealTimers();
   vi.unstubAllGlobals();
   overpass.resetMirrorHealth();
@@ -137,18 +139,87 @@ describe("getPoints — cells", () => {
   });
 });
 
-describe("getPoints — when Overpass fails", () => {
-  it("serves older copies, marked stale, once every cell has one", async () => {
+describe("getPoints — old copies", () => {
+  it("answers from an old copy at once and refreshes it in the background", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", overpassAnswers([node(1, 38.95, -77.05)]));
     await cache.getPoints(inCell, tag);
     const fetchedAt = Date.now();
 
-    vi.advanceTimersByTime(3 * HOUR);
-    vi.stubGlobal("fetch", rateLimited());
+    // Two hours on, Overpass hangs: the search doesn't wait for it.
+    vi.advanceTimersByTime(2 * HOUR);
+    let answer!: (r: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((r) => (answer = r)));
+    vi.stubGlobal("fetch", fetchMock);
     const r = await cache.getPoints(inCell, tag);
     expect(r).toMatchObject({ stale: true, asOf: fetchedAt });
     expect(ids(r)).toEqual([1]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Once the refresh lands, the next search has the new data, fresh.
+    answer(json({ elements: [node(1, 38.95, -77.05), node(2, 38.96, -77.06)] }));
+    await cache.settleBackgroundRefreshes();
+    const next = await cache.getPoints(inCell, tag);
+    expect(next.stale).toBe(false);
+    expect(ids(next)).toEqual([1, 2]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps answering from old copies while Overpass is down", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", overpassAnswers([node(1, 38.95, -77.05)]));
+    await cache.getPoints(inCell, tag);
+    const fetchedAt = Date.now();
+
+    vi.advanceTimersByTime(3 * 24 * HOUR);
+    vi.stubGlobal("fetch", rateLimited());
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const r = await cache.getPoints(inCell, tag);
+    await cache.settleBackgroundRefreshes();
+    expect(r).toMatchObject({ stale: true, asOf: fetchedAt });
+    expect(ids(r)).toEqual([1]);
+    // The failed refresh left the copy in place.
+    expect(ids(await cache.getPoints(inCell, tag))).toEqual([1]);
+  });
+
+  it("waits a minute before trying a failed background refresh again", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", overpassAnswers([]));
+    await cache.getPoints(inCell, tag);
+    vi.advanceTimersByTime(2 * HOUR);
+
+    const fetchMock = rateLimited();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await cache.getPoints(inCell, tag);
+    await cache.settleBackgroundRefreshes();
+    const triedOnce = fetchMock.mock.calls.length; // one per mirror
+    expect(triedOnce).toBeGreaterThan(0);
+
+    await cache.getPoints(inCell, tag);
+    await cache.settleBackgroundRefreshes();
+    expect(fetchMock).toHaveBeenCalledTimes(triedOnce);
+
+    vi.advanceTimersByTime(60_000);
+    await cache.getPoints(inCell, tag);
+    await cache.settleBackgroundRefreshes();
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(triedOnce);
+  });
+
+  it("waits for Overpass when a cell has no copy, refreshing old ones in the same query", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", overpassAnswers([]));
+    await cache.getPoints(inCell, tag); // the left cell
+    vi.advanceTimersByTime(2 * HOUR);
+
+    const fetchMock = overpassAnswers([node(1, 38.95, -77.05), node(2, 38.95, -76.95)]);
+    vi.stubGlobal("fetch", fetchMock);
+    const wider = { bounds: [38.91, -77.09, 38.99, -76.91] as [number, number, number, number] };
+    const r = await cache.getPoints(wider, tag);
+    expect(ids(r)).toEqual([1, 2]);
+    expect(r.stale).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sentQuery(fetchMock)).toContain("(38.9,-77.1,39,-76.9);");
   });
 
   it("fails when some cell has never been fetched", async () => {

@@ -1,7 +1,8 @@
 // Point searches answered from a shared cache of Overpass replies, kept per map
-// cell, so the public Overpass servers are asked about an area at most once an
-// hour however many volunteers search it, and an answer is never lost to an
-// Overpass outage once it has been fetched.
+// cell, so volunteers get an answer straight away whenever an area has been
+// searched in the last week, whatever state Overpass is in, and the public
+// Overpass servers are asked about an area at most about once an hour however
+// many people search it.
 //
 // Why: the public servers are often over capacity, they give each IP only a
 // couple of query slots, and our functions leave from cloud addresses shared
@@ -13,13 +14,15 @@
 // - The world is cut into fixed 0.1° cells (about 8.6 x 11 km in DC). Each
 //   point type has its own entry per cell, holding every match including the
 //   disused: variant, so `includeDisused` is a filter here rather than a
-//   separate entry.
-// - A search reads every cell it covers. If any is missing or over an hour old,
-//   one Overpass query covers all of them (never one per cell), and every cell
-//   in that box is written back.
-// - If that query fails and every cell has some copy, the copies are served
-//   instead (up to a week old) and the reply says so. Only a cell never fetched
-//   before lets the failure through.
+//   separate entry. Entries are kept for a week.
+// - A search reads every cell it covers. When each one has a copy, the search
+//   is answered from them at once. Any copy over an hour old is then refreshed
+//   in the background, for the next search, with one Overpass query for all
+//   of them (never one per cell). The reply says `stale` when it used such a
+//   copy.
+// - Only a search touching a cell with no copy at all waits for Overpass, and
+//   it fails if Overpass does: showing the other cells alone would look like
+//   "no fountains here".
 // - Writes this server makes to OSM go into a per-cell edit list for a day and
 //   are laid over whatever the cache holds, since Overpass can lag behind OSM by
 //   minutes, and by hours when overloaded. Without it a volunteer who verified
@@ -29,7 +32,7 @@
 // kept across deployments, but free to evict at any time, so nothing here
 // relies on an entry still being there. Off Vercel (dev) `getCache` falls back
 // to an in-memory cache by itself.
-import { getCache } from "@vercel/functions";
+import { getCache, waitUntil } from "@vercel/functions";
 import type { Fountain, RecencyMode, TagFilter } from "@water-run/core/schemas";
 import { matchesRecency } from "@water-run/core/checkDate";
 import { haversine } from "@water-run/core/geo";
@@ -44,10 +47,10 @@ import {
 } from "./overpass";
 
 const CELLS_PER_DEG = 10;
-// How long a cell's copy is used without asking Overpass again. A dev-only
-// override makes the stale fallback easy to try by hand.
+// How old a cell's copy can get before a search refreshes it in the
+// background. A dev-only override makes that easy to try by hand.
 const FRESH_MS = Number(process.env.POINT_CACHE_FRESH_MS) || 60 * 60 * 1000;
-// How long a copy is kept as a fallback for when Overpass is down.
+// How long a copy is kept to answer from, however long Overpass stays down.
 const KEEP_S = 7 * 24 * 60 * 60;
 // How long one of our own OSM writes is laid over the cache: long enough for
 // Overpass to have caught up, however far behind it was.
@@ -273,6 +276,48 @@ async function refresh(
   return entries;
 }
 
+// Refreshes started after a reply went out. Vercel's `waitUntil` keeps the
+// function alive until each settles; off Vercel it does nothing and the
+// promise just runs on.
+const pending = new Set<Promise<void>>();
+// When each background query was last tried. A failed one isn't tried again
+// for a minute, so while Overpass is down every search doesn't add to its
+// load. A successful one makes its cells fresh, so it isn't due again anyway.
+const BACKGROUND_RETRY_MS = 60_000;
+const lastTried = new Map<string, number>();
+
+function refreshInBackground(tag: TagFilter, rect: Rect): void {
+  const key = `${tag.key}=${tag.value}|${rect.minX},${rect.minY},${rect.maxX},${rect.maxY}`;
+  const now = Date.now();
+  if (now - (lastTried.get(key) ?? -Infinity) < BACKGROUND_RETRY_MS) return;
+  for (const [k, at] of lastTried) if (now - at >= BACKGROUND_RETRY_MS) lastTried.delete(k);
+  lastTried.set(key, now);
+
+  // No caller signal: the search that started it has had its answer, and
+  // the refresh is for whoever searches next.
+  const p: Promise<void> = refresh(tag, rect, {})
+    .then(
+      () => {},
+      (e: unknown) => {
+        const message = e instanceof OverpassError ? e.message : String(e);
+        console.warn("[pointCache] background refresh failed; older copies stay:", message);
+      },
+    )
+    .finally(() => pending.delete(p));
+  pending.add(p);
+  waitUntil(p);
+}
+
+// Wait for every background refresh to finish. For tests.
+export async function settleBackgroundRefreshes(): Promise<void> {
+  while (pending.size > 0) await Promise.all([...pending]);
+}
+
+// Forget background retry timing. For tests, which share one module.
+export function resetBackgroundRefreshes(): void {
+  lastTried.clear();
+}
+
 // A cell's points with our own recent writes laid over them, oldest first so
 // the latest write to a node wins.
 function withEdits(points: CachedPoint[], edits: PointEdit[]): CachedPoint[] {
@@ -294,16 +339,17 @@ export type PointsOptions = FetchOverpassOptions & {
 
 export type PointsResult = {
   fountains: Fountain[];
-  // Overpass couldn't be reached, so some of these came from an older copy.
+  // Some of these came from a copy over an hour old (it is being refreshed,
+  // or Overpass couldn't be reached last time it was tried).
   stale: boolean;
   // When the oldest copy used was fetched, epoch ms.
   asOf: number;
 };
 
-// Every point of `tag` in `region`, from the cache where it is fresh, from
-// Overpass where it isn't, and from an older copy when Overpass fails. Throws
-// OverpassError only when Overpass fails and some cell has no copy at all, or
-// the caller's abort reason when it cancels.
+// Every point of `tag` in `region`: from the cache when every cell it covers
+// has a copy, refreshing old ones in the background, otherwise from Overpass.
+// Throws OverpassError only when some cell has no copy and Overpass fails, or
+// the caller's abort reason when it cancels while waiting on Overpass.
 export async function getPoints(
   region: SearchRegion,
   tag: TagFilter,
@@ -322,23 +368,24 @@ export async function getPoints(
     Promise.all(cells.map((c) => read(editsKey(c)).then((v) => asEdits(v, now)))),
   ]);
 
+  const isOld = (e: CellEntry) => now - e.fetchedAt >= FRESH_MS;
   const due = cells.filter((_, i) => {
     const e = entries[i];
-    return !e || now - e.fetchedAt >= FRESH_MS;
+    return !e || isOld(e);
   });
-  let stale = false;
-  if (due.length > 0) {
-    try {
-      const fresh = await refresh(tag, rectAround(due), options);
-      cells.forEach((c, i) => {
-        entries[i] = fresh.get(cellId(c)) ?? entries[i];
-      });
-    } catch (e) {
-      if (!(e instanceof OverpassError) || entries.some((x) => !x)) throw e;
-      console.warn(`[pointCache] serving older copies for ${due.length} cell(s):`, e.message);
-      stale = true;
-    }
+  if (entries.some((e) => !e)) {
+    // Some cell has nothing to show yet, so this search waits for Overpass.
+    // Its old cells ride along in the same query.
+    const fresh = await refresh(tag, rectAround(due), options);
+    cells.forEach((c, i) => {
+      entries[i] = fresh.get(cellId(c)) ?? entries[i];
+    });
+  } else if (due.length > 0) {
+    // Every cell has a copy: answer with it now and bring the old ones up to
+    // date for the next search.
+    refreshInBackground(tag, rectAround(due));
   }
+  const stale = entries.some((e) => e && isOld(e));
 
   const [s, w, n, e] = box;
   const inRegion =
@@ -352,7 +399,7 @@ export async function getPoints(
   const fountains: Fountain[] = [];
   let asOf = now;
   entries.forEach((entry, i) => {
-    // Every entry is set by now: a missing one either got fetched or threw.
+    // Every entry is set by now: a missing one was fetched, or that threw.
     if (!entry) return;
     asOf = Math.min(asOf, entry.fetchedAt);
     for (const p of withEdits(entry.points, edits[i])) {

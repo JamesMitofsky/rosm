@@ -5,14 +5,12 @@ import { postJson, routeContext } from "../helpers/route";
 // lib/overpass captures OVERPASS_URL at import, so load the route fresh with a
 // clean env to keep the mirror order deterministic.
 let route: typeof import("@/pages/api/fountains");
-let cron: typeof import("@/pages/api/cron/warm-points");
 let overpass: typeof import("@/lib/overpass");
 let cache: typeof import("@/lib/pointCache");
 beforeAll(async () => {
   delete process.env.OVERPASS_URL;
   vi.resetModules();
   route = await import("@/pages/api/fountains");
-  cron = await import("@/pages/api/cron/warm-points");
   overpass = await import("@/lib/overpass");
   cache = await import("@/lib/pointCache");
 });
@@ -24,7 +22,9 @@ beforeEach(() => {
   cache.useCellStore(store);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await cache.settleBackgroundRefreshes();
+  cache.resetBackgroundRefreshes();
   vi.useRealTimers();
   overpass.resetMirrorHealth();
 });
@@ -236,45 +236,6 @@ describe("GET /api/fountains — when Overpass goes down", () => {
     const res = await get("?region=dc");
     expect(res.status).toBe(200);
     expect((await res.json()).fountains).toHaveLength(1);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-});
-
-describe("GET /api/cron/warm-points", () => {
-  const call = (auth?: string) =>
-    cron.GET(
-      routeContext(
-        new Request("https://waterrun.app/api/cron/warm-points", {
-          headers: auth ? { authorization: auth } : {},
-        }),
-      ),
-    );
-
-  afterEach(() => {
-    delete process.env.CRON_SECRET;
-  });
-
-  it("refuses a call without the cron secret, and every call when none is set", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    expect((await call("Bearer anything")).status).toBe(401);
-    process.env.CRON_SECRET = "s3cret";
-    expect((await call()).status).toBe(401);
-    expect((await call("Bearer wrong")).status).toBe(401);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("fills the DC cells the public map and Nearby read", async () => {
-    process.env.CRON_SECRET = "s3cret";
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ elements })));
-    const res = await call("Bearer s3cret");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ count: 1, stale: false });
-
-    // The public map is now answered without Overpass.
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    expect((await (await get("?region=dc")).json()).fountains).toHaveLength(1);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

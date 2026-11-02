@@ -17,8 +17,8 @@ const PUBLIC_MAP_TAG = { key: "amenity", value: "drinking_water" };
 // while it refreshes in the background: only a refresh, never a visitor, waits
 // on Overpass.
 const PUBLIC_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
-// An answer built from older copies because Overpass was down: still worth
-// showing, but held only briefly so the next visitor's request tries again.
+// An answer that used copies over an hour old, which are being refreshed in the
+// background: held only briefly, so the next visitor gets the refreshed one.
 const STALE_CACHE = "public, max-age=60, s-maxage=60";
 // Below LiveFountainMap's 20 s client timeout, so the visitor gets our answer
 // (results, or an error saying why) rather than a timeout of its own.
