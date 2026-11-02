@@ -7,7 +7,7 @@ import { UpstreamNetworkError, UpstreamTimeoutError, upstreamFetch } from "./ups
 export { parseCheckDate, matchesRecency } from "@water-run/core/checkDate";
 
 // Cutoff epoch ms for "N months ago" from now.
-function monthsAgo(months: number): number {
+export function monthsAgo(months: number): number {
   const d = new Date();
   d.setMonth(d.getMonth() - months);
   return d.getTime();
@@ -27,13 +27,42 @@ const OVERPASS_ENDPOINTS = [
 // it has room for its declared budget, so a modest one gets a slot sooner on a
 // busy server, and a mirror that can't finish in time says so (a runtime-error
 // remark) early enough to leave room for the next mirror.
-const QUERY_TIMEOUT_S = 15;
+const QUERY_TIMEOUT_S = 12;
 // Per-attempt client limit, unless the caller sets its own: past the server's
 // own budget, so a busy mirror gets to answer or report its timeout before we
 // give up on it.
-const ATTEMPT_TIMEOUT_MS = (QUERY_TIMEOUT_S + 5) * 1000;
+const ATTEMPT_TIMEOUT_MS = (QUERY_TIMEOUT_S + 3) * 1000;
 // Total budget across every mirror and retry, unless the caller sets its own.
-const DEFAULT_DEADLINE_MS = 25_000;
+// Room for every mirror to have a real turn: with a 15 s attempt the first two
+// get their whole limit even when both hang, and the third still gets 10 s. A
+// deadline barely past one attempt left failover one mirror deep, since a hung
+// first mirror used it nearly all up.
+const DEFAULT_DEADLINE_MS = 40_000;
+
+// How long a mirror that hung or couldn't be reached waits at the back of the
+// line. Warm function instances serve many requests in a row, and a mirror that
+// just timed out rarely recovers in seconds, so the next request starts with one
+// that may answer. It is never skipped outright: when the healthy mirrors fail
+// too, it still gets its turn.
+const BENCH_MS = 60_000;
+const benchedUntil = new Map<string, number>();
+
+function bench(url: string): void {
+  benchedUntil.set(url, Date.now() + BENCH_MS);
+}
+
+// The mirrors in the order to try them: healthy ones first, in their usual
+// order, then benched ones, in theirs.
+function mirrorOrder(): string[] {
+  const now = Date.now();
+  const benched = (url: string) => (benchedUntil.get(url) ?? 0) > now;
+  return [...OVERPASS_ENDPOINTS.filter((u) => !benched(u)), ...OVERPASS_ENDPOINTS.filter(benched)];
+}
+
+// Forget every mirror's recent failures. For tests, which share one module.
+export function resetMirrorHealth(): void {
+  benchedUntil.clear();
+}
 // Only a 5xx is retried on the same mirror, once, after this pause.
 const MAX_ATTEMPTS_PER_ENDPOINT = 2;
 const RETRY_PAUSE_MS = 500;
@@ -127,7 +156,7 @@ export async function fetchOverpass(
   const deadline = Date.now() + deadlineMs;
   let lastError: OverpassError | null = null;
 
-  mirrors: for (const url of OVERPASS_ENDPOINTS) {
+  mirrors: for (const url of mirrorOrder()) {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_ENDPOINT; attempt++) {
       signal?.throwIfAborted();
       const remaining = deadline - Date.now();
@@ -146,6 +175,9 @@ export async function fetchOverpass(
         if (e instanceof UpstreamTimeoutError) lastError = tooSlow();
         else if (e instanceof UpstreamNetworkError) lastError = unreachable();
         else throw e; // the caller cancelled
+        // Only a timeout that used the mirror's whole attempt says the mirror
+        // is stuck; one cut short by the overall deadline says nothing about it.
+        if (!(e instanceof UpstreamTimeoutError) || e.timeoutMs >= attemptTimeoutMs) bench(url);
         continue mirrors;
       }
 
@@ -155,6 +187,7 @@ export async function fetchOverpass(
           remark?: unknown;
         } | null;
         if (json && Array.isArray(json.elements) && !isRuntimeError(json.remark)) {
+          benchedUntil.delete(url);
           return { elements: json.elements };
         }
         lastError = new OverpassError(BUSY_MESSAGE, null, true);

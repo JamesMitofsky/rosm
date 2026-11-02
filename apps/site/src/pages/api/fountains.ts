@@ -2,7 +2,8 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { FountainsRequest, type TagFilter } from "@water-run/core/schemas";
 import { POINT_TYPES } from "@water-run/core/pointTypes";
-import { fetchFountains, OverpassError } from "@/lib/overpass";
+import { OverpassError } from "@/lib/overpass";
+import { getPoints, type PointsResult } from "@/lib/pointCache";
 import { regionBounds } from "@/lib/fountainRegions";
 import { readJsonBody } from "@/lib/requestBody";
 
@@ -16,6 +17,9 @@ const PUBLIC_MAP_TAG = { key: "amenity", value: "drinking_water" };
 // while it refreshes in the background: only a refresh, never a visitor, waits
 // on Overpass.
 const PUBLIC_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
+// An answer built from older copies because Overpass was down: still worth
+// showing, but held only briefly so the next visitor's request tries again.
+const STALE_CACHE = "public, max-age=60, s-maxage=60";
 // Below LiveFountainMap's 20 s client timeout, so the visitor gets our answer
 // (results, or an error saying why) rather than a timeout of its own.
 const PUBLIC_DEADLINE_MS = 15_000;
@@ -24,6 +28,12 @@ const PUBLIC_DEADLINE_MS = 15_000;
 // one city-sized box well inside that.
 const PUBLIC_ATTEMPT_TIMEOUT_MS = 7_000;
 const NO_STORE = { "Cache-Control": "no-store" };
+
+// The reply body for a search. `stale` and `asOf` are for clients that want to
+// say how old the data is. Older clients ignore them.
+function pointsBody({ fountains, stale, asOf }: PointsResult) {
+  return { fountains, stale, asOf: new Date(asOf).toISOString() };
+}
 
 // Only the point types a client can actually pick. Every real caller asks for
 // one of these, and anything else would let any visitor run arbitrary queries
@@ -61,12 +71,15 @@ export const GET: APIRoute = async ({ request }) => {
     );
   }
   try {
-    const fountains = await fetchFountains({ bounds }, PUBLIC_MAP_TAG, "any", 6, true, {
+    const result = await getPoints({ bounds }, PUBLIC_MAP_TAG, {
+      includeDisused: true,
       signal: request.signal,
       deadlineMs: PUBLIC_DEADLINE_MS,
       attemptTimeoutMs: PUBLIC_ATTEMPT_TIMEOUT_MS,
     });
-    return Response.json({ fountains }, { headers: { "Cache-Control": PUBLIC_CACHE } });
+    return Response.json(pointsBody(result), {
+      headers: { "Cache-Control": result.stale ? STALE_CACHE : PUBLIC_CACHE },
+    });
   } catch (e) {
     return searchFailed(e);
   }
@@ -91,15 +104,13 @@ export const POST: APIRoute = async ({ request }) => {
     ? { bounds }
     : { lat: lat as number, lon: lon as number, radiusM: radiusM as number };
   try {
-    const fountains = await fetchFountains(
-      region,
-      tag,
+    const result = await getPoints(region, tag, {
+      includeDisused,
       recencyMode,
       recencyMonths,
-      includeDisused,
-      { signal: request.signal },
-    );
-    return Response.json({ fountains });
+      signal: request.signal,
+    });
+    return Response.json(pointsBody(result));
   } catch (e) {
     return searchFailed(e);
   }

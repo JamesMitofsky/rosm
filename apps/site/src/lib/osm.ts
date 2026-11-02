@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { EditAction, EditExtras } from "@water-run/core/schemas";
 import { isTransientStatus } from "@water-run/core/apiResponse";
 import { APP_NAME } from "./appConfig";
+import { recordPointWrite } from "./pointCache";
 import {
   UpstreamNetworkError,
   UpstreamTimeoutError,
@@ -361,7 +362,11 @@ export async function putNode(
     timeoutMs: WRITE_TIMEOUT_MS,
   });
   if (!res.ok) throw new OsmApiError(res.status, "put node", await res.text());
-  return Number((await res.text()).trim()); // new version
+  const version = Number((await res.text()).trim());
+  // Every node write goes through these three helpers, so noting it here
+  // covers edits, creates and undos alike.
+  await recordPointWrite({ id, lat: node.lat, lon: node.lon, tags: node.tags });
+  return version;
 }
 
 // Delete a node (undo of a create). OSM requires the current version + position
@@ -381,7 +386,9 @@ export async function deleteNode(
     timeoutMs: WRITE_TIMEOUT_MS,
   });
   if (!res.ok) throw new OsmApiError(res.status, "delete node", await res.text());
-  return Number((await res.text()).trim()); // new version
+  const version = Number((await res.text()).trim());
+  await recordPointWrite({ id, lat: node.lat, lon: node.lon, tags: null });
+  return version;
 }
 
 // Create a new node. OSM assigns the id (the placeholder in the body is ignored
@@ -402,7 +409,9 @@ export async function createNode(
     timeoutMs: CREATE_TIMEOUT_MS,
   });
   if (!res.ok) throw new OsmApiError(res.status, "create node", await res.text());
-  return Number((await res.text()).trim()); // new node id
+  const id = Number((await res.text()).trim());
+  await recordPointWrite({ id, lat, lon, tags });
+  return id;
 }
 
 // One structured log line per write that reached OSM: a trail in the platform

@@ -13,6 +13,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  mod.resetMirrorHealth();
 });
 
 const tag = { key: "amenity", value: "drinking_water" };
@@ -28,7 +29,7 @@ const errText = (status: number, body = "err") => new Response(body, { status })
 describe("buildQuery", () => {
   it("targets nodes, ways and relations for the tag within a rounded radius", () => {
     const q = mod.buildQuery({ lat: 48.85, lon: 2.35, radiusM: 123.7 }, tag);
-    expect(q).toContain("[out:json][timeout:15];");
+    expect(q).toContain("[out:json][timeout:12];");
     expect(q).toContain('node["amenity"="drinking_water"](around:124,48.85,2.35);');
     expect(q).toContain('way["amenity"="drinking_water"](around:124,48.85,2.35);');
     expect(q).toContain('relation["amenity"="drinking_water"](around:124,48.85,2.35);');
@@ -277,6 +278,23 @@ describe("fetchOverpass — deadline and cancellation", () => {
     expect(fetchMock.mock.calls[1][0]).toBe("https://overpass.kumi.systems/api/interpreter");
   });
 
+  it("gives every mirror a turn by default when they all hang", async () => {
+    vi.useFakeTimers();
+    fakeTimeoutSignals();
+    const fetchMock = hangingFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const started = Date.now();
+    const p = mod.fetchOverpass(query);
+    const assertion = expect(p).rejects.toMatchObject({ timedOut: true });
+    // The first two get their whole 15 s each; the third the 10 s left of 40.
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(Date.now() - started).toBeLessThanOrEqual(40_000);
+  });
+
   it("clamps an attempt to a short deadline", async () => {
     vi.useFakeTimers();
     fakeTimeoutSignals();
@@ -328,6 +346,89 @@ describe("fetchOverpass — deadline and cancellation", () => {
       name: "AbortError",
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchOverpass — mirror health", () => {
+  const query = "[out:json];node(1);out;";
+  const ok = () => okJson({ elements: [] });
+
+  it("tries a mirror that just hung last, for a minute", async () => {
+    vi.useFakeTimers();
+    fakeTimeoutSignals();
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(hangingFetch())
+      .mockImplementation(async () => ok());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = mod.fetchOverpass(query);
+    await vi.runAllTimersAsync();
+    await first;
+    expect(fetchMock.mock.calls.map(([u]) => u)).toEqual([
+      "https://overpass-api.de/api/interpreter",
+      "https://overpass.kumi.systems/api/interpreter",
+    ]);
+
+    // The next request starts on the mirror that answered.
+    fetchMock.mockClear();
+    await mod.fetchOverpass(query);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://overpass.kumi.systems/api/interpreter");
+
+    // A minute on, the usual order is back.
+    vi.advanceTimersByTime(60_000);
+    fetchMock.mockClear();
+    await mod.fetchOverpass(query);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://overpass-api.de/api/interpreter");
+  });
+
+  it("still tries a benched mirror when the others fail", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed")) // benches the primary
+      .mockResolvedValueOnce(ok());
+    vi.stubGlobal("fetch", fetchMock);
+    await mod.fetchOverpass(query);
+
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce(errText(429, "Too Many Requests"))
+      .mockResolvedValueOnce(errText(429, "Too Many Requests"))
+      .mockResolvedValueOnce(ok());
+    await mod.fetchOverpass(query);
+    expect(fetchMock.mock.calls.map(([u]) => u)).toEqual([
+      "https://overpass.kumi.systems/api/interpreter",
+      "https://overpass.private.coffee/api/interpreter",
+      "https://overpass-api.de/api/interpreter",
+    ]);
+  });
+
+  it("doesn't bench a mirror over a 429, which only says our slots are full", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(errText(429, "Too Many Requests"))
+      .mockImplementation(async () => ok());
+    vi.stubGlobal("fetch", fetchMock);
+    await mod.fetchOverpass(query);
+    fetchMock.mockClear();
+    await mod.fetchOverpass(query);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://overpass-api.de/api/interpreter");
+  });
+
+  it("doesn't bench a mirror whose attempt the overall deadline cut short", async () => {
+    vi.useFakeTimers();
+    fakeTimeoutSignals();
+    vi.stubGlobal("fetch", hangingFetch());
+    const p = mod.fetchOverpass(query, { deadlineMs: 5_000 });
+    const assertion = expect(p).rejects.toMatchObject({ timedOut: true });
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    const fetchMock = vi.fn().mockImplementation(async () => ok());
+    vi.stubGlobal("fetch", fetchMock);
+    await mod.fetchOverpass(query);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://overpass-api.de/api/interpreter");
   });
 });
 
