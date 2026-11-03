@@ -297,11 +297,11 @@ describe("failure handling", () => {
   });
 
   it.each([401, 403])("keeps a %i edit queued until the user signs in", async (status) => {
-    apiFetchMock.mockImplementation(async () => fail({ error: "not signed in to OSM" }, status));
+    apiFetchMock.mockImplementation(async () => fail({ error: "not signed in" }, status));
     enqueueReady();
     for (let i = 0; i < 12; i++) await useOutbox.getState().flush({ force: true });
     expect(only().syncState).toBe("pending");
-    expect(only().error).toBe("not signed in to OSM");
+    expect(only().error).toBe("not signed in");
 
     // Signed in again. An unforced flush still waits out the backoff; the forced
     // one the app sends on sign-in goes straight out.

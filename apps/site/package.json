@@ -18,8 +18,9 @@
   "dependencies": {
     "@astrojs/svelte": "^9.0.1",
     "@astrojs/vercel": "^11.0.10",
-    "@water-run/core": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
+    "@vercel/functions": "^3.7.5",
+    "@water-run/core": "workspace:*",
     "astro": "^7.3.2",
     "canvas-confetti": "^1.9.4",
     "maplibre-gl": "^5.24.0",

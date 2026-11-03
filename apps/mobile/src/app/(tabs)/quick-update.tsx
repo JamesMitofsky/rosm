@@ -27,6 +27,7 @@ import { fountainDotStyle } from "@water-run/core/fountainFilters";
 import { shouldRefineSearch } from "@water-run/core/locate";
 import { zoomToCover } from "@water-run/core/mapFrame";
 import { loadNearbyCenter, saveNearbyCenter } from "@water-run/core/nearbyView";
+import { dataAgeNotice } from "@water-run/core/dataAge";
 import { locateFast } from "../../ports/locateFast";
 import { celebratePoint } from "../../ports/confetti";
 import { hapticSuccess } from "../../ports/haptics";
@@ -117,6 +118,9 @@ export default function QuickUpdate() {
   const [err, setErr] = useState<{ message: string; retry: SearchRequest | null } | null>(null);
   // Where/how wide the current markers were fetched, and the live viewport.
   const [lastSearch, setLastSearch] = useState<Search | null>(null);
+  // A note that the results come from data hours old, when they do (see
+  // dataAgeNotice). Worked out when the reply lands, not ticked live.
+  const [dataNotice, setDataNotice] = useState<string | null>(null);
   const [region, setRegion] = useState<MapRegion | null>(null);
   // Bumped to move the map to `center`: on the first fix, and when a fresh
   // fix corrects it.
@@ -142,7 +146,7 @@ export default function QuickUpdate() {
     try {
       // callApi words a failure for the user (offline, too slow, a reply that
       // isn't ours) instead of passing on the platform's own error text.
-      const reply = await callApi<{ fountains?: Fountain[] }>(
+      const reply = await callApi<{ fountains?: Fountain[]; asOf?: string }>(
         "/api/fountains",
         postJson({
           lat: c.lat,
@@ -161,6 +165,7 @@ export default function QuickUpdate() {
         return;
       }
       setFountains(reply.data.fountains ?? []);
+      setDataNotice(dataAgeNotice(reply.data.asOf, Date.now()));
       setLastSearch({ center: c, radiusM: capped });
       if (fromFix) saveNearbyCenter(c);
     } catch (e) {
@@ -370,6 +375,18 @@ export default function QuickUpdate() {
               {retry ? <Text className="text-light-muted text-sm">Tap to try again.</Text> : null}
             </View>
           </Pressable>
+        ) : null}
+
+        {/* Results from data hours old say so, quietly: they're still worth
+            using, and the server is already trying to bring them up to date. */}
+        {dataNotice && !busy && !err ? (
+          <View
+            pointerEvents="none"
+            className="bg-base max-w-sm rounded-2xl px-5 py-2.5 shadow-lg"
+            accessibilityRole="text"
+          >
+            <Text className="text-surface text-center text-sm">{dataNotice}</Text>
+          </View>
         ) : null}
 
         {selectedId == null && canRequery ? (

@@ -54,7 +54,7 @@ describe("GET /api/osm/callback", () => {
     const { res, deleted } = await callback(transient);
     const location = new URL(res.headers.get("Location")!);
     expect(location.searchParams.get("osm")).toBe("error");
-    expect(location.searchParams.get("msg")).toBe("OSM sign-in failed (500)");
+    expect(location.searchParams.get("msg")).toBe("Sign-in failed (500)");
     expect(deleted.has("osm_pkce")).toBe(true);
   });
 });

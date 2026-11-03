@@ -24,9 +24,17 @@ export default function Login() {
       <View className="flex-1 justify-center gap-6 px-6">
         <Text className="text-light text-4xl font-bold">{cfg.appName}</Text>
         <Text className="text-light-muted text-base leading-6">
-          Connect your OpenStreetMap account to record fountain updates from your run.
+          Sign in to save fountain updates from your run.
         </Text>
-        <Button title="Connect with OpenStreetMap" onPress={connect} loading={busy} />
+        <View className="gap-3">
+          <Button title="Sign in to save updates" onPress={connect} loading={busy} />
+          {/* The one place the app names OpenStreetMap: sign-in opens its site,
+              and a page nobody was told about would look like a wrong turn. */}
+          <Text className="text-light-muted text-sm leading-5">
+            You’ll sign in with a free OpenStreetMap account. That’s the public map where{" "}
+            {cfg.appName} saves fountain updates.
+          </Text>
+        </View>
         {err ? <Text className="text-red-400">{err}</Text> : null}
       </View>
     </SafeArea>

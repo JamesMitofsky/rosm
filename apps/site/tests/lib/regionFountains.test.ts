@@ -34,7 +34,10 @@ describe("fetchRegionFountains", () => {
     const fetchMock = vi.fn().mockResolvedValue(json({ fountains: [FOUNTAIN] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchRegionFountains("dc", { timeoutMs: 20_000 })).resolves.toEqual([FOUNTAIN]);
+    await expect(fetchRegionFountains("dc", { timeoutMs: 20_000 })).resolves.toEqual({
+      fountains: [FOUNTAIN],
+      asOf: null,
+    });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/fountains?region=dc");
     expect(init.method ?? "GET").toBe("GET");
@@ -44,22 +47,33 @@ describe("fetchRegionFountains", () => {
 
   it("returns an empty region as no fountains, not as a failure", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ fountains: [] })));
-    await expect(fetchRegionFountains("dc", { timeoutMs: 20_000 })).resolves.toEqual([]);
+    await expect(fetchRegionFountains("dc", { timeoutMs: 20_000 })).resolves.toEqual({
+      fountains: [],
+      asOf: null,
+    });
+  });
+
+  it("passes on when the data was fetched", async () => {
+    const asOf = "2026-11-03T03:00:00.000Z";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ fountains: [FOUNTAIN], asOf })));
+    await expect(fetchRegionFountains("dc", { timeoutMs: 20_000 })).resolves.toMatchObject({
+      asOf,
+    });
   });
 });
 
 describe("the error card's wording", () => {
   it("shows the server's own reason as it is", async () => {
     const reason =
-      "OpenStreetMap's data server is rate limiting requests. Please wait a moment and try again.";
+      "The map data service is getting too many requests. Please wait a moment and try again.";
     expect(
       await cardFor(async () => json({ error: { message: reason, retryable: true } }, 503)),
     ).toBe(reason);
   });
 
-  it("calls a 503 with no reason OpenStreetMap being busy", async () => {
+  it("calls a 503 with no reason the map data service being busy", async () => {
     expect(await cardFor(async () => html("<html>Service Unavailable</html>", 503))).toBe(
-      "OpenStreetMap is busy — try again in a moment.",
+      "The map data service is busy. Try again in a moment.",
     );
   });
 

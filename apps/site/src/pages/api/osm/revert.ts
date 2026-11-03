@@ -55,7 +55,7 @@ async function revertWithRetry(
 
 export const POST: APIRoute = async ({ request }) => {
   const token = await getOsmToken(request);
-  if (!token) return Response.json({ error: "not signed in to OSM" }, { status: 401 });
+  if (!token) return Response.json({ error: "not signed in" }, { status: 401 });
 
   const parsed = RevertRequest.safeParse(await readJsonBody(request));
   if (!parsed.success) {

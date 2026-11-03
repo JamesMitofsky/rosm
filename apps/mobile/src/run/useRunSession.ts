@@ -234,7 +234,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     async (at: { lat: number; lon: number }, extras?: EditExtras): Promise<void> => {
       // The token is the sign-in: the status endpoint can't tell signed out
       // from offline.
-      if (!getToken()) throw new Error("Sign in to OSM first.");
+      if (!getToken()) throw new Error("Sign in first.");
       setErr(null);
       setLastSaved(null);
       const reply = await callApi<CreatedNode>(

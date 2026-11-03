@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { planRoute, type PlanNode } from "../plan";
 import { milesToMeters, type Pt } from "../geo";
+import { dataAgeNotice } from "../dataAge";
 import type { FootRoute, Turn } from "../brouter";
 import type { Fountain, RecencyMode } from "../schemas";
 import { useRun, type RunStop } from "./run";
@@ -90,6 +91,10 @@ type PlannerState = {
   tag: { key: string; value: string };
 
   fountains: Fountain[];
+  // A note that `fountains` came from data hours old (see dataAgeNotice),
+  // worked out when the search answered. Null when there's nothing to say, and
+  // after a draft is restored: the draft's points are as old as the draft.
+  pointsNotice: string | null;
   stops: Fountain[];
   // The committed route's nodes in visit order, via-points included (`stops`
   // keeps only the fountains). Reversing works from this, so vias survive it.
@@ -304,6 +309,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   tag: { key: "amenity", value: "drinking_water" },
 
   fountains: [],
+  pointsNotice: null,
   stops: [],
   order: [],
   reversed: false,
@@ -389,6 +395,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       resumable: null,
       busy: "find",
       ...noErr,
+      pointsNotice: null,
       stops: [],
       order: [],
       reversed: false,
@@ -403,7 +410,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       islandPt: null,
     });
     try {
-      const reply = await callApi<{ fountains?: Fountain[] }>(
+      const reply = await callApi<{ fountains?: Fountain[]; asOf?: string }>(
         "/api/fountains",
         postJson({
           ...center,
@@ -426,7 +433,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
         });
         return;
       }
-      set({ fountains });
+      set({ fountains, pointsNotice: dataAgeNotice(reply.data?.asOf, Date.now()) });
       if (fountains.length === 0) {
         set({ err: "No matching points in radius.", errSource: "points" });
       }
@@ -704,6 +711,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       targetMi: d.targetMi,
       loop: d.loop,
       fountains: d.fountains,
+      pointsNotice: null,
       pinnedIds: d.pinnedIds,
       excludedIds: d.excludedIds ?? [],
       vias: d.vias,

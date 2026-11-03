@@ -40,6 +40,14 @@ Formatting and lint style are enforced, not a matter of taste — everyone ships
 Do not hand-tune formatting or add per-file overrides; change the shared config in a dedicated
 PR if the style itself needs to change.
 
+### Wording users see
+
+Volunteers don't know what OpenStreetMap or Overpass are, so text they see doesn't name them, or
+use their jargon (nodes, tags, changesets). Say "the map", "the map data service" or "the
+underlying data" instead. There are two exceptions. The map attribution must credit
+OpenStreetMap under its licence. And the sign-in screen names it once, because sign-in opens
+openstreetmap.org. Code, comments, logs and route names can say OSM freely.
+
 ## Tests
 
 Tests run on [Vitest](https://vitest.dev), in two packages:
@@ -96,6 +104,28 @@ To preview a PR, a maintainer comments `/deploy` on it. Previews are built only 
 of this repo: a fork's code would run during the build with the deploy token in reach.
 
 - TypeScript strict mode is on; do not introduce `any` or `@ts-ignore` to silence errors.
+
+## Reading OSM data (Overpass)
+
+Point searches (`/api/fountains`) read from the public Overpass servers, which are often over
+capacity, give each IP only a couple of query slots, and see our functions arrive from cloud
+addresses shared with other projects. So searches go through a shared cache
+(`apps/site/src/lib/pointCache.ts`, on Vercel's Runtime Cache):
+
+- Answers are kept for a week per 0.1° cell and point type. A search whose cells all have a copy
+  is answered from them at once, whatever state Overpass is in. Copies over an hour old are then
+  refreshed in the background with a single Overpass query, and the reply says `stale: true`.
+- Only a search touching a cell that has never been fetched waits for Overpass, and fails if
+  Overpass does.
+- Our own OSM writes are laid over the cache for a day, so a volunteer's edit shows on their next
+  search even while Overpass lags behind OSM.
+- Failover tries each mirror in turn. One that hung or was unreachable goes to the back of the
+  line for a minute. Setting `OVERPASS_URL` (for example a paid or self-hosted instance) puts it
+  first.
+
+This is also how Overpass's operators ask clients to behave: don't repeat identical queries.
+OpenStreetMap's tile usage policy (no bulk downloading) is about `tile.openstreetmap.org`,
+which we don't use.
 
 ## Commit and PR conventions
 
