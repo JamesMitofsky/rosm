@@ -175,7 +175,7 @@ describe("fetchFountains — retries and mirror fallback", () => {
       name: "OverpassError",
       retryable: true,
       status: 429,
-      message: expect.stringContaining("rate limiting"),
+      message: expect.stringContaining("too many requests"),
     });
     await vi.runAllTimersAsync();
     await assertion;

@@ -175,35 +175,32 @@ export function osmFailure(e: unknown): OsmFailure {
     retryable: isTransientStatus(status),
   });
   if (e instanceof UpstreamTimeoutError) {
-    return fail(504, "OpenStreetMap took too long to respond. Please try again.");
+    return fail(504, "Saving took too long. Please try again.");
   }
   if (e instanceof UpstreamNetworkError) {
-    return fail(503, "Couldn't reach OpenStreetMap. Please try again.");
+    return fail(503, "Couldn't reach the server to save your update. Please try again.");
   }
   if (!(e instanceof OsmApiError)) {
     console.error("[osm] unexpected failure:", e);
-    return fail(502, "OpenStreetMap sent a reply we couldn't read. Please try again.");
+    return fail(502, "Got a reply we couldn't read while saving. Please try again.");
   }
   switch (e.status) {
     case 400:
     case 403:
       return fail(e.status, e.message);
     case 401:
-      return fail(401, "OpenStreetMap didn't accept your sign-in. Please sign in again.");
+      return fail(401, "Your sign-in has expired. Please sign in again.");
     case 404:
     case 410:
-      return fail(e.status, "This point no longer exists on OpenStreetMap.");
+      return fail(e.status, "This point no longer exists on the map.");
     // 412 is a conflict too: e.g. deleting a node that a way still uses.
     case 409:
     case 412:
       return fail(409, e.message);
     case 429:
-      return fail(
-        429,
-        "OpenStreetMap is limiting how fast edits can be saved. Please try again in a moment.",
-      );
+      return fail(429, "Updates are being saved too quickly. Please try again in a moment.");
     default:
-      return fail(502, `OpenStreetMap returned an error (${e.status}). Please try again shortly.`);
+      return fail(502, `Couldn't save your update (error ${e.status}). Please try again shortly.`);
   }
 }
 

@@ -43,6 +43,9 @@ export function RouteBuilderPanel({ onStartRun }: { onStartRun: () => void }) {
         </Text>
       </View>
 
+      {/* The points came from data hours old (see dataAgeNotice). */}
+      {p.pointsNotice ? <Text className="text-muted text-xs">{p.pointsNotice}</Text> : null}
+
       {removed.length > 0 ? (
         <View className="gap-1">
           <Text className="text-muted text-xs font-semibold">

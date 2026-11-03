@@ -68,7 +68,7 @@ function ProfileContent() {
               <View className="flex-row items-center gap-2">
                 <View className="h-2 w-2 rounded-full bg-green-500" />
                 <Text className="flex-1 text-base text-lg font-bold" numberOfLines={1}>
-                  {user?.username ?? (status?.loggedIn ? "Connected to OSM" : "Not connected")}
+                  {user?.username ?? (status?.loggedIn ? "Signed in" : "Not connected")}
                 </Text>
               </View>
               {status && !status.live ? (

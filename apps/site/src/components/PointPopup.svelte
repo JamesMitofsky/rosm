@@ -128,7 +128,7 @@
           rel="noreferrer"
           class="font-medium underline underline-offset-2"
         >
-          view on OSM
+          view public record
         </a>
       {/if}
     </div>
@@ -153,7 +153,7 @@
         <OsmSignInLink
           class="block rounded bg-blue-600 py-1.5 text-center text-xs font-semibold text-white"
         >
-          Sign in to OSM to update
+          Sign in to update
         </OsmSignInLink>
       {:else if !detailFor}
         <div class="grid auto-rows-fr grid-cols-2 gap-3">

@@ -80,6 +80,29 @@ describe("findPoints", () => {
     expect(s.err).toBeNull();
   });
 
+  it("notes when the points came from data hours old, and only then", async () => {
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+    usePlanner.setState({ center: CENTER });
+    apiFetchMock.mockResolvedValueOnce(ok({ fountains: FOUNTAINS, asOf: hoursAgo(9) }));
+    await usePlanner.getState().findPoints();
+    expect(usePlanner.getState().pointsNotice).toContain("from 9 hours ago");
+
+    // Routine hour-old data says nothing, and neither does a server that doesn't say.
+    apiFetchMock.mockResolvedValueOnce(ok({ fountains: FOUNTAINS, asOf: hoursAgo(1.5) }));
+    await usePlanner.getState().findPoints();
+    expect(usePlanner.getState().pointsNotice).toBeNull();
+    apiFetchMock.mockResolvedValueOnce(ok({ fountains: FOUNTAINS }));
+    await usePlanner.getState().findPoints();
+    expect(usePlanner.getState().pointsNotice).toBeNull();
+  });
+
+  it("drops the note when a search fails", async () => {
+    usePlanner.setState({ center: CENTER, pointsNotice: "Showing data from 9 hours ago." });
+    apiFetchMock.mockResolvedValueOnce(fail({ error: { message: "busy", retryable: true } }));
+    await usePlanner.getState().findPoints();
+    expect(usePlanner.getState().pointsNotice).toBeNull();
+  });
+
   it("surfaces a retryable Overpass failure", async () => {
     usePlanner.setState({ center: CENTER });
     apiFetchMock.mockResolvedValueOnce(
@@ -338,7 +361,7 @@ describe("draft resume", () => {
   });
 
   it("resumeDraft restores the route and jumps to the map phase", () => {
-    usePlanner.setState({ resumable: draft });
+    usePlanner.setState({ resumable: draft, pointsNotice: "Showing data from 9 hours ago." });
 
     usePlanner.getState().resumeDraft();
 
@@ -348,6 +371,8 @@ describe("draft resume", () => {
     expect(s.pinnedIds).toEqual([2]);
     expect(s.hasRoute).toBe(true);
     expect(s.resumable).toBeNull();
+    // The draft's points are as old as the draft; the last search's age isn't theirs.
+    expect(s.pointsNotice).toBeNull();
   });
 });
 

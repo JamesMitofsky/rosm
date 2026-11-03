@@ -8,6 +8,7 @@
   import { isOutOfService } from "@water-run/core/fountainFilters";
   import { fetchRegionFountains, fountainLoadErrorMessage } from "@/lib/regionFountains";
   import { haversine } from "@water-run/core/geo";
+  import { dataAgeNotice } from "@water-run/core/dataAge";
 
   // Live counterpart to DemoRunMap: every drinking-water point in a fixed area
   // around central DC, colored by how recently it was verified. Read-only; no
@@ -24,9 +25,9 @@
 
   // Location-specific play-by-play for the hero fetch.
   const LOADING_STEPS: LoadingStep[] = [
-    { text: "Opening a socket to OpenStreetMap servers…", ms: 5000 },
-    { text: "Scanning drinking-water nodes…", ms: 5000 },
-    { text: "Reading check_date tags to grade recency…", ms: 5000 },
+    { text: "Connecting to the map data…", ms: 5000 },
+    { text: "Finding drinking fountains…", ms: 5000 },
+    { text: "Checking when each was last verified…", ms: 5000 },
   ];
 
   let fountains = $state<Fountain[]>([]);
@@ -38,6 +39,8 @@
   let err = $state<string | null>(null);
   // Snapshot of "now" captured at fetch time — keeps freshness bucketing pure.
   let nowMs = $state(0);
+  // A note that the fountains come from data hours old, when they do.
+  let dataNotice = $state<string | null>(null);
   // Bumped once the fountains land so MapView refits to their bounding box.
   let recenterKey = $state("init");
   // Narrow viewports get a further-out default frame.
@@ -64,12 +67,15 @@
     busy = true;
     err = null;
     try {
-      const found = await fetchRegionFountains("dc", { timeoutMs: FETCH_TIMEOUT_MS });
+      const { fountains: found, asOf } = await fetchRegionFountains("dc", {
+        timeoutMs: FETCH_TIMEOUT_MS,
+      });
       // Held for the map, so the dots — and the refit to them — land on a map
       // the visitor can see, as they did when the request waited for it.
       await mapLoaded;
       nowMs = Date.now();
       fountains = found;
+      dataNotice = dataAgeNotice(asOf, nowMs);
       // Refit to the returned points' bounding box.
       recenterKey = `loaded-${found.length}`;
     } catch (e) {
@@ -168,6 +174,17 @@
     steps={LOADING_STEPS}
     variant="overlay"
   />
+
+  <!-- The fountains came from data hours old: a quiet note where the error card
+       would sit, which it never shares the corner with. -->
+  {#if succeeded && dataNotice}
+    <div
+      class="absolute top-3 left-3 z-[700] max-w-xs rounded-lg bg-white/90 px-3 py-2 text-xs text-neutral-700 shadow"
+      role="status"
+    >
+      {dataNotice}
+    </div>
+  {/if}
 
   <!-- Fetch failed (and the error outlived the flash window): floating retry card. -->
   {#if showErr && err}

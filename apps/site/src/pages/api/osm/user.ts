@@ -21,6 +21,6 @@ export const GET: APIRoute = async ({ request }) => {
     });
   } catch (e) {
     const { status, retryable } = osmFailure(e);
-    return Response.json({ error: "couldn't load OSM user", retryable }, { status });
+    return Response.json({ error: "couldn't load your account", retryable }, { status });
   }
 };

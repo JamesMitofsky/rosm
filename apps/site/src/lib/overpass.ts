@@ -89,23 +89,23 @@ export class OverpassError extends Error {
   }
 }
 
-const BUSY_MESSAGE = "OpenStreetMap's data server is busy right now. Please try again in a moment.";
+const BUSY_MESSAGE = "The map data service is busy right now. Please try again in a moment.";
 
 // Turn an Overpass error body (often a full XHTML doc) into a short human line.
 function cleanErrorBody(status: number, body: string): string {
   const lower = body.toLowerCase();
   if (status === 429 || lower.includes("too many requests")) {
-    return "OpenStreetMap's data server is rate limiting requests. Please wait a moment and try again.";
+    return "The map data service is getting too many requests. Please wait a moment and try again.";
   }
   if (lower.includes("too busy") || lower.includes("timeout") || status === 504) {
     return BUSY_MESSAGE;
   }
-  return `OpenStreetMap's data server returned an error (${status}). Please try again shortly.`;
+  return `The map data service returned an error (${status}). Please try again shortly.`;
 }
 
 const tooSlow = () =>
   new OverpassError(
-    "OpenStreetMap's data server took too long to respond. Please try again.",
+    "The map data service took too long to respond. Please try again.",
     null,
     true,
     { timedOut: true },
@@ -113,7 +113,7 @@ const tooSlow = () =>
 
 const unreachable = () =>
   new OverpassError(
-    "Couldn't reach OpenStreetMap's data server. Check your connection and try again.",
+    "Couldn't reach the map data service. Check your connection and try again.",
     null,
     true,
   );

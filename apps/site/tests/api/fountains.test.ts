@@ -93,7 +93,7 @@ describe("GET /api/fountains", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const body = await res.json();
     expect(body.error.retryable).toBe(true);
-    expect(body.error.message).toContain("rate limiting");
+    expect(body.error.message).toContain("too many requests");
   });
 
   it("gives up with a 504 inside the web client's 20 s wait when Overpass hangs", async () => {

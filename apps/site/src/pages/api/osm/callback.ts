@@ -12,10 +12,11 @@ const NATIVE_CALLBACK = `${SCHEME}://osm-callback`;
 // Why the token exchange failed, in words fit for the sign-in error screen.
 // OSM's own reply stays out of it: it can be an HTML error page.
 function signInFailure(e: unknown): string {
-  if (e instanceof UpstreamTimeoutError) return "OSM sign-in timed out. Please try again.";
-  if (e instanceof UpstreamNetworkError) return "Couldn't reach OpenStreetMap. Please try again.";
-  if (e instanceof OsmApiError) return `OSM sign-in failed (${e.status})`;
-  return "OSM sign-in failed";
+  if (e instanceof UpstreamTimeoutError) return "Sign-in timed out. Please try again.";
+  if (e instanceof UpstreamNetworkError)
+    return "Couldn't reach the sign-in service. Please try again.";
+  if (e instanceof OsmApiError) return `Sign-in failed (${e.status})`;
+  return "Sign-in failed";
 }
 
 // OAuth2 redirect target: verify state, exchange code, deliver the token.

@@ -10,7 +10,7 @@
 
 {#if state === "sent"}
   <span class="inline-flex items-center gap-1 text-green-700">
-    <CheckCircleIcon size={13} /> sent to OSM
+    <CheckCircleIcon size={13} /> saved
   </span>
 {:else if state === "failed"}
   <span class="inline-flex items-center gap-1 text-red-600">

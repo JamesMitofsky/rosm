@@ -40,6 +40,14 @@ Formatting and lint style are enforced, not a matter of taste — everyone ships
 Do not hand-tune formatting or add per-file overrides; change the shared config in a dedicated
 PR if the style itself needs to change.
 
+### Wording users see
+
+Volunteers don't know what OpenStreetMap or Overpass are, so text they see doesn't name them, or
+use their jargon (nodes, tags, changesets). Say "the map", "the map data service" or "the
+underlying data" instead. There are two exceptions. The map attribution must credit
+OpenStreetMap under its licence. And the sign-in screen names it once, because sign-in opens
+openstreetmap.org. Code, comments, logs and route names can say OSM freely.
+
 ## Tests
 
 Tests run on [Vitest](https://vitest.dev), in two packages:

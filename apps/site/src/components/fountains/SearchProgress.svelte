@@ -1,13 +1,13 @@
 <script module lang="ts">
   export type LoadingStep = { text: string; ms: number };
 
-  // Generic play-by-play of what an Overpass round-trip is doing, so the wait
+  // Generic play-by-play of what a fountain search is doing, so the wait
   // feels earned. Durations are deliberately uneven (~5s each). The last line
   // holds until the fetch resolves. Callers can override with location copy.
   export const DEFAULT_LOADING_STEPS: LoadingStep[] = [
-    { text: "Opening a socket to OpenStreetMap servers…", ms: 5000 },
-    { text: "Scanning nearby drinking-water nodes…", ms: 5000 },
-    { text: "Reading check_date tags to grade recency…", ms: 5000 },
+    { text: "Connecting to the map data…", ms: 5000 },
+    { text: "Finding drinking fountains…", ms: 5000 },
+    { text: "Checking when each was last verified…", ms: 5000 },
   ];
 
   // How far the bar crawls between step boundaries; most forward motion is the

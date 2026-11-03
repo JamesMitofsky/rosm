@@ -13,7 +13,7 @@ export type FountainRegion = "dc";
 const TOOK_TOO_LONG = "The fountain search took too long to respond. Please try again.";
 const OFFLINE = "You appear to be offline. Check your connection and try again.";
 const UNREACHABLE = "Couldn't reach the server. Check your connection and try again.";
-const OSM_BUSY = "OpenStreetMap is busy — try again in a moment.";
+const DATA_BUSY = "The map data service is busy. Try again in a moment.";
 const GENERIC = "Couldn't load fountains. Please try again.";
 
 /** A reply that came back without fountains. Its message is written for the visitor. */
@@ -35,10 +35,17 @@ function failedReplyMessage(reply: Extract<ApiReply<unknown>, { ok: false }>): s
   // `readApiJson` has already said so in words.
   if (reply.status < 400) return reply.message;
   // What is left is the platform's own error page, worth its status alone.
-  if (reply.status === 503 && reply.retryable) return OSM_BUSY;
+  if (reply.status === 503 && reply.retryable) return DATA_BUSY;
   if (reply.status === 504) return TOOK_TOO_LONG;
   return `Couldn't load fountains (status ${reply.status}).`;
 }
+
+/** A region's fountains, and when the oldest data behind them was fetched. */
+export type RegionFountains = {
+  fountains: Fountain[];
+  // An ISO time, or null from a server that doesn't say (see dataAgeNotice).
+  asOf: string | null;
+};
 
 /**
  * Every drinking-water point in `region`. Throws `FountainLoadError` for a
@@ -49,13 +56,14 @@ function failedReplyMessage(reply: Extract<ApiReply<unknown>, { ok: false }>): s
 export async function fetchRegionFountains(
   region: FountainRegion,
   { timeoutMs }: { timeoutMs: number },
-): Promise<Fountain[]> {
+): Promise<RegionFountains> {
   const r = await apiFetch(`/api/fountains?region=${region}`, {}, { timeoutMs });
-  const reply = await readApiJson<{ fountains?: unknown } | null>(r);
+  const reply = await readApiJson<{ fountains?: unknown; asOf?: unknown } | null>(r);
   if (!reply.ok) throw new FountainLoadError(failedReplyMessage(reply));
   const found = reply.data?.fountains;
   if (!Array.isArray(found)) throw new FountainLoadError(GENERIC);
-  return found as Fountain[];
+  const asOf = reply.data?.asOf;
+  return { fountains: found as Fountain[], asOf: typeof asOf === "string" ? asOf : null };
 }
 
 /**
