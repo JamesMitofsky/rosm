@@ -244,6 +244,7 @@
     GeolocateControl,
     FullScreenControl,
   } from "svelte-maplibre-gl";
+  import { PLACE_DOT_ID, placeDotImage } from "@/lib/basemap/placeDot";
   import { setMapPopup } from "@/lib/mapPopup";
   import { isFatalMapError, type MapFailure } from "@/lib/mapFailure";
   import { nearestTo, tapSlopPx } from "@/lib/mapTap";
@@ -1166,6 +1167,15 @@
     if (map?.isStyleLoaded()) signalReady();
   }
 
+  // The style names one image the sprite does not have, the city dot, and it
+  // is drawn in code (see placeDot.ts). MapLibre asks for it here the first
+  // time a tile needs it, and uses what the listener adds.
+  function handleImageMissing(ev: maplibregl.MapStyleImageMissingEvent) {
+    const mapInst = ev.target;
+    if (ev.id !== PLACE_DOT_ID || mapInst.hasImage(ev.id)) return;
+    mapInst.addImage(ev.id, placeDotImage(), { sdf: true });
+  }
+
   function handleClick(ev: maplibregl.MapMouseEvent) {
     if (!map || !interactive) return;
     const mapInst = map;
@@ -1296,6 +1306,7 @@
       onzoom={trackZoomLimits}
       onidle={signalReady}
       onerror={handleError}
+      onstyleimagemissing={handleImageMissing}
       onclick={handleClick}
       onmoveend={(ev) => emitView(!!(ev as { originalEvent?: unknown }).originalEvent)}
     >

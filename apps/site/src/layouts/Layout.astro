@@ -44,6 +44,19 @@ interface Props {
    * the bar (`py-4` around a 48px logo, so 80px).
    */
   overlayHeader?: boolean;
+  /**
+   * Whether the page's own content sets anything in Jua (`.font-hero`), on
+   * top of the header nav. Pages where only the nav uses it pass `false`.
+   *
+   * The nav is `hidden` below `sm`, so on a phone such a page lays out no Jua
+   * text at all and the browser never asks for the font. A preload there is a
+   * wasted download, and Firefox warns that the preloaded resource "was not
+   * used within a few seconds". With `false` the preload carries the nav's
+   * own breakpoint as its `media`, and a `link`'s `media` is binding for an
+   * external resource (HTML, "Processing the media attribute"): below `sm` it
+   * is not fetched, and from `sm` up it is fetched early, as before.
+   */
+  heroFontInContent?: boolean;
 }
 
 const {
@@ -52,7 +65,12 @@ const {
   noindex = false,
   fullscreen = false,
   overlayHeader = false,
+  heroFontInContent = true,
 } = Astro.props;
+
+// The width the desktop nav appears at: Tailwind's `sm`, which `sm:flex` on
+// the nav compiles to. The mobile menu below hydrates on its complement.
+const NAV_SHOWN_MEDIA = "(min-width: 40rem)";
 
 // Social card, rendered to a static JPEG at build time by
 // `pages/opengraph-image.jpg.ts`. Crawlers need an absolute URL, resolved
@@ -94,7 +112,14 @@ const ogImage = new URL("/opengraph-image.jpg", Astro.site).href;
     <meta name="format-detection" content="telephone=no" />
 
     <!-- Performance Resource Hints -->
-    <link rel="preload" href={juaUrl} as="font" type="font/woff2" crossorigin />
+    <link
+      rel="preload"
+      href={juaUrl}
+      as="font"
+      type="font/woff2"
+      crossorigin
+      media={heroFontInContent ? undefined : NAV_SHOWN_MEDIA}
+    />
 
     <!-- Per-page head additions. Map pages pass `MapAssets` here, which is what
          warms the tile host and pulls the engine download forward; pages
