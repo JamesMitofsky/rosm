@@ -45,22 +45,28 @@ async function fire(id: string, title: string, body: string): Promise<void> {
   });
 }
 
+// Titles are title case with no ending punctuation (HIG: Notifications).
+
+// Only while the app is in the background: on screen, the run panel and a
+// haptic say the same without a banner over them.
 export function notifyProximity(name: string, meters: number): void {
+  if (AppState.currentState === "active") return;
   void fire(
     "prox",
-    "Survey point ahead",
+    "Survey Point Ahead",
     `${name} — about ${Math.round(metersToFeet(meters))} ft away.`,
   );
 }
 
 export function notifyRunComplete(count: number): void {
-  void fire("done", "Run complete", `You surveyed ${count} ${count === 1 ? "point" : "points"}.`);
+  if (AppState.currentState === "active") return;
+  void fire("done", "Run Complete", `You surveyed ${count} ${count === 1 ? "point" : "points"}.`);
 }
 
 export function notifySyncPending(count: number): void {
   void fire(
     "sync",
-    "Edits uploading",
+    "Edits Uploading",
     `Sending your ${count} pending ${count === 1 ? "edit" : "edits"}.`,
   );
 }

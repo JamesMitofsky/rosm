@@ -46,9 +46,9 @@ export function PhaseNav({ back, forward }: { back?: NavAction; forward?: NavAct
             forward.disabled || forward.loading ? "opacity-40" : ""
           }`}
         >
-          {forward.loading ? <ActivityIndicator size="small" color="#4fafd4" /> : null}
-          <Text className="text-link text-sm font-bold">{forward.label}</Text>
-          <CaretRightIcon size={16} color="#4fafd4" />
+          {forward.loading ? <ActivityIndicator size="small" color="#1877a3" /> : null}
+          <Text className="text-action text-sm font-bold">{forward.label}</Text>
+          <CaretRightIcon size={16} color="#1877a3" />
         </Pressable>
       ) : (
         <View />

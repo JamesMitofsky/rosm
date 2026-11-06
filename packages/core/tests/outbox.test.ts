@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { outboxCounts, useOutbox, UNDO_WINDOW_MS, type OutboxItem } from "../src/stores/outbox";
+import {
+  isUndoable,
+  outboxCounts,
+  useOutbox,
+  UNDO_WINDOW_MS,
+  type OutboxItem,
+} from "../src/stores/outbox";
 import { editSummary, todayLocal } from "../src/editSummary";
 import { ApiTimeoutError } from "../src/apiResponse";
 import { configureTestPorts } from "./helpers/ports";
@@ -567,6 +573,30 @@ describe("undo hold window", () => {
 
     await useOutbox.getState().flush();
     expect(only().syncState).toBe("sent");
+  });
+});
+
+describe("isUndoable", () => {
+  it("offers undo only inside the hold, before any send", () => {
+    const item = useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    const at = Date.parse(item.holdUntil!);
+    expect(isUndoable(item, at - 1)).toBe(true);
+    expect(isUndoable(item, at)).toBe(false);
+    expect(isUndoable({ ...item, attempts: 1 }, at - 1)).toBe(false);
+    expect(isUndoable({ ...item, syncState: "sent" }, at - 1)).toBe(false);
+    expect(isUndoable({ ...item, holdUntil: undefined }, at - 1)).toBe(false);
+  });
+
+  it("agrees with cancel() while it offers undo", () => {
+    const item = useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    expect(isUndoable(item, Date.now())).toBe(true);
+    expect(useOutbox.getState().cancel(item.id)).toBe(true);
+  });
+
+  it("spans the whole undo window from enqueue", () => {
+    const before = Date.now();
+    const item = useOutbox.getState().enqueue({ nodeId: 1, action: "confirm", tagKey: "amenity" });
+    expect(Date.parse(item.holdUntil!) - before).toBeGreaterThanOrEqual(UNDO_WINDOW_MS - 5);
   });
 });
 
