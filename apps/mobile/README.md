@@ -1,6 +1,6 @@
 # @water-run/mobile
 
-The Expo (React Native, SDK 57) app — the native surface for iOS/Android. It owns
+The Expo (React Native, SDK 58) app — the native surface for iOS/Android. It owns
 auth, GPS/background tracking, and the map; all route/GPS/OSM logic comes from
 [`@water-run/core`](../../packages/core). File-based routing via `expo-router` (`src/app/`),
 styling via Uniwind (Tailwind 4), maps via MapLibre.

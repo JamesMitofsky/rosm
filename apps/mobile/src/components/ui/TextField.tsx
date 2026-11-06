@@ -1,12 +1,12 @@
 import { useContext, type Ref } from "react";
-import { TextInput, type TextInputProps } from "react-native";
+import { TextInput, type TextInputInstance, type TextInputProps } from "react-native";
 import { stripLineBreaks } from "@water-run/core/note";
 import { FieldFocusContext } from "./fieldFocus";
 
 // Return's behavior is fixed below, so it isn't a prop (blurOnSubmit is the
 // deprecated spelling of the same thing).
 type Props = Omit<TextInputProps, "submitBehavior" | "blurOnSubmit"> & {
-  ref?: Ref<TextInput>;
+  ref?: Ref<TextInputInstance>;
 };
 
 // The app's only text input (eslint.config.js bans importing TextInput
