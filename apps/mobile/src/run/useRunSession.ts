@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRun, type RunStop } from "@water-run/core/stores/run";
-import { useOutbox } from "@water-run/core/stores/outbox";
+import { AppState } from "react-native";
+import { useRun, type RunStop, type StopStatus } from "@water-run/core/stores/run";
+import { isUndoable, useOutbox } from "@water-run/core/stores/outbox";
 import {
   runGuidance,
   guidanceWindow,
@@ -8,20 +9,20 @@ import {
   PROXIMITY_RADIUS_M,
 } from "@water-run/core/guidance";
 import { compass, type Pt } from "@water-run/core/geo";
+import { runCue } from "@water-run/core/runCue";
 import { ptLabel } from "@water-run/core/pointTypes";
 import { STATUS_COLOR } from "@water-run/core/editStatus";
-import { todayLocal } from "@water-run/core/editSummary";
-import { callApi, postJson, UNEXPECTED_REPLY } from "@water-run/core/apiCall";
 import { activeRunToResume, archiveRun, beginRun } from "@water-run/core/runLifecycle";
 import { progressLine } from "@water-run/core/runProgress";
 import type { EditAction, EditExtras, Fountain } from "@water-run/core/schemas";
 import type { SurveyAction } from "../components/PointSheet";
 import { getToken } from "../auth/authStore";
 import { useOsmStatus } from "../auth/useOsmStatus";
-import { trackRun } from "../tasks/runLocationTask";
-import { hapticSuccess } from "../ports/haptics";
+import { trackRun, type TrackingError } from "../tasks/runLocationTask";
+import { createFountain } from "./createFountain";
+import { hapticImpact, hapticSelect, hapticSuccess } from "../ports/haptics";
+import { announce } from "../ports/accessibility";
 import { keepAwake, allowSleep } from "../ports/keepAwake";
-import { celebratesEdit } from "@water-run/core/celebrate";
 import { celebratePoint } from "../ports/confetti";
 import {
   ensureNotifyPermission,
@@ -40,31 +41,49 @@ const SAVED_LABEL: Record<SurveyAction, string> = {
   removed: "Removed",
 };
 
-// Same ceiling as an outbox send: a create that hangs on a dead cell must give
-// the add sheet its error back rather than spin.
-const CREATE_TIMEOUT_MS = 30_000;
-
-type CreatedNode = {
+// The last stop recorded, for the panel's "Saved" line and its Undo: what to
+// cancel in the outbox, and what to put the run back to.
+type LastSaved = {
   nodeId: number;
-  changesetId: number;
-  lat: number;
-  lon: number;
-  tags: Record<string, string>;
+  label: string;
+  // Absent for a point added on the spot: a create goes straight to OSM, so
+  // there is nothing on the device to take back.
+  undo?: {
+    itemId: string;
+    holdUntil: number;
+    index: number; // where the run stood before the record
+    status: StopStatus | undefined; // the stop's status before it
+  };
 };
 
 // The Expo run session: live GPS, the shared guidance derived from it, the OSM
 // recording actions, and marker DATA for WaterRunMap. Mirrors the web useRunSession
 // but returns markers as plain data (the screen owns the bottom sheet). Ending
 // the run is run/runLifecycle's endRun, not part of the session.
-export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
+export function useRunSession({
+  enabled = true,
+  onArrive,
+}: {
+  enabled?: boolean;
+  // The runner just came within the arrival radius of the stop they're
+  // heading for. Called once per stop, while the app is in the foreground.
+  onArrive?: (stop: RunStop) => void;
+} = {}) {
   const run = useRun();
   const { status: osm } = useOsmStatus();
   const [pos, setPos] = useState<Pt | null>(null);
   const [manualArrived, setManualArrived] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErrState] = useState<string | null>(null);
+  // Whether the error is a location denial only Settings can undo.
+  const [locationDenied, setLocationDenied] = useState(false);
+  // Errors appear over the map, so VoiceOver is told as well.
+  const setErr = useCallback((message: string | null) => {
+    setErrState(message);
+    if (message) announce(message);
+  }, []);
   const [hydrating, setHydrating] = useState(() => enabled && !useRun.getState().hasPlan);
   const [nothingToResume, setNothingToResume] = useState(false);
-  const [lastSaved, setLastSaved] = useState<{ nodeId: number; label: string } | null>(null);
+  const [lastSaved, setLastSaved] = useState<LastSaved | null>(null);
 
   // Cold start (/run reached with no run in memory, e.g. by a link): pick the
   // active run back up by its id and under that id, so its archive entry keeps
@@ -86,18 +105,32 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   useEffect(() => {
     if (!enabled || !hasPlan) return;
     beginRun();
+    let live = true;
     const watch = trackRun(
-      (p) => setPos({ lat: p.lat, lon: p.lon }),
-      (msg) => setErr(msg),
+      (p) => {
+        setPos({ lat: p.lat, lon: p.lon });
+        setLocationDenied(false);
+      },
+      (e: TrackingError) => {
+        setErr(e.message);
+        setLocationDenied(!!e.denied);
+      },
     );
-    return () => watch.clear();
-  }, [enabled, hasPlan, routeId]);
+    // The lock-screen updates need notifications, asked for only once the
+    // location prompt is over, so the two system prompts never stack.
+    void watch.settled.then(() => {
+      if (live) void ensureNotifyPermission();
+    });
+    return () => {
+      live = false;
+      watch.clear();
+    };
+  }, [enabled, hasPlan, routeId, setErr]);
 
-  // Keep the screen awake + ask for notification permission while armed.
+  // Keep the screen awake while armed.
   useEffect(() => {
     if (!enabled) return;
     keepAwake();
-    ensureNotifyPermission();
     return () => allowSleep();
   }, [enabled]);
 
@@ -122,8 +155,21 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
   );
   const heading = target ? compass(bearingTo) : "";
   const arrived = manualArrived || autoArrived;
+  // What the panel leads with: distance, direction, and the next turn before
+  // the stop (a turn past it belongs to the next leg).
+  const cue = target
+    ? runCue({
+        distToTargetM: distToTarget,
+        bearingTo,
+        nextTurn,
+        distToTurnM: distToTurn,
+        stopAlongM: stretch?.[1],
+      })
+    : null;
 
-  // Proximity alert, once per target within the proximity band.
+  // Proximity cue, once per target within the proximity band: a haptic (felt
+  // without looking) while the app is open, a notification while it isn't
+  // (notifyProximity skips the foreground).
   const notifiedProxRef = useRef<number>(-1);
   useEffect(() => {
     if (!enabled || !target || distToTarget == null) return;
@@ -133,9 +179,31 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       notifiedProxRef.current !== index
     ) {
       notifiedProxRef.current = index;
-      notifyProximity(target.tags?.name || `node ${target.id}`, distToTarget);
+      const name = target.tags?.name || `Stop ${index + 1}`;
+      if (AppState.currentState === "active") {
+        hapticImpact();
+        announce(`${name} is close.`);
+      } else {
+        notifyProximity(name, distToTarget);
+      }
     }
   }, [enabled, target, distToTarget, index]);
+
+  // Arrival, once per stop: the runner is there, so the screen can put the
+  // survey in front of them without a tap.
+  const onArriveRef = useRef(onArrive);
+  useEffect(() => {
+    onArriveRef.current = onArrive;
+  });
+  const arrivedForRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!enabled || !target || !autoArrived || arrivedForRef.current === index) return;
+    arrivedForRef.current = index;
+    if (target.status !== "pending" || AppState.currentState !== "active") return;
+    hapticSuccess();
+    announce(`Arrived at ${target.tags?.name || `stop ${index + 1}`}.`);
+    onArriveRef.current?.(target);
+  }, [enabled, target, autoArrived, index]);
 
   // The lock-screen progress line. Handed every fix; the notifier decides
   // whether it's worth a post. Taken down once every stop is done, and when the
@@ -169,6 +237,10 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       notifiedDoneRef.current = true;
       const surveyed = stops.filter((s) => s.status !== "pending" && s.status !== "skipped").length;
       notifyRunComplete(surveyed);
+      // The run's one celebration: per-stop records get a haptic and the
+      // panel's Saved line, not motion on every stop (HIG: Motion).
+      if (surveyed > 0) celebratePoint();
+      announce(`Route complete. ${surveyed} of ${stops.length} points surveyed.`);
     }
     if (!done) notifiedDoneRef.current = false;
   }, [enabled, done, stops]);
@@ -184,21 +256,61 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     (node: Fountain, action: SurveyAction, extras?: EditExtras) => {
       const isCurrent = !!target && node.id === target.id;
       setErr(null);
-      useOutbox
+      const before = stops.find((st) => st.id === node.id)?.status;
+      const item = useOutbox
         .getState()
         .enqueue({ nodeId: node.id, action, tagKey, name: node.tags?.name, extras });
       run.setStatus(node.id, action as RunStop["status"]);
-      if (celebratesEdit(action)) celebratePoint();
       hapticSuccess();
-      setLastSaved({ nodeId: node.id, label: SAVED_LABEL[action] });
+      announce(`Saved: ${SAVED_LABEL[action]}.`);
+      setLastSaved({
+        nodeId: node.id,
+        label: SAVED_LABEL[action],
+        undo: item.holdUntil
+          ? { itemId: item.id, holdUntil: Date.parse(item.holdUntil), index, status: before }
+          : undefined,
+      });
       // advance() archives the run at the next stop; a node off the current
       // stop is archived where the run stands.
       if (isCurrent) advance();
       else archiveRun(index);
       useOutbox.getState().flush();
     },
-    [target, tagKey, run, index, advance],
+    [target, tagKey, run, index, advance, stops, setErr],
   );
+
+  // Undo is on offer while the last record is still inside the outbox's hold
+  // (isUndoable); the panel's button goes when the hold ends.
+  const [undoOpen, setUndoOpen] = useState(false);
+  useEffect(() => {
+    const u = lastSaved?.undo;
+    const left = u ? u.holdUntil - Date.now() : 0;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- follows lastSaved; the timer closes it
+    setUndoOpen(left > 0);
+    if (left <= 0) return;
+    const t = setTimeout(() => setUndoOpen(false), left);
+    return () => clearTimeout(t);
+  }, [lastSaved]);
+
+  // Take the last record back: the edit never leaves the device, and the run
+  // returns to that stop as it was.
+  const undoLast = useCallback(() => {
+    const u = lastSaved?.undo;
+    if (!u) return;
+    const item = useOutbox.getState().items.find((i) => i.id === u.itemId);
+    if (!item || !isUndoable(item, Date.now()) || !useOutbox.getState().cancel(u.itemId)) {
+      setUndoOpen(false);
+      announce("Too late to undo: the update is already on its way.");
+      return;
+    }
+    if (u.status !== undefined) run.setStatus(lastSaved!.nodeId, u.status);
+    run.setIndex(u.index);
+    setManualArrived(false);
+    archiveRun(u.index);
+    setLastSaved(null);
+    hapticSelect();
+    announce("Undone.");
+  }, [lastSaved, run]);
 
   const record = useCallback(
     (action: EditAction, extras?: EditExtras) => {
@@ -238,31 +350,20 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       if (!getToken()) throw new Error("Sign in first.");
       setErr(null);
       setLastSaved(null);
-      const reply = await callApi<CreatedNode>(
-        "/api/osm/create",
-        postJson({
-          lat: at.lat,
-          lon: at.lon,
-          tag: { key: tagKey, value: tagValue },
-          changesetId: useOutbox.getState().changesetId,
-          extras,
-          surveyDate: todayLocal(),
-        }),
-        CREATE_TIMEOUT_MS,
-        "Couldn't add the point. Please try again.",
+      const { changesetId, ...node } = await createFountain(
+        at,
+        { key: tagKey, value: tagValue },
+        extras,
       );
-      if (!reply.ok) throw new Error(reply.message);
-      const j = reply.data;
-      if (typeof j?.nodeId !== "number") throw new Error(UNEXPECTED_REPLY);
-      useOutbox.getState().setChangeset(j.changesetId);
-      run.setChangeset(j.changesetId);
-      run.addNode({ id: j.nodeId, lat: j.lat, lon: j.lon, tags: j.tags });
+      run.setChangeset(changesetId);
+      run.addNode(node);
       celebratePoint();
       hapticSuccess();
-      setLastSaved({ nodeId: j.nodeId, label: "Added" });
+      setLastSaved({ nodeId: node.id, label: "Added" });
+      announce("Fountain added.");
       archiveRun(index);
     },
-    [tagKey, tagValue, run, index],
+    [tagKey, tagValue, run, index, setErr],
   );
 
   const addHere = useCallback(async () => {
@@ -271,11 +372,11 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
       return;
     }
     await addAt(pos).catch((e: Error) => setErr(e.message));
-  }, [pos, addAt]);
+  }, [pos, addAt, setErr]);
 
   // The panel's error line, for a failure whose own UI has gone: an add whose
   // sheet was swiped away while it saved.
-  const reportError = useCallback((message: string) => setErr(message), []);
+  const reportError = useCallback((message: string) => setErr(message), [setErr]);
 
   const endEarly = useCallback(() => {
     setLastSaved(null);
@@ -340,6 +441,9 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     // A fix has come in, so location is permitted and the map's own puck
     // (which follows the device by itself) can be shown.
     located: pos !== null,
+    pos,
+    cue,
+    locationDenied,
     hydrating,
     nothingToResume,
     done,
@@ -358,6 +462,8 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
     osm,
     err,
     lastSaved,
+    undoOpen,
+    undoLast,
     setManualArrived,
     recordFor,
     record,

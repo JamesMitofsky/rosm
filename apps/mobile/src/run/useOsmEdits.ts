@@ -4,6 +4,7 @@ import { useOutbox } from "@water-run/core/stores/outbox";
 import { celebratesEdit } from "@water-run/core/celebrate";
 import { celebratePoint } from "../ports/confetti";
 import { hapticSuccess } from "../ports/haptics";
+import { announce } from "../ports/accessibility";
 import { pointEditOf, type PointEdit, type SurveyAction } from "../components/PointSheet";
 
 export function useOsmEdits({ tagKey }: { tagKey: string }) {
@@ -20,6 +21,7 @@ export function useOsmEdits({ tagKey }: { tagKey: string }) {
       useOutbox.getState().enqueue({ nodeId, action, tagKey, name, extras });
       if (celebratesEdit(action)) celebratePoint();
       hapticSuccess();
+      announce("Update saved.");
       useOutbox.getState().flush();
     },
     [tagKey],

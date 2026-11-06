@@ -557,6 +557,16 @@ export const useOutbox = create<OutboxState>((set, get, store) => {
   };
 });
 
+// Whether a screen should still offer Undo for this edit at `nowMs`: it is
+// inside its undo hold and no send has been tried, so cancel() will take it.
+// Offered only during the hold, not for as long as cancel() would accept it,
+// so the button goes away at a predictable moment instead of whenever a send
+// happens to start.
+export function isUndoable(item: OutboxItem, nowMs: number): boolean {
+  if (item.syncState !== "pending" || (item.attempts ?? 0) > 0 || !item.holdUntil) return false;
+  return Date.parse(item.holdUntil) > nowMs;
+}
+
 // Derived counts for the review UI.
 export function outboxCounts(items: OutboxItem[]) {
   let sent = 0,

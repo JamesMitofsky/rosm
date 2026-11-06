@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, type ViewStyle, type NativeSyntheticEvent } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { StyleSheet, View, type ViewStyle, type NativeSyntheticEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Camera,
@@ -16,6 +16,8 @@ import { CrosshairSimpleIcon } from "phosphor-react-native/src/icons/CrosshairSi
 import type { Feature, FeatureCollection, Point } from "geojson";
 import { FRAME_MARGIN, frameBounds } from "@water-run/core/mapFrame";
 import { OSM_STYLE_JSON } from "./style";
+import { FloatingButton } from "../components/ui/FloatingSurface";
+import { hapticImpact } from "../ports/haptics";
 
 // Layer id for the marker dots.
 const MARKER_LAYER = "marker-dots";
@@ -24,13 +26,25 @@ const MARKER_LAYER = "marker-dots";
 const FRAME_MS = 500;
 const RECENTER_MS = 600;
 
-// The location button sits over the map's top-left corner, this far below the
-// top safe-area inset.
-const LOCATION_BUTTON_TOP = 8;
-const LOCATION_BUTTON_SIZE = 44;
-// Where the button ends, below the top inset. A screen that frames points
-// counts the strip above it as covered, so a framed dot never lands under it.
-export const LOCATION_BUTTON_BOTTOM = LOCATION_BUTTON_TOP + LOCATION_BUTTON_SIZE;
+// The map buttons stack down the map's top-left corner, starting this far
+// below the top safe-area inset.
+const MAP_BUTTON_TOP = 8;
+const MAP_BUTTON_SIZE = 44;
+const MAP_BUTTON_GAP = 10;
+// Where a stack of `count` buttons ends, below the top inset. A screen that
+// frames points counts the strip above it as covered, so a framed dot never
+// lands under a button.
+export function mapButtonsBottom(count: number): number {
+  if (count <= 0) return 0;
+  return MAP_BUTTON_TOP + count * MAP_BUTTON_SIZE + (count - 1) * MAP_BUTTON_GAP;
+}
+
+// A button the screen adds under the location button.
+export type MapButton = {
+  icon: ReactNode;
+  label: string;
+  onPress: () => void;
+};
 
 // Marker data only — screens attach their own action UI on press (Leaflet-style
 // popups can't ride through GeoJSON). Mirrors the web MapView marker shape.
@@ -74,6 +88,9 @@ type Props = {
   showUserLocation?: boolean;
   onMarkerPress?: (id: MapMarker["id"]) => void;
   onMapPress?: (lat: number, lon: number) => void;
+  // Touch and hold on the map, off any marker: the gesture for dropping
+  // something at a spot, as in Maps, so a stray tap never does it.
+  onMapLongPress?: (lat: number, lon: number) => void;
   // Fires after a user-driven pan/zoom settles (not programmatic camera moves).
   onRegionChange?: (region: MapRegion) => void;
   // Fires as the user starts moving the map, before it settles: a caller that
@@ -90,6 +107,8 @@ type Props = {
   // drawn over it (see core's framePadding). Defaults to a plain margin.
   framePadding?: ViewPadding;
   showLocationButton?: boolean;
+  // Extra buttons stacked under the location button.
+  buttons?: MapButton[];
   style?: ViewStyle;
 };
 
@@ -167,6 +186,7 @@ export function WaterRunMap({
   showUserLocation,
   onMarkerPress,
   onMapPress,
+  onMapLongPress,
   onRegionChange,
   onUserMove,
   recenterKey,
@@ -174,6 +194,7 @@ export function WaterRunMap({
   fitPoints,
   framePadding,
   showLocationButton,
+  buttons,
   style,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -287,9 +308,15 @@ export function WaterRunMap({
 
   // Handlers read the latest callbacks through a ref, so each keeps one
   // identity for the life of the map (the marker source's memo depends on it).
-  const callbacks = useRef({ onMarkerPress, onMapPress, onRegionChange, onUserMove });
+  const callbacks = useRef({
+    onMarkerPress,
+    onMapPress,
+    onMapLongPress,
+    onRegionChange,
+    onUserMove,
+  });
   useEffect(() => {
-    callbacks.current = { onMarkerPress, onMapPress, onRegionChange, onUserMove };
+    callbacks.current = { onMarkerPress, onMapPress, onMapLongPress, onRegionChange, onUserMove };
   });
 
   // Marker taps are hit-tested natively by the source itself — the pressed
@@ -308,6 +335,13 @@ export function WaterRunMap({
   const onMapTap = useCallback((e: NativeSyntheticEvent<PressEvent>) => {
     const [tapLon, tapLat] = e.nativeEvent.lngLat;
     callbacks.current.onMapPress?.(tapLat, tapLon);
+  }, []);
+
+  // Touch and hold → the screen's drop action, felt as well as seen.
+  const onMapHold = useCallback((e: NativeSyntheticEvent<PressEvent>) => {
+    const [holdLon, holdLat] = e.nativeEvent.lngLat;
+    hapticImpact();
+    callbacks.current.onMapLongPress?.(holdLat, holdLon);
   }, []);
 
   // The user taking the camera stops framing as the gesture starts, so the
@@ -337,6 +371,7 @@ export function WaterRunMap({
         compass // native compass button; shows when bearing != 0, tap resets to north
         compassHiddenFacingNorth // hide it once already north-up
         onPress={onMapPress ? onMapTap : undefined}
+        onLongPress={onMapLongPress ? onMapHold : undefined}
         onRegionWillChange={onRegionStart}
         onRegionDidChange={onRegionChange ? onRegion : undefined}
         onDidFinishLoadingMap={onLoaded}
@@ -366,34 +401,47 @@ export function WaterRunMap({
         ) : null}
       </Map>
 
-      {showLocationButton && frameKey !== null ? (
-        <Pressable
-          onPress={followAgain}
-          accessibilityRole="button"
-          accessibilityLabel="Follow my location"
-          style={[styles.locationButton, { top: insets.top + LOCATION_BUTTON_TOP }]}
+      {(showLocationButton && frameKey !== null) || buttons?.length ? (
+        <View
+          pointerEvents="box-none"
+          style={[styles.buttons, { top: insets.top + MAP_BUTTON_TOP }]}
         >
-          <CrosshairSimpleIcon size={22} color="#1d1d1f" weight="bold" />
-        </Pressable>
+          {showLocationButton && frameKey !== null ? (
+            <FloatingButton
+              onPress={followAgain}
+              accessibilityLabel="Follow my location"
+              style={styles.button}
+            >
+              <CrosshairSimpleIcon size={22} color="#1d1d1f" weight="bold" />
+            </FloatingButton>
+          ) : null}
+          {buttons?.map((b) => (
+            <FloatingButton
+              key={b.label}
+              onPress={b.onPress}
+              accessibilityLabel={b.label}
+              style={styles.button}
+            >
+              {b.icon}
+            </FloatingButton>
+          ))}
+        </View>
       ) : null}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  locationButton: {
+  buttons: {
     position: "absolute",
     left: 12,
-    width: LOCATION_BUTTON_SIZE,
-    height: LOCATION_BUTTON_SIZE,
-    borderRadius: LOCATION_BUTTON_SIZE / 2,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    gap: MAP_BUTTON_GAP,
+  },
+  button: {
+    width: MAP_BUTTON_SIZE,
+    height: MAP_BUTTON_SIZE,
+    borderRadius: MAP_BUTTON_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
 });

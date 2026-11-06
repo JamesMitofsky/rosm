@@ -21,28 +21,37 @@ onAuthChange(() => {
 });
 
 // The signed-in user's OSM identity, or null while signed out / loading.
+// Follows sign-in and sign-out while mounted: with sign-in offered inside the
+// app (not before it), Profile is often already open when it happens.
 export function useOsmUser(): OsmUser | null {
   const [user, setUser] = useState<OsmUser | null>(holder.user);
 
   useEffect(() => {
-    if (!getToken()) return;
-    if (holder.user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUser(holder.user);
-      return;
-    }
     let alive = true;
-    api
-      .apiFetch("/api/osm/user")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((u: OsmUser | null) => {
-        if (!alive || !u) return;
-        holder.user = u;
-        setUser(u);
-      })
-      .catch(() => {});
+    const load = () => {
+      if (!getToken()) {
+        setUser(null);
+        return;
+      }
+      if (holder.user) {
+        setUser(holder.user);
+        return;
+      }
+      api
+        .apiFetch("/api/osm/user")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((u: OsmUser | null) => {
+          if (!alive || !u || !getToken()) return;
+          holder.user = u;
+          setUser(u);
+        })
+        .catch(() => {});
+    };
+    load();
+    const off = onAuthChange(load);
     return () => {
       alive = false;
+      off();
     };
   }, []);
 

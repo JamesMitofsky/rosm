@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Text, View } from "react-native";
+import { SafeArea } from "../../components/ui/SafeArea";
+import { FloatingSurface } from "../../components/ui/FloatingSurface";
+import { confirmDestructive } from "../../components/ui/confirm";
+import { useOutbox } from "@water-run/core/stores/outbox";
 import { useIsFocused, useRouter } from "expo-router";
 import { PointSheetHost } from "../../components/ui/PointSheetHost";
 import { usePlanner, inRouteIdsOf, shouldAutoFindPoints } from "@water-run/core/stores/planner";
@@ -130,8 +134,10 @@ function PlanContent() {
     ]);
   }, [resumable]);
 
-  // Config step 0: tap sets the start. Map phase: tap drops a via waypoint.
-  const onMapPress = useCallback((lat: number, lon: number) => {
+  // Touch and hold on the map. With no start yet it sets one; in the map
+  // phase it drops a via waypoint. A hold, not a tap, so a stray tap or the
+  // end of a pan can't add a waypoint nobody asked for.
+  const onMapLongPress = useCallback((lat: number, lon: number) => {
     usePlanner.getState().mapClick(lat, lon);
   }, []);
 
@@ -164,10 +170,12 @@ function PlanContent() {
 
   // The same teardown as Finish on the run screen: unsent edits stay queued.
   const confirmEndRun = useCallback(() => {
-    Alert.alert("End this run?", "Progress is archived; queued edits keep syncing.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "End run", style: "destructive", onPress: () => void endRun() },
-    ]);
+    confirmDestructive({
+      title: "End this run?",
+      message: "Your progress is saved, and updates still waiting keep sending.",
+      confirm: "End Run",
+      onConfirm: () => void endRun(),
+    });
   }, []);
 
   const mapCenter: [number, number] = center ? [center.lat, center.lon] : [20, 0];
@@ -184,25 +192,28 @@ function PlanContent() {
         showUserLocation={isFocused && center !== null}
         recenterKey={recenterKey}
         animateRecenter={animateRecenter}
-        onMapPress={onMapPress}
+        onMapLongPress={onMapLongPress}
         onMarkerPress={onMarkerPress}
       />
 
-      {/* Floating spinner overlay in the middle of the map while querying points */}
+      {/* While points load, the same pill Nearby shows, not a scrim: the
+          map stays usable meanwhile (HIG: Loading). */}
       {busy === "find" ? (
-        <View
-          pointerEvents="none"
-          className="absolute inset-0 z-10 items-center justify-center bg-black/25 pb-36"
+        <SafeArea
+          edges={["top"]}
+          pointerEvents="box-none"
+          className="absolute top-0 right-0 left-0 items-center p-3"
         >
-          <View
-            className="bg-base flex-row items-center gap-3 rounded-full px-6 py-3 shadow-xl"
+          <FloatingSurface
+            pointerEvents="none"
+            className="flex-row items-center gap-3 rounded-full px-5 py-3"
             accessibilityRole="progressbar"
-            accessibilityLabel="Finding points nearby"
+            accessibilityLabel="Finding fountains nearby"
           >
-            <ActivityIndicator size="small" color="#f7f2e8" />
-            <Text className="text-surface text-sm font-semibold">Finding points…</Text>
-          </View>
-        </View>
+            <ActivityIndicator size="small" color="#0c0d0a" />
+            <Text className="text-callout text-base font-semibold">Finding fountains…</Text>
+          </FloatingSurface>
+        </SafeArea>
       ) : null}
 
       {/* Planner controls pinned to the bottom of the screen, full-width,
@@ -212,14 +223,17 @@ function PlanContent() {
       >
         {phase === "run" ? (
           <View className="gap-3">
-            <Text className="text-base font-bold">
-              Run in progress — {stops.length} stops · {fmtDist(distanceM)}
+            <Text accessibilityRole="header" className="text-base text-lg font-bold">
+              Run in progress
+            </Text>
+            <Text className="text-muted text-callout">
+              {stops.length} stops · {fmtDist(distanceM)}
             </Text>
             <View className="flex-row gap-2">
               <View className="flex-1">
-                <Button title="Open run" onPress={() => router.push("/run")} />
+                <Button title="Open Run" variant="action" onPress={() => router.push("/run")} />
               </View>
-              <Button title="End run" variant="danger" onPress={confirmEndRun} />
+              <Button title="End Run" variant="danger" onPress={confirmEndRun} />
             </View>
             {/* Last view — step back to the builder; no forward. */}
             <PhaseNav
@@ -250,6 +264,9 @@ function PlanContent() {
             onAction={(action, extras) =>
               updatePoint(selected.id, action, markLabel(selected), extras)
             }
+            onUndo={(e) => {
+              if (e.id) useOutbox.getState().cancel(e.id);
+            }}
           />
         ) : (
           <View className="items-center justify-center py-12">

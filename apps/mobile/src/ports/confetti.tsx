@@ -3,19 +3,24 @@ import { useWindowDimensions, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
 import cfg from "@water-run/core/appConfig.json";
+import { reduceMotionNow, useReduceMotion } from "./accessibility";
 
 // celebratePoint() is the CelebratePort the app fires for good news (see
 // celebratesEdit); ConfettiHost is mounted once in the root layout and listens
 // for it, raining confetti down from the top of the screen.
+//
+// With Reduce Motion on there is no confetti at all (HIG: Accessibility, Motion):
+// the haptic and the on-screen confirmation that go with every celebration carry
+// the news without it.
 const listeners = new Set<() => void>();
 
 export function celebratePoint(): void {
+  if (reduceMotionNow()) return;
   listeners.forEach((l) => l());
 }
 
@@ -139,22 +144,20 @@ function ConfettiRain({ id, onDone }: { id: number; onDone: (id: number) => void
 export function ConfettiHost() {
   const [bursts, setBursts] = useState<number[]>([]);
   const nextId = useRef(0);
-  // With Reduce Motion on there's no rain at all: the haptic and the sheet's
-  // "saved" card carry the moment on their own.
-  const reduceMotion = useReducedMotion();
+  // Followed live, so turning Reduce Motion on mid-shower clears it at once.
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
-    if (reduceMotion) return;
     const fire = () => setBursts((b) => [...b, nextId.current++].slice(-MAX_BURSTS));
     listeners.add(fire);
     return () => {
       listeners.delete(fire);
     };
-  }, [reduceMotion]);
+  }, []);
 
   const done = useCallback((id: number) => setBursts((b) => b.filter((x) => x !== id)), []);
 
-  if (bursts.length === 0) return null;
+  if (reduceMotion || bursts.length === 0) return null;
   return (
     <View
       pointerEvents="none"
