@@ -54,7 +54,12 @@ INFO_PLIST="ios/$SCHEME/Info.plist"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
 
 echo "==> version $VERSION, build $BUILD_NUMBER"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$INFO_PLIST"
+# The app and every extension it embeds (expo-widgets' ExpoWidgetsTarget, for
+# the run's Live Activity) must share one build number, or App Store Connect
+# flags the mismatch.
+for plist in ios/*/Info.plist; do
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$plist"
+done
 
 rm -rf "$ARCHIVE" "$BUILD_DIR/export"
 mkdir -p "$BUILD_DIR"

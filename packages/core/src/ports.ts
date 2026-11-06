@@ -6,6 +6,7 @@
 // contract types each app implements and consumes in its own UI layer, kept here
 // so the web and mobile adapters can `satisfies`-check against one definition.
 import type { OutboxItem } from "./stores/outbox";
+import type { ProgressLine } from "./runProgress";
 
 export type GeoPoint = {
   lat: number;
@@ -89,16 +90,26 @@ export type NotifyPort = {
   syncPending: (count: number) => void;
 };
 
+// What the run's Live Activity shows; runProgress's runActivityState builds it.
+// Flat and already formatted, because the activity's layout runs apart from the
+// app (in the widget extension) and can use nothing but these props.
 export type RunActivityState = {
-  nextName: string;
-  distanceToNext: number;
-  stopsRemaining: number;
+  stopName: string;
+  stopNumber: number; // 1-based
   totalStops: number;
+  stopDist: string; // "0.3 mi"
+  // stopDist split in two, stacked to fit the Dynamic Island's 28 pt
+  // limited-width views: "0.3" over "mi".
+  stopDistValue: string;
+  stopDistUnit: string;
+  turn: string | null; // "Left in 250 ft"; null when no turn is left before the stop
+  turnSide: "left" | "right" | null;
 };
 
+// show() returns whether the activity is carrying the run's progress, so the
+// caller knows whether to fall back to another surface.
 export type LiveActivityPort = {
-  start: (s: RunActivityState) => void;
-  update: (s: RunActivityState) => void;
+  show: (line: ProgressLine, s: RunActivityState) => boolean;
   end: () => void;
 };
 

@@ -15,3 +15,8 @@ allowBuilds:
 # disappears).
 publicHoistPattern:
   - "@types/react"
+# One @expo/ui for the whole app. expo-widgets' Live Activity bundle and the
+# app share a single ExpoUI native pod, so a second JS copy (as expo-router
+# kept on SDK 57) must never be resolved. Bump this with each SDK upgrade.
+overrides:
+  "@expo/ui": "~58.0.27"
