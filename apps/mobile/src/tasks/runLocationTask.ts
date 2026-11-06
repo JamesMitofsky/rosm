@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import type { GeoPoint, GeoWatch } from "@water-run/core/ports";
@@ -45,15 +46,22 @@ TaskManager.defineTask(RUN_LOCATION_TASK, async ({ data, error }) => {
 
 let turn: Promise<void> = Promise.resolve();
 
+// Why a start failed. `denied` marks the one the user can fix only in
+// Settings, so the screen can offer to open them.
+export type TrackingError = { message: string; denied?: boolean };
+type OnError = (e: TrackingError) => void;
+
+export const LOCATION_DENIED_MESSAGE = "Turn on location for Water Run to guide your run.";
+
 // Start or stop the task to match the facts above, after any start or stop
 // already under way. `onError` hears why a start failed.
-export function reconcileRunTracking(onError?: (msg: string) => void): Promise<void> {
+export function reconcileRunTracking(onError?: OnError): Promise<void> {
   const next = turn.then(() => reconcile(onError));
   turn = next.catch(() => {});
   return next;
 }
 
-async function reconcile(onError?: (msg: string) => void): Promise<void> {
+async function reconcile(onError?: OnError): Promise<void> {
   const started = await Location.hasStartedLocationUpdatesAsync(RUN_LOCATION_TASK).catch(
     () => null,
   );
@@ -70,16 +78,25 @@ async function reconcile(onError?: (msg: string) => void): Promise<void> {
   }
 }
 
-async function start(onError?: (msg: string) => void): Promise<void> {
+async function start(onError?: OnError): Promise<void> {
   try {
     const fg = await Location.requestForegroundPermissionsAsync();
     if (!fg.granted) {
-      onError?.("Location permission is required to guide your run.");
+      onError?.({ message: LOCATION_DENIED_MESSAGE, denied: !fg.canAskAgain });
       return;
     }
-    // Best-effort: without "Always" the run still tracks foreground + while the
-    // screen is on (kept awake), which is the v1 experience.
-    await Location.requestBackgroundPermissionsAsync().catch(() => {});
+    // iOS: When In Use is enough, so the run never asks for Always. Updates
+    // started in the foreground with the location background mode keep coming
+    // with the screen locked, under the system's blue location indicator
+    // (Core Location: "an app with When in Use authorization continues to run
+    // in the background when location services are active"), and
+    // expo-location's iOS startLocationUpdatesAsync checks only the foreground
+    // grant. Apple prefers When In Use, and Always can be asked for only once.
+    // Android keeps asking: its background grant is a separate, best-effort
+    // request there.
+    if (Platform.OS === "android") {
+      await Location.requestBackgroundPermissionsAsync().catch(() => {});
+    }
     await Location.startLocationUpdatesAsync(RUN_LOCATION_TASK, {
       // Highest, not BestForNavigation: expo-location maps that to iOS's
       // kCLLocationAccuracyBestForNavigation, which Apple means for a device
@@ -97,7 +114,7 @@ async function start(onError?: (msg: string) => void): Promise<void> {
       },
     });
   } catch (e) {
-    onError?.((e as Error).message);
+    onError?.({ message: (e as Error).message });
   }
 }
 
@@ -105,10 +122,16 @@ async function start(onError?: (msg: string) => void): Promise<void> {
 // running. The listener is in place before the task can start, so its first
 // fix has somewhere to go. clear() stops listening, and the task stops with
 // the last listener; ending the run stops it even while the screen is up.
-export function trackRun(onP: (p: GeoPoint) => void, onError: (msg: string) => void): GeoWatch {
+// `settled` resolves once the start (and any permission prompt it raised) is
+// over, so a screen can hold its own prompts until then.
+export function trackRun(
+  onP: (p: GeoPoint) => void,
+  onError: OnError,
+): GeoWatch & { settled: Promise<void> } {
   const off = onPoint(onP);
-  void reconcileRunTracking(onError);
+  const settled = reconcileRunTracking(onError).catch(() => {});
   return {
+    settled,
     clear: () => {
       off();
       void reconcileRunTracking();

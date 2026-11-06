@@ -19,8 +19,13 @@ configureMobilePorts();
 settleRunAtLaunch();
 SplashScreen.preventAutoHideAsync();
 
+// No sign-in gate: Nearby, the planner and a run all work signed out, and
+// edits made meanwhile wait in the outbox for a token (HIG: Managing accounts,
+// "Delay sign-in for as long as possible"). Sign-in is offered where it's
+// needed: Profile, a saved edit, adding a fountain. The splash still waits on
+// the keychain read, so the first screen already knows who is signed in.
 export default function RootLayout() {
-  const { signedIn, ready } = useAuth();
+  const { ready } = useAuth();
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
@@ -38,15 +43,10 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: cfg.colors.surface },
           }}
         >
-          <Stack.Protected guard={!signedIn}>
-            <Stack.Screen name="login" />
-          </Stack.Protected>
-          <Stack.Protected guard={signedIn}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="run" />
-            <Stack.Screen name="run-detail" />
-          </Stack.Protected>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="run" />
+          <Stack.Screen name="run-detail" />
         </Stack>
         <ConfettiHost />
         <OutboxSyncBridge />

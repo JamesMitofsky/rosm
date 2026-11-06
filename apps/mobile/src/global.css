@@ -17,4 +17,18 @@
   --color-border: #c6cfd8;
   --color-info: #abdcec;
   --color-link: #4fafd4;
+  /* Mobile only: the brand blue deepened until it carries text. #4fafd4 is
+     2.5:1 under white and 2.3:1 as text on the surface, under the 4.5:1 (3:1
+     for large or bold) the HIG asks for; this is 5.0:1 under white and 4.7:1
+     on the surface. Filled buttons and action text use it; link stays for
+     fills that carry no text (the route line, selection rings). */
+  --color-action: #1877a3;
+
+  /* Type sizes from Apple's iOS scale (HIG: Typography, Large): Body and
+     Callout. Named apart from Tailwind's text-base, which this palette's
+     `base` colour takes over (text-base sets the ink colour, not a size). */
+  --text-body: 17px;
+  --text-body--line-height: 22px;
+  --text-callout: 16px;
+  --text-callout--line-height: 21px;
 }

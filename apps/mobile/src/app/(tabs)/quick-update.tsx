@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
+  Linking,
   Text,
   View,
   useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
+import * as Location from "expo-location";
 import { useIsFocused } from "expo-router";
 import { WarningIcon } from "phosphor-react-native/src/icons/Warning";
 import { SafeArea } from "../../components/ui/SafeArea";
-import type { Fountain, EditExtras } from "@water-run/core/schemas";
+import type { Fountain } from "@water-run/core/schemas";
 import type { StopStatus } from "@water-run/core/stores/run";
 import {
   milesToMeters,
@@ -29,11 +30,12 @@ import { zoomToCover } from "@water-run/core/mapFrame";
 import { loadNearbyCenter, saveNearbyCenter } from "@water-run/core/nearbyView";
 import { dataAgeNotice } from "@water-run/core/dataAge";
 import { locateFast } from "../../ports/locateFast";
-import { celebratePoint } from "../../ports/confetti";
-import { hapticSuccess } from "../../ports/haptics";
+import { announce } from "../../ports/accessibility";
 import { PointSheetHost } from "../../components/ui/PointSheetHost";
+import { FloatingButton, FloatingSurface } from "../../components/ui/FloatingSurface";
 import { WaterRunMap, type MapMarker, type MapRegion } from "../../map/WaterRunMap";
-import { PointSheet, type PointEdit, type SurveyAction } from "../../components/PointSheet";
+import { PointSheet } from "../../components/PointSheet";
+import { useOsmEdits } from "../../run/useOsmEdits";
 
 const TAG = { key: "amenity", value: "drinking_water" };
 // How far around the user the search from a fix reaches. The map zooms so
@@ -58,6 +60,22 @@ const WORLD_CENTER: [number, number] = [20, 0];
 const WORLD_ZOOM = 1.5;
 
 type Search = { center: Pt; radiusM: number };
+// What went wrong, shown over the map. A search that failed for a reason that
+// can pass keeps its request, so the banner can run it again; a location
+// denial the system won't ask about again offers Settings instead.
+type MapError = { message: string; retry: SearchRequest | null; settings?: boolean };
+
+const LOCATION_OFF = "Turn on location to see the fountains around you.";
+
+// A failed locate, worded for the user. A denial reads as one, whatever the
+// platform's own text, and says whether only Settings can lift it.
+async function locateError(e: unknown): Promise<MapError> {
+  const perm = await Location.getForegroundPermissionsAsync().catch(() => null);
+  if (perm && !perm.granted) {
+    return { message: LOCATION_OFF, retry: null, settings: !perm.canAskAgain };
+  }
+  return { message: e instanceof Error ? e.message : String(e), retry: null };
+}
 // A search as asked for. Only one made from a location fix is where the map
 // opens next time (see nearbyView): a "Search this area" can be anywhere.
 type SearchRequest = Search & { fromFix: boolean };
@@ -93,20 +111,8 @@ export default function QuickUpdate() {
   // content. `selected` is derived; a null derive shows the sheet's spinner.
   const [selectedId, setSelectedId] = useState<MapMarker["id"] | null>(null);
   // Points updated this session, keyed by node id, derived from the outbox so
-  // the sheet can show the recorded state + live sync status.
-  const outboxItems = useOutbox((s) => s.items);
-  const edits = useMemo(() => {
-    const m: Record<number, PointEdit> = {};
-    for (const it of outboxItems) {
-      m[it.nodeId] = {
-        status: it.action,
-        syncState: it.syncState,
-        changesetUrl: it.changesetUrl,
-        extras: it.extras,
-      };
-    }
-    return m;
-  }, [outboxItems]);
+  // the sheet can show the recorded state, live sync status and Undo.
+  const { edits, updatePoint } = useOsmEdits({ tagKey: TAG.key });
   // A search is in flight. Locating is tracked apart (`locate`); neither
   // holds the map back, each only shows in the status pill over it.
   const [busy, setBusy] = useState(false);
@@ -115,7 +121,12 @@ export default function QuickUpdate() {
   // reason that can pass (no connection, a slow or busy server) keeps its
   // request, so the banner can run it again; a refused search, or a failed
   // locate, has none.
-  const [err, setErr] = useState<{ message: string; retry: SearchRequest | null } | null>(null);
+  const [err, setErrState] = useState<MapError | null>(null);
+  // Errors appear over the map, so VoiceOver is told as well.
+  const setErr = useCallback((e: MapError | null) => {
+    setErrState(e);
+    if (e) announce(e.message);
+  }, []);
   // Where/how wide the current markers were fetched, and the live viewport.
   const [lastSearch, setLastSearch] = useState<Search | null>(null);
   // A note that the results come from data hours old, when they do (see
@@ -134,50 +145,53 @@ export default function QuickUpdate() {
   // Only the latest search may show its results: the search made from a
   // fresh fix can overlap the one made from the first.
   const searchSeq = useRef(0);
-  const search = useCallback(async (req: SearchRequest) => {
-    const { center: c, radiusM, fromFix } = req;
-    // The server refuses a wider search; "Search this area" isn't offered for
-    // one (see tooWide), so this only guards.
-    const capped = Math.min(radiusM, MAX_SEARCH_RADIUS_M);
-    const seq = ++searchSeq.current;
-    setBusy(true);
-    setErr(null);
-    setSelectedId(null);
-    try {
-      // callApi words a failure for the user (offline, too slow, a reply that
-      // isn't ours) instead of passing on the platform's own error text.
-      const reply = await callApi<{ fountains?: Fountain[]; asOf?: string }>(
-        "/api/fountains",
-        postJson({
-          lat: c.lat,
-          lon: c.lon,
-          radiusM: capped,
-          tag: TAG,
-          recencyMode: "any",
-          includeDisused: true,
-        }),
-        SEARCH_TIMEOUT_MS,
-        "Couldn't load fountains.",
-      );
-      if (seq !== searchSeq.current) return;
-      if (!reply.ok) {
-        setErr({ message: reply.message, retry: reply.retryable ? req : null });
-        return;
+  const search = useCallback(
+    async (req: SearchRequest) => {
+      const { center: c, radiusM, fromFix } = req;
+      // The server refuses a wider search; "Search this area" isn't offered for
+      // one (see tooWide), so this only guards.
+      const capped = Math.min(radiusM, MAX_SEARCH_RADIUS_M);
+      const seq = ++searchSeq.current;
+      setBusy(true);
+      setErr(null);
+      setSelectedId(null);
+      try {
+        // callApi words a failure for the user (offline, too slow, a reply that
+        // isn't ours) instead of passing on the platform's own error text.
+        const reply = await callApi<{ fountains?: Fountain[]; asOf?: string }>(
+          "/api/fountains",
+          postJson({
+            lat: c.lat,
+            lon: c.lon,
+            radiusM: capped,
+            tag: TAG,
+            recencyMode: "any",
+            includeDisused: true,
+          }),
+          SEARCH_TIMEOUT_MS,
+          "Couldn't load fountains.",
+        );
+        if (seq !== searchSeq.current) return;
+        if (!reply.ok) {
+          setErr({ message: reply.message, retry: reply.retryable ? req : null });
+          return;
+        }
+        setFountains(reply.data.fountains ?? []);
+        setDataNotice(dataAgeNotice(reply.data.asOf, Date.now()));
+        setLastSearch({ center: c, radiusM: capped });
+        if (fromFix) saveNearbyCenter(c);
+      } catch (e) {
+        // callApi only rejects for a bug, not for the network: trying again
+        // wouldn't help.
+        if (seq === searchSeq.current) {
+          setErr({ message: e instanceof Error ? e.message : String(e), retry: null });
+        }
+      } finally {
+        if (seq === searchSeq.current) setBusy(false);
       }
-      setFountains(reply.data.fountains ?? []);
-      setDataNotice(dataAgeNotice(reply.data.asOf, Date.now()));
-      setLastSearch({ center: c, radiusM: capped });
-      if (fromFix) saveNearbyCenter(c);
-    } catch (e) {
-      // callApi only rejects for a bug, not for the network: trying again
-      // wouldn't help.
-      if (seq === searchSeq.current) {
-        setErr({ message: e instanceof Error ? e.message : String(e), retry: null });
-      }
-    } finally {
-      if (seq === searchSeq.current) setBusy(false);
-    }
-  }, []);
+    },
+    [setErr],
+  );
 
   // Moves the map to `pos`, zoomed to the search around it. The viewport the
   // user last settled on goes with it: the map no longer shows it, and kept,
@@ -231,11 +245,11 @@ export default function QuickUpdate() {
         void search({ center: pos, radiusM: RADIUS_M, fromFix: true });
       },
       (e) => {
-        setErr({ message: e instanceof Error ? e.message : String(e), retry: null });
         setLocate("failed");
+        void locateError(e).then(setErr);
       },
     );
-  }, [search, moveTo]);
+  }, [search, moveTo, setErr]);
 
   // Offer a re-query only once the map shows ground the last search didn't
   // cover: panned or zoomed out past its edge. Zooming in on the results
@@ -271,17 +285,6 @@ export default function QuickUpdate() {
       ? { label: "Locating you", text: "Locating you…" }
       : null;
   const retry = err?.retry;
-
-  // Record a status update to the offline outbox. Keeps the sheet open so it can
-  // flip to the recorded-state view (with sync status), matching the web popup.
-  function record(node: Fountain, action: SurveyAction, extras?: EditExtras) {
-    useOutbox
-      .getState()
-      .enqueue({ nodeId: node.id, action, tagKey: TAG.key, name: node.tags?.name, extras });
-    celebratePoint();
-    hapticSuccess();
-    useOutbox.getState().flush();
-  }
 
   // Memoized so an unrelated re-render doesn't rebuild the whole array and
   // re-diff the GeoJSON source to the native map. Only recomputes when the
@@ -348,64 +351,76 @@ export default function QuickUpdate() {
       >
         {/* A pill, not a scrim: the map stays usable while locating and
             searching. Animated indicator (not static text) so the wait reads
-            as in-progress, per Apple HIG. */}
+            as in-progress (HIG: Progress indicators). The pills float on
+            Liquid Glass, the control layer over the map (HIG: Materials). */}
         {status ? (
-          <View
+          <FloatingSurface
             pointerEvents="none"
-            className="bg-base flex-row items-center gap-3 rounded-full px-6 py-3 shadow-xl"
+            className="flex-row items-center gap-3 rounded-full px-5 py-3"
             accessibilityRole="progressbar"
             accessibilityLabel={status.label}
           >
-            <ActivityIndicator size="small" color="#f7f2e8" />
-            <Text className="text-surface text-sm font-semibold">{status.text}</Text>
-          </View>
+            <ActivityIndicator size="small" color="#0c0d0a" />
+            <Text className="text-callout text-base font-semibold">{status.text}</Text>
+          </FloatingSurface>
         ) : null}
 
-        {/* A failed search's banner runs it again. A failed locate's only has
-            its message (no `disabled`, which would read it out as dimmed). */}
+        {/* A failed search's banner runs it again; a location denial only
+            Settings can lift opens them. Otherwise the banner only has its
+            message (no `disabled`, which would read it out as dimmed). */}
         {err && !busy ? (
-          <Pressable
-            onPress={retry ? () => void search(retry) : undefined}
-            className="bg-base flex-row items-center gap-3 rounded-2xl px-5 py-3 shadow-xl"
-            accessibilityRole={retry ? "button" : "alert"}
-          >
-            <WarningIcon size={18} color="#f87171" weight="bold" />
-            <View className="shrink">
-              <Text className="text-surface text-sm font-semibold">{err.message}</Text>
-              {retry ? <Text className="text-light-muted text-sm">Tap to try again.</Text> : null}
-            </View>
-          </Pressable>
+          retry || err.settings ? (
+            <FloatingButton
+              onPress={retry ? () => void search(retry) : () => void Linking.openSettings()}
+              accessibilityLabel={`${err.message} ${retry ? "Try again" : "Open Settings"}`}
+              className="max-w-sm flex-row items-center gap-3 rounded-3xl px-5 py-3"
+            >
+              <WarningIcon size={20} color="#b91c1c" weight="bold" />
+              <View className="shrink">
+                <Text className="text-callout text-base font-semibold">{err.message}</Text>
+                <Text className="text-action text-callout font-semibold">
+                  {retry ? "Try Again" : "Open Settings"}
+                </Text>
+              </View>
+            </FloatingButton>
+          ) : (
+            <FloatingSurface
+              className="max-w-sm flex-row items-center gap-3 rounded-3xl px-5 py-3"
+              accessibilityRole="alert"
+            >
+              <WarningIcon size={20} color="#b91c1c" weight="bold" />
+              <Text className="text-callout shrink text-base font-semibold">{err.message}</Text>
+            </FloatingSurface>
+          )
         ) : null}
 
         {/* Results from data hours old say so, quietly: they're still worth
             using, and the server is already trying to bring them up to date. */}
         {dataNotice && !busy && !err ? (
-          <View
+          <FloatingSurface
             pointerEvents="none"
-            className="bg-base max-w-sm rounded-2xl px-5 py-2.5 shadow-lg"
+            className="max-w-sm rounded-3xl px-5 py-2.5"
             accessibilityRole="text"
           >
-            <Text className="text-surface text-center text-sm">{dataNotice}</Text>
-          </View>
+            <Text className="text-center text-base text-sm">{dataNotice}</Text>
+          </FloatingSurface>
         ) : null}
 
         {selectedId == null && canRequery ? (
           tooWide ? (
-            <View
+            <FloatingSurface
               pointerEvents="none"
-              className="bg-base rounded-full px-5 py-2.5 shadow-lg"
+              className="rounded-full px-5 py-3"
               accessibilityRole="text"
             >
-              <Text className="text-surface font-semibold">Zoom in to search this area</Text>
-            </View>
+              <Text className="text-callout text-base font-semibold">
+                Zoom in to search this area
+              </Text>
+            </FloatingSurface>
           ) : (
-            <Pressable
-              onPress={requery}
-              className="bg-link flex-row items-center gap-2 rounded-full px-5 py-2.5 shadow-lg"
-              accessibilityRole="button"
-            >
-              <Text className="font-semibold text-white">Search this area</Text>
-            </Pressable>
+            <FloatingButton onPress={requery} className="rounded-full px-5 py-3">
+              <Text className="text-action text-callout font-bold">Search This Area</Text>
+            </FloatingButton>
           )
         ) : null}
       </SafeArea>
@@ -418,7 +433,12 @@ export default function QuickUpdate() {
           <PointSheet
             fountain={selected}
             edit={edits[selected.id]}
-            onAction={(action, extras) => record(selected, action, extras)}
+            onAction={(action, extras) =>
+              updatePoint(selected.id, action, selected.tags?.name, extras)
+            }
+            onUndo={(e) => {
+              if (e.id) useOutbox.getState().cancel(e.id);
+            }}
           />
         ) : (
           // Sheet opened instantly on tap; spin until the point resolves.
