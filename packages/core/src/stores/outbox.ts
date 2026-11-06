@@ -48,7 +48,7 @@ const SENT_RETENTION_MS = 7 * 24 * 60 * 60_000;
 const LEGACY_RESEND_MAX_AGE_MS = 28 * 24 * 60 * 60_000;
 
 // One recorded modification. Saved to IndexedDB the instant the user acts, so the
-// confetti fires immediately and the edit survives a reload / offline period.
+// UI can confirm the save immediately and the edit survives a reload / offline period.
 export type OutboxItem = {
   id: string;
   nodeId: number;
@@ -429,7 +429,7 @@ export const useOutbox = create<OutboxState>((set, get, store) => {
       set({ items, changesetId: get().changesetId ?? changesetId, hydrated: true });
     },
 
-    // Record an edit locally. Returns the item so the caller can fire confetti and
+    // Record an edit locally. Returns the item so the caller can confirm the save and
     // reflect it in the UI immediately, before the network is ever touched.
     enqueue: (input) => {
       const surveyDate = todayLocal();

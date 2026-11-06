@@ -21,6 +21,7 @@ import { useOsmStatus } from "../auth/useOsmStatus";
 import { trackRun } from "../tasks/runLocationTask";
 import { hapticSuccess } from "../ports/haptics";
 import { keepAwake, allowSleep } from "../ports/keepAwake";
+import { celebratesEdit } from "@water-run/core/celebrate";
 import { celebratePoint } from "../ports/confetti";
 import {
   ensureNotifyPermission,
@@ -187,7 +188,7 @@ export function useRunSession({ enabled = true }: { enabled?: boolean } = {}) {
         .getState()
         .enqueue({ nodeId: node.id, action, tagKey, name: node.tags?.name, extras });
       run.setStatus(node.id, action as RunStop["status"]);
-      celebratePoint();
+      if (celebratesEdit(action)) celebratePoint();
       hapticSuccess();
       setLastSaved({ nodeId: node.id, label: SAVED_LABEL[action] });
       // advance() archives the run at the next stop; a node off the current

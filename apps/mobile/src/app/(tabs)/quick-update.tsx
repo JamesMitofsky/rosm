@@ -29,6 +29,7 @@ import { zoomToCover } from "@water-run/core/mapFrame";
 import { loadNearbyCenter, saveNearbyCenter } from "@water-run/core/nearbyView";
 import { dataAgeNotice } from "@water-run/core/dataAge";
 import { locateFast } from "../../ports/locateFast";
+import { celebratesEdit } from "@water-run/core/celebrate";
 import { celebratePoint } from "../../ports/confetti";
 import { hapticSuccess } from "../../ports/haptics";
 import { PointSheetHost } from "../../components/ui/PointSheetHost";
@@ -278,7 +279,7 @@ export default function QuickUpdate() {
     useOutbox
       .getState()
       .enqueue({ nodeId: node.id, action, tagKey: TAG.key, name: node.tags?.name, extras });
-    celebratePoint();
+    if (celebratesEdit(action)) celebratePoint();
     hapticSuccess();
     useOutbox.getState().flush();
   }

@@ -247,6 +247,32 @@ body {
   }
 }
 
+/* A point's "saved" card in its popup fades and settles in the moment an edit
+   is recorded, and its check springs, so the save registers at a glance even
+   when nothing celebrates it (see celebratesEdit). */
+@keyframes saved-pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.saved-pop {
+  animation: saved-pop 260ms ease-out both;
+}
+.saved-check-pop {
+  animation: marker-pop 420ms 80ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .saved-pop,
+  .saved-check-pop {
+    animation: none;
+  }
+}
+
 /* Scroll-reveal (was framer-motion fadeUp). Blocks start hidden + shifted, then
    index.astro's IntersectionObserver adds .in-view to animate them to rest.
    Hidden only under `.js`, which an inline script in Layout's head sets on

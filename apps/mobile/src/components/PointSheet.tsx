@@ -9,10 +9,12 @@ import { TrashIcon } from "phosphor-react-native/src/icons/Trash";
 import { WarningIcon } from "phosphor-react-native/src/icons/Warning";
 import { WrenchIcon } from "phosphor-react-native/src/icons/Wrench";
 import { DogIcon } from "./icons/DogIcon";
+import { EDIT_COLOR } from "@water-run/core/editStatus";
 import { pointStatusLine } from "@water-run/core/pointStatus";
 import type { EditAction, EditExtras, Fountain } from "@water-run/core/schemas";
 import { useOutbox, type OutboxItem, type SyncState } from "@water-run/core/stores/outbox";
 import { INK, PointDetailsForm, type Ink } from "./PointDetailsForm";
+import { PopIn } from "./ui/PopIn";
 
 export type SurveyAction = EditAction | "broken";
 
@@ -159,6 +161,9 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
   const [failure, setFailure] = useState<string | null>(null);
   // Set synchronously, so a second tap before the re-render can't submit twice.
   const inFlight = useRef(false);
+  // An edit was just saved from this sheet, so its card should announce it.
+  // A card for an edit from an earlier visit just shows.
+  const [justSaved, setJustSaved] = useState(false);
 
   const [prevId, setPrevId] = useState(fountain.id);
   if (prevId !== fountain.id) {
@@ -166,6 +171,7 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
     setStep("choose");
     setDetailFor(null);
     setFailure(null);
+    setJustSaved(false);
   }
 
   // What OSM says about the point, shown over the survey steps only: the forms
@@ -196,6 +202,7 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
     }
     setDetailFor(null);
     setStep("choose");
+    setJustSaved(true);
   };
 
   return (
@@ -227,43 +234,52 @@ export function PointSheet({ fountain, edit, onAction, inRoute, onToggleRoute }:
       ) : null}
 
       {edit ? (
-        <View className="border-border bg-surface-deep gap-1.5 rounded-xl border p-4">
-          <Text className="text-base font-bold">{STATUS_LABEL[edit.status]}</Text>
-          {edit.extras?.seasonal ? (
-            <View className="flex-row items-center gap-1">
-              <SnowflakeIcon size={14} color="#0369a1" />
-              <Text className="text-info-800 text-xs font-bold">Seasonal</Text>
+        <PopIn animate={justSaved}>
+          <View className="border-border bg-surface-deep gap-1.5 rounded-xl border p-4">
+            {/* A green check whatever the answer: it says the report was saved,
+              not that the fountain is fine. */}
+            <View className="flex-row items-center gap-2">
+              <PopIn animate={justSaved} from={0.3}>
+                <CheckCircleIcon size={22} color={EDIT_COLOR.confirm} weight="fill" />
+              </PopIn>
+              <Text className="flex-1 text-base font-bold">{STATUS_LABEL[edit.status]}</Text>
             </View>
-          ) : null}
-          {edit.extras?.note ? (
-            <Text className="text-base text-xs font-medium italic">“{edit.extras.note}”</Text>
-          ) : null}
-          <View className="mt-0.5 flex-row items-center gap-3">
-            <Text className="text-muted text-xs font-bold">{syncLabel(edit)}</Text>
-            {edit.syncState === "failed" ? (
+            {edit.extras?.seasonal ? (
+              <View className="flex-row items-center gap-1">
+                <SnowflakeIcon size={14} color="#0369a1" />
+                <Text className="text-info-800 text-xs font-bold">Seasonal</Text>
+              </View>
+            ) : null}
+            {edit.extras?.note ? (
+              <Text className="text-base text-xs font-medium italic">“{edit.extras.note}”</Text>
+            ) : null}
+            <View className="mt-0.5 flex-row items-center gap-3">
+              <Text className="text-muted text-xs font-bold">{syncLabel(edit)}</Text>
+              {edit.syncState === "failed" ? (
+                <Pressable
+                  onPress={() => void useOutbox.getState().retryAll()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry sending"
+                  // A 16pt line of text; the slop makes it a 44pt target.
+                  hitSlop={14}
+                >
+                  <Text className="text-base text-xs font-bold underline">Retry</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {edit.changesetUrl ? (
               <Pressable
-                onPress={() => void useOutbox.getState().retryAll()}
-                accessibilityRole="button"
-                accessibilityLabel="Retry sending"
+                onPress={() => Linking.openURL(edit.changesetUrl!)}
                 // A 16pt line of text; the slop makes it a 44pt target.
                 hitSlop={14}
+                className="mt-0.5 flex-row items-center gap-1"
               >
-                <Text className="text-base text-xs font-bold underline">Retry</Text>
+                <ArrowSquareOutIcon size={14} color="#0c0d0a" />
+                <Text className="text-base text-xs font-bold underline">View online</Text>
               </Pressable>
             ) : null}
           </View>
-          {edit.changesetUrl ? (
-            <Pressable
-              onPress={() => Linking.openURL(edit.changesetUrl!)}
-              // A 16pt line of text; the slop makes it a 44pt target.
-              hitSlop={14}
-              className="mt-0.5 flex-row items-center gap-1"
-            >
-              <ArrowSquareOutIcon size={14} color="#0c0d0a" />
-              <Text className="text-base text-xs font-bold underline">View online</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        </PopIn>
       ) : detailFor ? (
         <>
           <PointDetailsForm

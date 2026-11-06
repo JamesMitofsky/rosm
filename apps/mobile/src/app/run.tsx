@@ -19,6 +19,7 @@ import { useRunSession, type RunSession } from "../run/useRunSession";
 import { endRun } from "../run/runLifecycle";
 import { PointSheet, pointEditOf } from "../components/PointSheet";
 import { Button } from "../components/ui/Button";
+import { PopIn } from "../components/ui/PopIn";
 
 // Human-facing status shown in the end-of-run recap.
 const STATUS_LABEL: Record<StopStatus, string> = {
@@ -331,10 +332,14 @@ export default function RunScreen() {
         )}
 
         {s.lastSaved ? (
-          <View className="flex-row items-center gap-2">
-            <CheckCircleIcon size={16} color="#4ade80" />
-            <Text className="flex-1 text-sm text-green-300">Saved · {s.lastSaved.label}</Text>
-          </View>
+          // Pops on every save: the sheet closes as the edit is recorded, so
+          // this line is the only sign it took.
+          <PopIn trigger={s.lastSaved}>
+            <View className="flex-row items-center gap-2">
+              <CheckCircleIcon size={16} color="#4ade80" weight="fill" />
+              <Text className="flex-1 text-sm text-green-300">Saved · {s.lastSaved.label}</Text>
+            </View>
+          </PopIn>
         ) : null}
         {s.err ? <Text className="text-red-400">{s.err}</Text> : null}
       </View>

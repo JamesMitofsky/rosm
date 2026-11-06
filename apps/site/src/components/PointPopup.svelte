@@ -77,6 +77,9 @@
 
   const { close, holdOpen } = getMapPopup();
   let detailFor = $state<DetailAction | null>(null);
+  // An edit was just saved from this popup, so its card should announce it. A
+  // card for an edit from an earlier visit just shows.
+  let justSaved = $state(false);
   // The detail step is a draft — a status picked, maybe a note half typed — so
   // a tap on the map only lowers the keyboard while it is open (see
   // `holdOpen`). Cancel and submit leave it as before.
@@ -111,8 +114,20 @@
   {/if}
 
   {#if edit}
-    <div class="flex flex-col gap-1 rounded bg-neutral-50 p-2 text-xs text-neutral-700">
-      <div class="font-medium text-neutral-800">{STATUS_LABEL[edit.status] ?? "Updated"}</div>
+    <div
+      class={[
+        "flex flex-col gap-1 rounded bg-neutral-50 p-2 text-xs text-neutral-700",
+        justSaved && "saved-pop",
+      ]}
+    >
+      <!-- A green check whatever the answer: it says the report was saved, not
+           that the fountain is fine. -->
+      <div class="flex items-center gap-1.5 font-medium text-neutral-800">
+        <span class={["inline-flex text-green-600", justSaved && "saved-check-pop"]}>
+          <CheckCircle size={16} weight="fill" />
+        </span>
+        {STATUS_LABEL[edit.status] ?? "Updated"}
+      </div>
       <div>{edit.summary}</div>
       {#if edit.extras?.seasonal}
         <div class="flex items-center gap-1 text-sky-700"><Snowflake size={14} /> Seasonal</div>
@@ -204,6 +219,7 @@
             onSubmit={(extras) => {
               onAction(detailFor as EditAction, extras);
               detailFor = null;
+              justSaved = true;
             }}
           />
           <button
