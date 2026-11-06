@@ -189,7 +189,9 @@ platform rule people notice; **P3** is polish. Status: **Done** in this change, 
   a workout, avoid distractions (HIG/workouts).
 - **Change:** both maps take these actions on touch-and-hold (MapLibre `onLongPress`),
   the convention Maps uses for dropping a pin, with a haptic, and the planner's
-  instructions now say so. A tap on a marker still opens it. _Judgement:_ the HIG
+  instructions now say so. Nearby takes the same gesture to add a fountain,
+  through the same sheet as the run, which for a new fountain now opens straight on
+  its details ("New Fountain", "Add Fountain"). A tap on a marker still opens it. _Judgement:_ the HIG
   has no rule that names touch-and-hold; it's the Apple Maps convention.
 
 #### M2 · P1 · "Start run" is a small text link — Done

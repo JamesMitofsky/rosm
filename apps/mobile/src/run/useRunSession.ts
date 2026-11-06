@@ -12,8 +12,6 @@ import { compass, type Pt } from "@water-run/core/geo";
 import { runCue } from "@water-run/core/runCue";
 import { ptLabel } from "@water-run/core/pointTypes";
 import { STATUS_COLOR } from "@water-run/core/editStatus";
-import { todayLocal } from "@water-run/core/editSummary";
-import { callApi, postJson, UNEXPECTED_REPLY } from "@water-run/core/apiCall";
 import { activeRunToResume, archiveRun, beginRun } from "@water-run/core/runLifecycle";
 import { progressLine } from "@water-run/core/runProgress";
 import type { EditAction, EditExtras, Fountain } from "@water-run/core/schemas";
@@ -21,6 +19,7 @@ import type { SurveyAction } from "../components/PointSheet";
 import { getToken } from "../auth/authStore";
 import { useOsmStatus } from "../auth/useOsmStatus";
 import { trackRun, type TrackingError } from "../tasks/runLocationTask";
+import { createFountain } from "./createFountain";
 import { hapticImpact, hapticSelect, hapticSuccess } from "../ports/haptics";
 import { announce } from "../ports/accessibility";
 import { keepAwake, allowSleep } from "../ports/keepAwake";
@@ -42,10 +41,6 @@ const SAVED_LABEL: Record<SurveyAction, string> = {
   removed: "Removed",
 };
 
-// Same ceiling as an outbox send: a create that hangs on a dead cell must give
-// the add sheet its error back rather than spin.
-const CREATE_TIMEOUT_MS = 30_000;
-
 // The last stop recorded, for the panel's "Saved" line and its Undo: what to
 // cancel in the outbox, and what to put the run back to.
 type LastSaved = {
@@ -59,14 +54,6 @@ type LastSaved = {
     index: number; // where the run stood before the record
     status: StopStatus | undefined; // the stop's status before it
   };
-};
-
-type CreatedNode = {
-  nodeId: number;
-  changesetId: number;
-  lat: number;
-  lon: number;
-  tags: Record<string, string>;
 };
 
 // The Expo run session: live GPS, the shared guidance derived from it, the OSM
@@ -363,28 +350,16 @@ export function useRunSession({
       if (!getToken()) throw new Error("Sign in first.");
       setErr(null);
       setLastSaved(null);
-      const reply = await callApi<CreatedNode>(
-        "/api/osm/create",
-        postJson({
-          lat: at.lat,
-          lon: at.lon,
-          tag: { key: tagKey, value: tagValue },
-          changesetId: useOutbox.getState().changesetId,
-          extras,
-          surveyDate: todayLocal(),
-        }),
-        CREATE_TIMEOUT_MS,
-        "Couldn't add the point. Please try again.",
+      const { changesetId, ...node } = await createFountain(
+        at,
+        { key: tagKey, value: tagValue },
+        extras,
       );
-      if (!reply.ok) throw new Error(reply.message);
-      const j = reply.data;
-      if (typeof j?.nodeId !== "number") throw new Error(UNEXPECTED_REPLY);
-      useOutbox.getState().setChangeset(j.changesetId);
-      run.setChangeset(j.changesetId);
-      run.addNode({ id: j.nodeId, lat: j.lat, lon: j.lon, tags: j.tags });
+      run.setChangeset(changesetId);
+      run.addNode(node);
       celebratePoint();
       hapticSuccess();
-      setLastSaved({ nodeId: j.nodeId, label: "Added" });
+      setLastSaved({ nodeId: node.id, label: "Added" });
       announce("Fountain added.");
       archiveRun(index);
     },

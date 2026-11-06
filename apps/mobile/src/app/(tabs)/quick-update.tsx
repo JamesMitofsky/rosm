@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { useIsFocused } from "expo-router";
+import { PlusIcon } from "phosphor-react-native/src/icons/Plus";
 import { WarningIcon } from "phosphor-react-native/src/icons/Warning";
 import { SafeArea } from "../../components/ui/SafeArea";
 import type { Fountain } from "@water-run/core/schemas";
@@ -31,9 +32,14 @@ import { loadNearbyCenter, saveNearbyCenter } from "@water-run/core/nearbyView";
 import { dataAgeNotice } from "@water-run/core/dataAge";
 import { locateFast } from "../../ports/locateFast";
 import { announce } from "../../ports/accessibility";
+import { celebratePoint } from "../../ports/confetti";
+import { hapticSuccess } from "../../ports/haptics";
+import { useSignedIn } from "../../auth/useSignedIn";
+import { promptSignIn } from "../../auth/SignInButton";
+import { createFountain } from "../../run/createFountain";
 import { PointSheetHost } from "../../components/ui/PointSheetHost";
 import { FloatingButton, FloatingSurface } from "../../components/ui/FloatingSurface";
-import { WaterRunMap, type MapMarker, type MapRegion } from "../../map/WaterRunMap";
+import { WaterRunMap, type MapButton, type MapMarker, type MapRegion } from "../../map/WaterRunMap";
 import { PointSheet } from "../../components/PointSheet";
 import { useOsmEdits } from "../../run/useOsmEdits";
 
@@ -117,6 +123,18 @@ export default function QuickUpdate() {
   // holds the map back, each only shows in the status pill over it.
   const [busy, setBusy] = useState(false);
   const [locate, setLocate] = useState<"locating" | "located" | "failed">("locating");
+  // The latest fix, where "Add a fountain here" adds one.
+  const [here, setHere] = useState<Pt | null>(null);
+  const signedIn = useSignedIn();
+  // The spot whose add sheet is open, kept in step with it as it opens and
+  // closes: a create settles up to 30 s later, by when the sheet may have been
+  // swiped away or opened again at another spot.
+  const [addLocation, setAddLocation] = useState<Pt | null>(null);
+  const openAdd = useRef<Pt | null>(null);
+  const showAdd = useCallback((at: Pt | null) => {
+    openAdd.current = at;
+    setAddLocation(at);
+  }, []);
   // What last went wrong, shown over the map. A search that failed for a
   // reason that can pass (no connection, a slow or busy server) keeps its
   // request, so the banner can run it again; a refused search, or a failed
@@ -212,8 +230,8 @@ export default function QuickUpdate() {
     userActed.current = true;
   };
   useEffect(() => {
-    if (region != null || selectedId != null) userActed.current = true;
-  }, [region, selectedId]);
+    if (region != null || selectedId != null || addLocation != null) userActed.current = true;
+  }, [region, selectedId, addLocation]);
 
   // Locate while the map is already up: the phone's recent fix, when it has
   // one, comes at once, and a fresh GPS fix follows. The first fix searches
@@ -228,6 +246,7 @@ export default function QuickUpdate() {
     let searchedFrom: Pt | null = null;
     return locateFast(
       ({ pos }) => {
+        setHere(pos);
         if (searchedFrom) {
           const refine = shouldRefineSearch({
             searchedFrom,
@@ -314,6 +333,50 @@ export default function QuickUpdate() {
     [fountains, edits, selectedId, now],
   );
 
+  // Adding a fountain: touch and hold anywhere on the map, or the map button
+  // for where the user stands (the gesture's alternative, HIG: Accessibility).
+  // A create goes straight onto OSM, so it can't wait for a sign-in the way
+  // an edit can: signed out, it asks first.
+  const startAdd = (at: Pt) => {
+    if (!signedIn) {
+      promptSignIn({
+        title: "Sign in to add fountains",
+        message:
+          "A new fountain goes straight onto OpenStreetMap, the free public map Water Run saves to, so adding one needs an OpenStreetMap account.",
+      });
+      return;
+    }
+    setSelectedId(null);
+    showAdd(at);
+  };
+  const mapButtons: MapButton[] | undefined = here
+    ? [
+        {
+          icon: <PlusIcon size={22} color="#1d1d1f" weight="bold" />,
+          label: "Add a fountain here",
+          onPress: () => startAdd(here),
+        },
+      ]
+    : undefined;
+
+  // The spot being added shows on the map while its sheet is open.
+  const mapMarkers = useMemo(
+    () =>
+      addLocation
+        ? [
+            ...markers,
+            {
+              id: "pending-add",
+              lat: addLocation.lat,
+              lon: addLocation.lon,
+              color: "#16a34a",
+              label: "+",
+            },
+          ]
+        : markers,
+    [markers, addLocation],
+  );
+
   // Resolve the tapped id to its fountain. Null while nothing is selected — and,
   // in principle, during any window where the id isn't in `fountains` yet — which
   // is when the sheet shows its spinner instead of PointSheet.
@@ -327,7 +390,7 @@ export default function QuickUpdate() {
       <WaterRunMap
         center={mapCenter}
         zoom={zoom}
-        markers={markers}
+        markers={mapMarkers}
         showUserLocation={isFocused && locate === "located"}
         recenterKey={String(recenterKey)}
         // The first fix's move (key 1) jumps; later ones ease. An ease can be
@@ -338,7 +401,12 @@ export default function QuickUpdate() {
         animateRecenter={recenterKey > 1}
         onRegionChange={setRegion}
         onUserMove={onUserMove}
-        onMarkerPress={setSelectedId}
+        onMarkerPress={(id) => {
+          // The pending spot is the add sheet's own marker, not a fountain.
+          if (id !== "pending-add") setSelectedId(id);
+        }}
+        onMapLongPress={(lat, lon) => startAdd({ lat, lon })}
+        buttons={mapButtons}
       />
 
       {/* Across the top of the map, stacked so they never overlap: what it is
@@ -347,7 +415,11 @@ export default function QuickUpdate() {
       <SafeArea
         edges={["top"]}
         pointerEvents="box-none"
-        className="absolute top-0 right-0 left-0 items-center gap-2 p-3"
+        // Side gutters wide enough to clear the map button in the top-left
+        // corner, kept equal so the pills stay centered.
+        className={`absolute top-0 right-0 left-0 items-center gap-2 py-3 ${
+          here ? "px-16" : "px-3"
+        }`}
       >
         {/* A pill, not a scrim: the map stays usable while locating and
             searching. Animated indicator (not static text) so the wait reads
@@ -406,7 +478,7 @@ export default function QuickUpdate() {
           </FloatingSurface>
         ) : null}
 
-        {selectedId == null && canRequery ? (
+        {selectedId == null && addLocation == null && canRequery ? (
           tooWide ? (
             <FloatingSurface
               pointerEvents="none"
@@ -446,6 +518,46 @@ export default function QuickUpdate() {
             <ActivityIndicator />
           </View>
         )}
+      </PointSheetHost>
+
+      {/* A new fountain at the held spot. The sheet, and what was typed into
+          it, stays until the point exists: a failed add shows its reason there
+          for another try. Once the sheet has been swiped away (it can be,
+          mid-save) the reason shows over the map instead, and a late success
+          leaves alone a sheet since opened at another spot. */}
+      <PointSheetHost isPresented={addLocation != null} onDismiss={() => showAdd(null)}>
+        {addLocation ? (
+          <PointSheet
+            fountain={{
+              id: -1,
+              lat: addLocation.lat,
+              lon: addLocation.lon,
+              tags: { [TAG.key]: TAG.value },
+            }}
+            onAction={async (_action, extras) => {
+              let node: Fountain;
+              try {
+                const { changesetId: _cs, ...created } = await createFountain(
+                  addLocation,
+                  TAG,
+                  extras,
+                );
+                node = created;
+              } catch (e) {
+                if (openAdd.current !== addLocation) {
+                  const message = e instanceof Error ? e.message : String(e);
+                  setErr({ message: `Fountain not added. ${message}`, retry: null });
+                }
+                throw e;
+              }
+              setFountains((prev) => [...prev, node]);
+              celebratePoint();
+              hapticSuccess();
+              announce("Fountain added.");
+              if (openAdd.current === addLocation) showAdd(null);
+            }}
+          />
+        ) : null}
       </PointSheetHost>
     </View>
   );

@@ -3,6 +3,7 @@ import { Linking, Pressable, Text, View } from "react-native";
 import { ArrowSquareOutIcon } from "phosphor-react-native/src/icons/ArrowSquareOut";
 import { CaretLeftIcon } from "phosphor-react-native/src/icons/CaretLeft";
 import { CheckCircleIcon } from "phosphor-react-native/src/icons/CheckCircle";
+import { PlusCircleIcon } from "phosphor-react-native/src/icons/PlusCircle";
 import { DropHalfIcon } from "phosphor-react-native/src/icons/DropHalf";
 import { DropSlashIcon } from "phosphor-react-native/src/icons/DropSlash";
 import { SnowflakeIcon } from "phosphor-react-native/src/icons/Snowflake";
@@ -268,14 +269,9 @@ export function PointSheet({ fountain, edit, onAction, onUndo, inRoute, onToggle
   };
 
   // The most common answer, in one tap: what the details form would send
-  // untouched. A new point opens the form instead, as its details are all
-  // still to be given, and so does a node whose recorded note the server
-  // would refuse.
+  // untouched. A node whose recorded note the server would refuse opens the
+  // form instead, so the note can be shortened.
   const answerWorking = () => {
-    if (isNew) {
-      setDetailFor("confirm");
-      return;
-    }
     const result = surveyExtras("confirm", surveyFormDefaults(tags));
     if (!result.ok) {
       setDetailFor("confirm");
@@ -286,34 +282,45 @@ export function PointSheet({ fountain, edit, onAction, onUndo, inRoute, onToggle
 
   const fountainTitle = tags.name ?? (isNew ? "New Fountain" : "Fountain");
 
+  // A new fountain goes straight to its details: "is it working?" has nothing
+  // to ask about something being added, and "No Fountain" would make no sense.
+  const form: SurveyAction | null = isNew ? "confirm" : detailFor;
+  const formSpec = isNew
+    ? { ...FORMS.confirm, title: "New Fountain", label: "Add Fountain", Icon: PlusCircleIcon }
+    : form
+      ? FORMS[form]
+      : null;
+
   // Header: the form's or step's title with a way back, else the fountain.
-  const header = detailFor
-    ? {
-        title: FORMS[detailFor].title,
-        onBack: () => {
-          setDetailFor(null);
-          setFailure(null);
-        },
-      }
-    : !edit && step !== "choose"
+  const header = isNew
+    ? { title: fountainTitle, onBack: undefined }
+    : detailFor
       ? {
-          title: STEP_TITLE[step],
-          onBack: () => setStep(step === "broken" ? "problem" : "choose"),
+          title: FORMS[detailFor].title,
+          onBack: () => {
+            setDetailFor(null);
+            setFailure(null);
+          },
         }
-      : { title: fountainTitle, onBack: undefined };
+      : !edit && step !== "choose"
+        ? {
+            title: STEP_TITLE[step],
+            onBack: () => setStep(step === "broken" ? "problem" : "choose"),
+          }
+        : { title: fountainTitle, onBack: undefined };
 
   return (
     <View className="gap-4 px-1 py-1">
       <SheetHeader title={header.title} onBack={header.onBack} />
 
-      {!detailFor && isDogWater(tags) ? (
+      {!form && isDogWater(tags) ? (
         <View className="flex-row items-center gap-1.5 self-start rounded-lg border border-violet-300 bg-violet-100 px-2.5 py-1">
           <DogIcon size={14} color="#5b21b6" />
           <Text className="text-sm font-bold text-violet-950">Dog water — not for humans</Text>
         </View>
       ) : null}
 
-      {onToggleRoute && !detailFor ? (
+      {onToggleRoute && !form ? (
         <Pressable
           onPress={onToggleRoute}
           accessibilityRole="button"
@@ -327,16 +334,16 @@ export function PointSheet({ fountain, edit, onAction, onUndo, inRoute, onToggle
         </Pressable>
       ) : null}
 
-      {detailFor ? (
+      {form && formSpec ? (
         <>
           <PointDetailsForm
-            kind={detailFor}
+            kind={form}
             tags={tags}
-            submitLabel={FORMS[detailFor].label}
-            SubmitIcon={FORMS[detailFor].Icon}
-            submitBox={FORMS[detailFor].box}
-            submitInk={FORMS[detailFor].ink}
-            onSubmit={(extras) => void submit(detailFor, extras)}
+            submitLabel={formSpec.label}
+            SubmitIcon={formSpec.Icon}
+            submitBox={formSpec.box}
+            submitInk={formSpec.ink}
+            onSubmit={(extras) => void submit(form, extras)}
           />
           {saving ? (
             <Text className="text-muted text-callout font-semibold">Saving…</Text>
