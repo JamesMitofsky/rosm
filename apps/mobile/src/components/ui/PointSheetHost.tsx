@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet, RNHostView } from "@expo/ui";
@@ -88,7 +89,7 @@ export function PointSheetHost({ isPresented, onDismiss, children }: Props) {
   const bottom = Platform.OS === "ios" ? Math.max(kb, insets.bottom) : insets.bottom + kb;
   const maxHeight = Math.max(MIN_SCROLL_HEIGHT, winH - insets.top - bottom - SHEET_CHROME);
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const fieldFocused = useRef(false);
   // While a field has focus, keep the end of the sheet (the field's tail and
   // the action row below it) in view as the box shrinks for the keyboard or

@@ -28,6 +28,14 @@ module.exports = defineConfig([
   {
     files: ["**/*.{ts,tsx}"],
     rules: {
+      // tsc already checks that imported names exist, and does it correctly.
+      // These rules guess instead: they skip any file whose `export` follows a
+      // comment's `*/` on the same line, which is how SDK 58 packages compile
+      // their enums (e.g. expo-notifications' AndroidImportance), and then
+      // report its exports as missing. typescript-eslint recommends turning
+      // both off in TypeScript projects.
+      "import/named": "off",
+      "import/namespace": "off",
       "@typescript-eslint/no-restricted-imports": [
         "error",
         { paths: [textInputPath, phosphorPath] },
