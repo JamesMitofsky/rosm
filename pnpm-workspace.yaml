@@ -15,3 +15,8 @@ allowBuilds:
 # disappears).
 publicHoistPattern:
   - "@types/react"
+# One @expo/ui for the whole app. expo-widgets' Live Activity bundle and the
+# app share a single ExpoUI native pod, while expo-router (^57.0.22) would
+# otherwise keep an older copy of its own JS.
+overrides:
+  "@expo/ui": "~57.0.26"

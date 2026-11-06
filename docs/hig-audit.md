@@ -108,17 +108,29 @@ platform rule people notice; **P3** is polish. Status: **Done** in this change, 
   `addHere` path's logic through the same sheet. The gesture remains for any other
   spot.
 
-#### R5 · P2 · The lock-screen progress line is a stream of notifications — Next
+#### R5 · P2 · The lock-screen progress line is a stream of notifications — Done (follow-up change)
 
-- **Now:** a notification is re-posted every 30 s or so while the app is in the
-  background (`src/ports/notify.ts`); `src/ports/liveActivity.ts` is a stub.
+- **Was:** a notification was re-posted every 30 s or so while the app was in the
+  background (`src/ports/notify.ts`); `src/ports/liveActivity.ts` was a stub.
 - **Guidance:** Live Activities suit "real-time fitness metrics"; "don't use push
-  notifications alongside Live Activities for the same updates" (HIG/live-activities,
-  updated Oct 13 2026, including the new limited-width layouts); "Don't send
-  multiple notifications for the same thing" (HIG/notifications).
-- **Plan:** `expo-widgets` 57 supports Live Activities (`createLiveActivity`, with
-  `start`/`update`/`end`; no longer alpha in SDK 57). It adds a widget extension
-  target, so it needs a device build to verify and is left for its own change.
+  notifications alongside Live Activities for the same updates"; "support limited
+  width presentations" by fitting compact and minimal views "inside a 28pt-diameter
+  circle" with "a short abbreviation or graphic representation"; "always end a Live
+  Activity immediately when the task or event ends" (HIG/live-activities, updated
+  Oct 13 2026). "Don't send multiple notifications for the same thing"
+  (HIG/notifications).
+- **Change:** the run's progress is a Live Activity (`expo-widgets` 57.0.28,
+  `src/widgets/RunProgressActivity.tsx`). The Lock Screen shows the next stop's name,
+  the next turn and the distance; the Dynamic Island shows a drop and the distance
+  stacked as "0.3" over "mi", which fits the 28 pt circle in every presentation, since
+  expo-widgets doesn't say when the limited-width one is showing. Updates keep the
+  notification line's throttle (`shouldPostProgress`), and each carries a stale date
+  so an activity the app can no longer update dims instead of showing an old distance.
+  It ends at once on Finish, End run, the last stop, and at the next launch after the
+  app was killed (`getInstances()` finds what that run left). `src/ports/runProgress.ts`
+  puts the progress on one surface at a time: the notification line remains only where
+  there is no Live Activity (Android, iOS before 16.2, Live Activities switched off, or
+  the runner dismissed it), and is taken down while the activity is live.
 
 ### Getting started
 

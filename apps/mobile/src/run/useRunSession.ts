@@ -13,7 +13,6 @@ import { runCue } from "@water-run/core/runCue";
 import { ptLabel } from "@water-run/core/pointTypes";
 import { STATUS_COLOR } from "@water-run/core/editStatus";
 import { activeRunToResume, archiveRun, beginRun } from "@water-run/core/runLifecycle";
-import { progressLine } from "@water-run/core/runProgress";
 import type { EditAction, EditExtras, Fountain } from "@water-run/core/schemas";
 import type { SurveyAction } from "../components/PointSheet";
 import { getToken } from "../auth/authStore";
@@ -24,13 +23,8 @@ import { hapticImpact, hapticSelect, hapticSuccess } from "../ports/haptics";
 import { announce } from "../ports/accessibility";
 import { keepAwake, allowSleep } from "../ports/keepAwake";
 import { celebratePoint } from "../ports/confetti";
-import {
-  ensureNotifyPermission,
-  notifyProximity,
-  notifyRunComplete,
-  showRunProgress,
-  endRunProgress,
-} from "../ports/notify";
+import { ensureNotifyPermission, notifyProximity, notifyRunComplete } from "../ports/notify";
+import { showRunProgress, endRunProgress } from "../ports/runProgress";
 import type { MapMarker } from "../map/WaterRunMap";
 
 // Human-facing confirmation shown after a save. No raw OSM tags reach the UI.
@@ -205,9 +199,10 @@ export function useRunSession({
     onArriveRef.current?.(target);
   }, [enabled, target, autoArrived, index]);
 
-  // The lock-screen progress line. Handed every fix; the notifier decides
-  // whether it's worth a post. Taken down once every stop is done, and when the
-  // run leaves the screen.
+  // The run's progress on the lock screen: a Live Activity, or the notification
+  // line where there is none. Handed every fix; each decides whether it's worth
+  // an update. Taken down once every stop is done, and when the run leaves the
+  // screen.
   useEffect(() => {
     if (!enabled) return;
     if (!target) {
@@ -215,16 +210,16 @@ export function useRunSession({
       return;
     }
     if (distToTarget == null) return;
-    showRunProgress(
-      progressLine({
-        stopKey: `${index}:${target.id}`,
-        stopName: target.tags?.name || `Stop #${index + 1}`,
-        distToStopM: distToTarget,
-        nextTurn,
-        distToTurnM: distToTurn,
-      }),
-    );
-  }, [enabled, target, distToTarget, index, nextTurn, distToTurn]);
+    showRunProgress({
+      stopKey: `${index}:${target.id}`,
+      stopName: target.tags?.name || `Stop #${index + 1}`,
+      stopNumber: index + 1,
+      totalStops: stops.length,
+      distToStopM: distToTarget,
+      nextTurn,
+      distToTurnM: distToTurn,
+    });
+  }, [enabled, target, distToTarget, index, stops.length, nextTurn, distToTurn]);
   useEffect(() => {
     if (!enabled) return;
     return () => endRunProgress();

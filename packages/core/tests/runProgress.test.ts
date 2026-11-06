@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   fmtProgressDist,
   progressLine,
+  runActivityState,
   shouldPostProgress,
+  shouldUpdateActivity,
+  ACTIVITY_REFRESH_MS,
+  ACTIVITY_STALE_MS,
   PROGRESS_MIN_CHANGE_MS,
   PROGRESS_MIN_INTERVAL_MS,
   type PostedProgress,
@@ -103,5 +107,71 @@ describe("shouldPostProgress", () => {
   it("posts the turn going away as a change", () => {
     const noTurn = line({ turn: null, body: "0.3 mi to A" });
     expect(shouldPostProgress(posted(0), noTurn, PROGRESS_MIN_CHANGE_MS)).toBe(true);
+  });
+});
+
+describe("runActivityState", () => {
+  const base = {
+    stopKey: "2:7",
+    stopName: "Main St fountain",
+    stopNumber: 3,
+    totalStops: 8,
+    distToStopM: 500,
+  };
+
+  it("names the stop, where it falls in the run, and how far it is", () => {
+    expect(runActivityState({ ...base, nextTurn: null, distToTurnM: null })).toEqual({
+      stopName: "Main St fountain",
+      stopNumber: 3,
+      totalStops: 8,
+      stopDist: "0.3 mi",
+      stopDistValue: "0.3",
+      stopDistUnit: "mi",
+      turn: null,
+      turnSide: null,
+    });
+  });
+
+  it("splits feet the same way, for the stacked compact view", () => {
+    const s = runActivityState({ ...base, distToStopM: 76, nextTurn: null, distToTurnM: null });
+    expect([s.stopDistValue, s.stopDistUnit]).toEqual(["250", "ft"]);
+  });
+
+  it("carries the next turn as the progress line words it", () => {
+    const input = { ...base, nextTurn: turn(120, -90), distToTurnM: 76 };
+    const s = runActivityState(input);
+    expect(s.turn).toBe("Left in 250 ft");
+    expect(s.turnSide).toBe("left");
+    expect(progressLine(input).body).toContain(`Next: ${s.turn}`);
+    expect(runActivityState({ ...input, nextTurn: turn(120, 45) }).turnSide).toBe("right");
+  });
+
+  it("shows no turn without a distance to it", () => {
+    const s = runActivityState({ ...base, nextTurn: turn(120, -90), distToTurnM: null });
+    expect([s.turn, s.turnSide]).toEqual([null, null]);
+  });
+
+  it("changes exactly when the progress line does, so one throttle serves both", () => {
+    const at = (m: number) => ({ ...base, distToStopM: m, nextTurn: null, distToTurnM: null });
+    expect(runActivityState(at(300))).toEqual(runActivityState(at(304)));
+    expect(progressLine(at(300)).body).toBe(progressLine(at(304)).body);
+    expect(runActivityState(at(300))).not.toEqual(runActivityState(at(500)));
+  });
+});
+
+describe("shouldUpdateActivity", () => {
+  const line: ProgressLine = { stop: "0:7", turn: null, body: "0.3 mi to A" };
+  const posted = (atMs: number): PostedProgress => ({ ...line, atMs });
+
+  it("updates whenever a notification would post", () => {
+    expect(shouldUpdateActivity(null, line, 0)).toBe(true);
+    const next = { ...line, body: "0.2 mi to A" };
+    expect(shouldUpdateActivity(posted(0), next, PROGRESS_MIN_INTERVAL_MS)).toBe(true);
+  });
+
+  it("re-sends an unchanged activity before it would go stale", () => {
+    expect(shouldUpdateActivity(posted(0), line, ACTIVITY_REFRESH_MS - 1)).toBe(false);
+    expect(shouldUpdateActivity(posted(0), line, ACTIVITY_REFRESH_MS)).toBe(true);
+    expect(ACTIVITY_REFRESH_MS).toBeLessThan(ACTIVITY_STALE_MS);
   });
 });

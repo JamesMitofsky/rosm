@@ -18,7 +18,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@expo/ui": "~57.0.22",
+    "@expo/ui": "~57.0.26",
     "@maplibre/maplibre-react-native": "^11.3.6",
     "@water-run/core": "workspace:*",
     "expo": "~57.0.27",
@@ -43,6 +43,7 @@
     "expo-system-ui": "~57.0.4",
     "expo-task-manager": "~57.0.21",
     "expo-web-browser": "~57.0.3",
+    "expo-widgets": "~57.0.28",
     "phosphor-react-native": "^3.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
