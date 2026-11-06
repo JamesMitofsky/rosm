@@ -28,6 +28,7 @@ import { useRunSession, type RunSession } from "../run/useRunSession";
 import { endRun } from "../run/runLifecycle";
 import { PointSheet, pointEditOf } from "../components/PointSheet";
 import { Button } from "../components/ui/Button";
+import { PopIn } from "../components/ui/PopIn";
 import { confirmDestructive } from "../components/ui/confirm";
 import { useSignedIn } from "../auth/useSignedIn";
 import { promptSignIn, SignInButton } from "../auth/SignInButton";
@@ -409,20 +410,26 @@ export default function RunScreen() {
         )}
 
         {s.lastSaved ? (
-          <View className="flex-row items-center gap-2">
-            <CheckCircleIcon size={18} color="#4ade80" />
-            <Text className="text-callout flex-1 text-green-300">Saved · {s.lastSaved.label}</Text>
-            {s.undoOpen ? (
-              <Pressable
-                onPress={s.undoLast}
-                accessibilityRole="button"
-                accessibilityLabel={`Undo ${s.lastSaved.label}`}
-                hitSlop={12}
-              >
-                <Text className="text-info text-callout font-bold">Undo</Text>
-              </Pressable>
-            ) : null}
-          </View>
+          // Pops on every save: the sheet closes as the edit is recorded, so
+          // this line is the only sign it took.
+          <PopIn trigger={s.lastSaved}>
+            <View className="flex-row items-center gap-2">
+              <CheckCircleIcon size={18} color="#4ade80" weight="fill" />
+              <Text className="text-callout flex-1 text-green-300">
+                Saved · {s.lastSaved.label}
+              </Text>
+              {s.undoOpen ? (
+                <Pressable
+                  onPress={s.undoLast}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Undo ${s.lastSaved.label}`}
+                  hitSlop={12}
+                >
+                  <Text className="text-info text-callout font-bold">Undo</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </PopIn>
         ) : null}
         {s.err ? (
           <View className="gap-2">

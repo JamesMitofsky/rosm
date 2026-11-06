@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import type { EditExtras } from "@water-run/core/schemas";
 import { useOutbox } from "@water-run/core/stores/outbox";
+import { celebratesEdit } from "@water-run/core/celebrate";
 import { celebratePoint } from "../ports/confetti";
 import { hapticSuccess } from "../ports/haptics";
 import { announce } from "../ports/accessibility";
@@ -18,7 +19,7 @@ export function useOsmEdits({ tagKey }: { tagKey: string }) {
   const updatePoint = useCallback(
     (nodeId: number, action: SurveyAction, name?: string, extras?: EditExtras) => {
       useOutbox.getState().enqueue({ nodeId, action, tagKey, name, extras });
-      celebratePoint();
+      if (celebratesEdit(action)) celebratePoint();
       hapticSuccess();
       announce("Update saved.");
       useOutbox.getState().flush();

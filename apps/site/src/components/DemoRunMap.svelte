@@ -5,6 +5,7 @@
   import type { StopStatus } from "@water-run/core/stores/run";
   import { editSummary, todayLocal } from "@water-run/core/editSummary";
   import { celebratePoint } from "@/lib/confetti";
+  import { celebratesEdit } from "@water-run/core/celebrate";
   import { openingViewForViewport } from "@/lib/basemap/frames";
   import {
     DC_FOUNTAINS,
@@ -210,7 +211,7 @@
         extras,
       },
     };
-    celebratePoint();
+    if (celebratesEdit(action)) celebratePoint();
     // Fake the offline-first outbox: "saved · sending…" flips to "sent to OSM"
     // a beat later, without any network involved.
     setTimeout(() => {
