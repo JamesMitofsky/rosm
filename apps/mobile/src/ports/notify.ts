@@ -7,7 +7,7 @@ import {
   type ProgressLine,
 } from "@water-run/core/runProgress";
 
-// The run's progress line (see showRunProgress). The identifier is the one
+// The run's progress line (see showProgressNotification). The identifier is the one
 // earlier builds posted it under, so ending a run also clears one they left.
 const PROGRESS_ID = "live_activity";
 // Android: the progress line's own low-importance channel, so its updates are
@@ -72,9 +72,11 @@ export function notifySyncPending(count: number): void {
 }
 
 // -- The progress line --------------------------------------------------------
-// A stand-in for a Live Activity: the run's next stop and turn, kept up to date
-// while the app is in the background (screen locked, another app in front).
-// Only then: in the app the run screen shows the same. A notification is an
+// The fallback for the run's Live Activity, where there is none (Android, older
+// iOS, Live Activities switched off; ports/runProgress decides): the run's next
+// stop and turn, kept up to date while the app is in the background (screen
+// locked, another app in front). Only then: in the app the run screen shows the
+// same. A notification is an
 // alert surface, so posts are throttled and deduplicated by shouldPostProgress
 // and made quiet: a passive interruption level on iOS (no sound, the screen
 // stays dark) and a silent low-importance channel on Android.
@@ -144,15 +146,16 @@ function onAppState(next: string): void {
 
 // Hand over the run's latest progress; called on every fix. Cheap: it posts
 // only when the line is worth it.
-export function showRunProgress(line: ProgressLine): void {
+export function showProgressNotification(line: ProgressLine): void {
   latest = line;
   appState ??= AppState.addEventListener("change", onAppState);
   post();
 }
 
-// The run ended or left the screen: take the line down. Safe to call any time,
-// including at launch to clear one left by a run the app didn't get to end.
-export function endRunProgress(): void {
+// The run ended or left the screen, or the Live Activity took over: take the
+// line down. Safe to call any time, including at launch to clear one left by a
+// run the app didn't get to end.
+export function endProgressNotification(): void {
   appState?.remove();
   appState = null;
   latest = null;

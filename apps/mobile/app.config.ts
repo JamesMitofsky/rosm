@@ -56,6 +56,19 @@ const config: ExpoConfig = {
     "expo-status-bar",
     "expo-web-browser",
     [
+      // The run's Live Activity (src/widgets/RunProgressActivity). It registers
+      // at runtime and the plugin's own Live Activity target renders it, so it
+      // takes no `widgets` entry; that list is for home and Lock Screen widgets.
+      // The plugin adds a widget extension target and an app group shared
+      // with it. Both identifiers are the plugin's defaults, set here so they
+      // are a decision rather than a build warning.
+      "expo-widgets",
+      {
+        bundleIdentifier: `${cfg.appId}.ExpoWidgetsTarget`,
+        groupIdentifier: `group.${cfg.appId}`,
+      },
+    ],
+    [
       "expo-splash-screen",
       {
         // The icon's own tile colour, so launch reads as the icon opening up.
