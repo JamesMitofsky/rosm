@@ -19,11 +19,11 @@ the public map) in a different voice. Since only the art changes, the sets can g
 head to head in App Store Connect's **product page optimization**, which tests up
 to three alternate screenshot sets against the original.
 
-| Set              | Idea                                                                                                                                                                                                                  | Suggested use |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| **Field Notes**  | The icon's blue ink on cream, taken all the way: pages from a runner's survey notebook. Instrument Serif headlines, DM Mono marginalia, rubber stamps, and the route laid with the logo's many-bristled "RUN" stroke. | Original      |
-| **Night Shift**  | The app's own run palette (near-black, lime). One lime line is the run, and it never breaks: it leaves each frame where the next picks it up, so the six read as one long run in the store's carousel.                | Treatment A   |
-| **Public Works** | Fountains are civic infrastructure, so the page speaks the street's language: US sign conventions (blue services, yellow warning, orange work zone, brown recreation) in Overpass, on sidewalk concrete.              | Treatment B   |
+| Set              | Idea                                                                                                                                                                                                                  | Use          |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Field Notes**  | The icon's blue ink on cream, taken all the way: pages from a runner's survey notebook. Instrument Serif headlines, DM Mono marginalia, rubber stamps, and the route laid with the logo's many-bristled "RUN" stroke. | Treatment A  |
+| **Night Shift**  | The app's own run palette (near-black, lime). One lime line is the run, and it never breaks: it leaves each frame where the next picks it up, so the six read as one long run in the store's carousel.                | Treatment B  |
+| **Public Works** | Fountains are civic infrastructure, so the page speaks the street's language: US sign conventions (blue services, yellow warning, orange work zone, brown recreation) in Overpass, on sidewalk concrete.              | **Original** |
 
 All maps are real: the loop is the 23.5 km Washington, D.C. run the website
 replays (`apps/site/src/lib/demoRoute.ts`), drawn on OpenFreeMap vector tiles.
@@ -31,7 +31,7 @@ replays (`apps/site/src/lib/demoRoute.ts`), drawn on OpenFreeMap vector tiles.
 ## Uploading
 
 **By hand:** App Store Connect → the app → the version → _iPhone 6.9" Display_ →
-drag in `export/screenshots/field-notes/*.jpg` in order. Smaller iPhone sizes are
+drag in `export/screenshots/public-works/*.jpg` in order. Smaller iPhone sizes are
 scaled from these automatically. Paste each `metadata/*.txt` into its field.
 
 **With EAS:** point the iOS submit profile in `apps/mobile/eas.json` at this config,
@@ -50,13 +50,13 @@ resolves them. The config validates against the `eas-cli` 27.5 schema
 (`APP_IPHONE_67` is App Store Connect's key for the 6.9" slot).
 
 **Product page optimization:** App Store Connect → the app → _Product Page
-Optimization_ → new test → add Night Shift and Public Works as treatments.
+Optimization_ → new test → add Field Notes and Night Shift as treatments.
 
 ## Before you submit
 
-- **Privacy policy URL.** Required by App Store Connect. `store.config.json` uses
-  `https://waterrun.app/privacy`, which doesn't exist yet. Add the page or change
-  the URL.
+- **Privacy policy URL.** `store.config.json` points at `https://waterrun.app/privacy`
+  (`apps/site/src/pages/privacy.astro`). Keep that page in step with what the app
+  collects; App Store Connect's privacy questions should match it too.
 - **The film is not an App Store preview as-is.** Apple requires previews to use
   footage captured from the app. The film uses faithful recreations and title
   cards, so it's for the website, socials and press. It is already encoded to the
