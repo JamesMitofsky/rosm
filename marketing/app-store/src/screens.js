@@ -311,7 +311,27 @@ export function surveySheet(d) {
 }
 
 // Lock Screen with the run's Live Activity, later in the same run.
-export function lockScreen(d, { wallpaper = "", ink = "#fff", activity = {} } = {}) {
+// A plain, iOS-style abstract wallpaper: soft blue and violet light, nothing
+// that could be mistaken for something the app draws. Drawn here rather than
+// taken from Apple's own wallpapers, which are Apple's artwork.
+export const WALLPAPER = `
+  <div style="position:absolute;inset:0;background:
+    radial-gradient(120% 65% at 18% 12%, #4a7df0 0%, rgba(74,125,240,0) 62%),
+    radial-gradient(95% 60% at 88% 46%, #7d5cf2 0%, rgba(125,92,242,0) 62%),
+    radial-gradient(120% 70% at 35% 100%, #1d9fe6 0%, rgba(29,159,230,0) 58%),
+    linear-gradient(170deg, #17307a 0%, #101d4a 55%, #0a1230 100%)"></div>
+  <svg class="overlay" viewBox="0 0 440 956" style="filter:blur(26px);opacity:.55">
+    <path d="M-60 520 C 80 430, 220 640, 500 470 L 500 620 C 260 760, 120 560, -60 690 Z" fill="#9fc3ff"/>
+    <path d="M-60 300 C 120 220, 260 380, 500 250 L 500 330 C 300 450, 120 300, -60 390 Z" fill="#b9a6ff" opacity=".7"/>
+  </svg>`;
+
+// Accent on the Live Activity's drop and turn arrow.
+export const ACTIVITY_ACCENT = "#4fafd4";
+
+export function lockScreen(
+  d,
+  { wallpaper = WALLPAPER, ink = "#fff", activity = {}, accent = ACTIVITY_ACCENT } = {},
+) {
   const a = {
     stop: "Montrose Park",
     dist: "0.42",
@@ -329,10 +349,10 @@ export function lockScreen(d, { wallpaper = "", ink = "#fff", activity = {} } = 
       <div class="tnum" style="font:700 112px/112px Inter;letter-spacing:-0.04em;margin-top:2px;font-stretch:90%">7:42</div>
     </div>
     <div style="position:absolute;left:14px;right:14px;bottom:146px;border-radius:26px;background:#0c0d0a;padding:16px;display:flex;align-items:center;gap:12px;z-index:6;box-shadow:0 12px 40px rgba(0,0,0,.35)">
-      ${icon("drop", 24, "#ccff2e", "fill")}
+      ${icon("drop", 24, accent, "fill")}
       <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">
         <div style="font:600 17px Inter;color:#eef2f6">${a.stop}</div>
-        <div style="display:flex;align-items:center;gap:6px">${icon("arrow-bend-up-right", 15, "#ccff2e")}<span style="font:400 14.5px Inter;color:#eef2f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Next: ${a.turn}</span></div>
+        <div style="display:flex;align-items:center;gap:6px">${icon("arrow-bend-up-right", 15, accent)}<span style="font:400 14.5px Inter;color:#eef2f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Next: ${a.turn}</span></div>
         <div style="font:400 12px Inter;color:#8fa3b3">${a.of}</div>
       </div>
       <div style="text-align:center;min-width:56px">

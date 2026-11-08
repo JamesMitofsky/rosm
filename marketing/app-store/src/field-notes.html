@@ -106,10 +106,8 @@
       import { defs, grain, lanes, place, routePx, smooth } from "./art.js";
 
       const d = await S.loadData("..");
-      const loop = d.maps["paper-loop"],
-        street = d.maps["paper-street"];
+      const loop = d.maps["paper-loop"];
       const loopPts = smooth(routePx(loop, d.run.trace), 2);
-      const streetPts = smooth(routePx(street, d.run.trace), 2);
       const shadow =
         "0 1px 1px rgba(60,48,24,.25), 0 22px 44px -10px rgba(60,48,24,.38), 0 50px 90px -30px rgba(11,47,85,.35)";
       const folio = (n) =>
@@ -183,13 +181,7 @@
    ${fade}
    ${folio(5)}
    <h1 style="top:62px">Directions stay <em>on your Lock Screen.</em></h1>
-   ${place(
-     S.lockScreen(d, {
-       ink: "#0b2f55",
-       wallpaper: `<div style="position:absolute;inset:0;background:#f7f2e8"></div><img class="map" src="../assets/maps/paper-street.png" style="opacity:.8">${svg(lanes(streetPts, { n: 7, gap: 3.4, width: 2.2, seed: 2 }))}`,
-     }),
-     { x: 64, y: 300, scale: 0.71, rotate: -2, radius: 52, shadow },
-   )}
+   ${place(S.lockScreen(d), { x: 64, y: 300, scale: 0.71, rotate: -2, radius: 52, shadow })}
    <div class="note mono" style="left:24px;top:258px;color:var(--ink)">Live Activity · Dynamic Island</div>
    ${grain(0.22)}`,
 

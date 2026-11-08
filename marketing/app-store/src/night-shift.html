@@ -82,7 +82,7 @@
   <body>
     <script type="module">
       import * as S from "./screens.js";
-      import { curve, defs, device, grain, lanes, routePx, smooth } from "./art.js";
+      import { curve, defs, device, grain } from "./art.js";
 
       const d = await S.loadData("..");
 
@@ -144,13 +144,6 @@
   <svg class="layer" viewBox="0 0 2640 956" style="z-index:2">${drops.map((p, i) => drop(p, i + 1)).join("")}</svg>`;
 
       const glow = "0 30px 80px rgba(0,0,0,.65), 0 0 120px rgba(204,255,46,.08)";
-      const nightLock = () => {
-        const v = d.maps["night-tall"];
-        const pts = smooth(routePx(v, d.run.trace), 2);
-        return S.lockScreen(d, {
-          wallpaper: `<img class="map" src="../assets/maps/night-tall.png"><svg class="overlay" viewBox="0 0 440 956"><path d="${pts.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join("")}" fill="none" stroke="#ccff2e" stroke-width="3" stroke-linejoin="round" opacity=".9"/></svg>`,
-        });
-      };
       const kick = (t) => `<div class="kicker"><i></i>${t}</div>`;
 
       const frames = [
@@ -168,7 +161,7 @@
    ${device(S.surveySheet(d), { x: 70, y: 300, scale: 0.66, glow })}`,
         `${kick("Live Activity")}
    <h1 style="top:62px">Phone in your pocket? <b>Still guiding.</b></h1>
-   ${device(nightLock(), { x: 78, y: 330, scale: 0.66, glow })}`,
+   ${device(S.lockScreen(d), { x: 78, y: 330, scale: 0.66, glow })}`,
         `${kick("Open data")}
    <h1 style="top:62px"><b>8 of 9</b> checked. The map’s better for it.</h1>
    ${device(S.recap(d), { x: 66, y: 330, scale: 0.66, glow })}
