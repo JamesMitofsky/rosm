@@ -135,14 +135,32 @@
         `<div class="bolt" style="top:${top}px"></div><div class="bolt" style="bottom:${bottom}px"></div>`;
       const plaque = (html, style) =>
         `<div class="sign" style="background:#fff;color:#111;${style}">${html}</div>`;
+      // Where the signs stand relative to the phone. "under" (the default): the
+      // phone up top, each sign planted on its post below it, the way a sign
+      // stands on a sidewalk. "under-big": the same with a larger phone that
+      // runs off the top edge. "over": signs above, the phone below them.
+      // Pick one with ?layout=…
+      const LAYOUTS = {
+        under: { phone: { x: 80, y: 22, scale: 0.6 }, signs: 590, logo: [352, 840] },
+        "under-big": { phone: { x: 66, y: -46, scale: 0.66 }, signs: 586, logo: [352, 836] },
+        over: { phone: null, signs: 0, logo: [352, 250] },
+      };
+      const L = LAYOUTS[new URLSearchParams(location.search).get("layout")] ?? LAYOUTS.under;
+      // The phone marks its own markup, so each frame can be split into the
+      // sign assembly and the phone, and the two placed independently.
+      const MARK = "\u0000";
       const phone = (screen, y = 392) =>
+        MARK +
         device(screen, {
-          x: 74,
-          y,
-          scale: 0.63,
+          ...(L.phone ?? { x: 74, y, scale: 0.63 }),
           edge: "#aeb3b8",
           glow: "0 40px 60px -20px rgba(40,34,24,.55)",
-        });
+        }) +
+        MARK;
+      const compose = (f) => {
+        const [before, handset, after] = f.split(MARK);
+        return `<div style="position:absolute;inset:0;transform:translateY(${L.signs}px)">${before}${after}</div>${handset}`;
+      };
 
       const frames = [
         // 1 — the service sign
@@ -222,7 +240,7 @@
       ];
 
       // Sidewalk: slab joints running the whole panorama, and the logo chalked on
-      // a slab beside the first sign.
+      // a slab beside the first sign's plaque.
       const slab = 147;
       const joints = `
   <svg class="layer" viewBox="0 0 2640 956" style="z-index:1">
@@ -232,8 +250,8 @@
 
       document.body.innerHTML = `${defs()}
   ${joints}
-  <img src="../assets/logo-ink.png" style="position:absolute;left:352px;top:250px;width:78px;z-index:2;mix-blend-mode:multiply;opacity:.78;transform:rotate(-9deg);filter:url(#brush)">
-  ${frames.map((f, i) => `<section class="frame" style="left:${i * 440}px;z-index:3">${f}</section>`).join("")}
+  <img src="../assets/logo-ink.png" style="position:absolute;left:${L.logo[0]}px;top:${L.logo[1]}px;width:78px;z-index:2;mix-blend-mode:multiply;opacity:.78;transform:rotate(-9deg);filter:url(#brush)">
+  ${frames.map((f, i) => `<section class="frame" style="left:${i * 440}px;z-index:3">${compose(f)}</section>`).join("")}
   <div class="layer" style="z-index:9;pointer-events:none">${grain(0.3).replace('viewBox="0 0 440 956"', 'viewBox="0 0 2640 956"').replace('<rect width="440"', '<rect width="2640"')}</div>`;
       await document.fonts.ready;
       await Promise.all([...document.images].map((i) => i.decode()));

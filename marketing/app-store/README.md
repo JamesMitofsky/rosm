@@ -89,6 +89,10 @@ npm run shots                          # the three screenshot sets
 npm run video                          # the film (scored by scripts/score.py)
 ```
 
+Public Works plants each sign on its post below the phone. Add `?layout=under-big`
+(a larger phone running off the top edge) or `?layout=over` (signs above the
+phone) to `src/public-works.html` to see the alternatives.
+
 Open `src/screens-preview.html`, `src/field-notes.html`, `src/night-shift.html`,
 `src/public-works.html` or `src/film.html` through any static server rooted at this
 folder to work on a page live.
