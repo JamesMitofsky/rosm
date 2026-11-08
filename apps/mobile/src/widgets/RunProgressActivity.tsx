@@ -44,7 +44,6 @@ function RunProgress(props: RunActivityState, env: LiveActivityEnvironment) {
         ? "arrow.turn.up.right"
         : "arrow.up";
   const turnLine = props.turn ? `Next: ${props.turn}` : "No more turns";
-  const stopOf = `Stop ${props.stopNumber} of ${props.totalStops}`;
 
   // The distance as a stacked figure and unit, sized to the space it gets.
   const stacked = (valueSize: number, unitSize: number, color: string) => (
@@ -100,7 +99,7 @@ function RunProgress(props: RunActivityState, env: LiveActivityEnvironment) {
           </Text>
           {turnRow}
           <Text modifiers={[font({ textStyle: "caption" }), foregroundStyle(dim)]}>
-            {env.isStale ? "Open Water Run to update" : stopOf}
+            {env.isStale ? "Open Water Run to update" : props.leg}
           </Text>
         </VStack>
         <Spacer />
@@ -125,7 +124,7 @@ function RunProgress(props: RunActivityState, env: LiveActivityEnvironment) {
       <VStack alignment="leading" spacing={4} modifiers={[padding({ leading: 4 })]}>
         {drop(20)}
         <Text modifiers={[font({ textStyle: "caption" }), foregroundStyle(dim), lineLimit(1)]}>
-          {stopOf}
+          {props.leg}
         </Text>
       </VStack>
     ),

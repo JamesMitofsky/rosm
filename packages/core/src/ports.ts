@@ -95,8 +95,7 @@ export type NotifyPort = {
 // app (in the widget extension) and can use nothing but these props.
 export type RunActivityState = {
   stopName: string;
-  stopNumber: number; // 1-based
-  totalStops: number;
+  leg: string; // where the runner is in the run: "Stop 3 of 8", or "Back to start"
   stopDist: string; // "0.3 mi"
   // stopDist split in two, stacked to fit the Dynamic Island's 28 pt
   // limited-width views: "0.3" over "mi".

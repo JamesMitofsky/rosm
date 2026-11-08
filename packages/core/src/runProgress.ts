@@ -43,6 +43,9 @@ export type RunProgressInput = {
   stopName: string;
   stopNumber: number; // 1-based
   totalStops: number;
+  // A loop's last leg: every stop is done and the runner is heading back to
+  // the start, which stopName then names.
+  homeward?: boolean;
   distToStopM: number;
   nextTurn: Turn | null;
   distToTurnM: number | null;
@@ -85,8 +88,7 @@ export function runActivityState(o: RunProgressInput): RunActivityState {
   const turn = turnText(o.nextTurn, o.distToTurnM);
   return {
     stopName: o.stopName,
-    stopNumber: o.stopNumber,
-    totalStops: o.totalStops,
+    leg: o.homeward ? "Back to start" : `Stop ${o.stopNumber} of ${o.totalStops}`,
     stopDist,
     stopDistValue,
     stopDistUnit,
