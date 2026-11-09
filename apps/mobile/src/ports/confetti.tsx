@@ -24,15 +24,10 @@ export function celebratePoint(): void {
   listeners.forEach((l) => l());
 }
 
-// The brand's lime and water blues. The deep blue isn't a token: it's the link
-// blue darkened, so some pieces still read over the pale basemap.
-const COLORS = [
-  cfg.colors.accent,
-  cfg.colors["accent-deep"],
-  cfg.colors.link,
-  cfg.colors.info,
-  "#2b7fae",
-];
+// The brand's water blues. The accent is the link blue, so link isn't listed
+// again (each entry is equally likely). The mid blue isn't a token: it's the
+// link blue darkened, so some pieces still read over the pale basemap.
+const COLORS = [cfg.colors.accent, cfg.colors["accent-deep"], cfg.colors.info, "#2b7fae"];
 
 const PIECES = 56;
 // Pieces start falling over this window, so the rain arrives as a shower

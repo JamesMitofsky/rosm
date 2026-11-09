@@ -11,8 +11,8 @@
   "colors": {
     "base": "#0c0d0a",
     "muted": "#4d5c6a",
-    "accent": "#ccff2e",
-    "accent-deep": "#a6d600",
+    "accent": "#4fafd4",
+    "accent-deep": "#1877a3",
     "light": "#eef2f6",
     "light-muted": "#8fa3b3",
     "surface": "#f4f6f8",
