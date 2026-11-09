@@ -5,6 +5,7 @@ import type { KvPort } from "./ports";
 import type { RunStop } from "./stores/run";
 import type { OutboxItem } from "./stores/outbox";
 import { corePorts } from "./configure";
+import { isRunOver } from "./runLegs";
 
 // Durable on-device record of every route the surveyor runs. Replaces the old
 // "Export JSON backup" download: instead of a one-off file the user has to
@@ -43,7 +44,7 @@ export type ArchivedRoute = {
     routeCoords: [number, number][];
     distanceM: number;
     turns: Turn[];
-    index: number;
+    index: number; // the leg under way (see runLegs); legCount once the run is over
     changesetId?: number;
   };
   edits: OutboxItem[]; // full outbox: per-edit changeset + sync state
@@ -76,11 +77,9 @@ function summarize(r: ArchivedRoute): ArchivedRouteSummary {
 const newestFirst = (a: { updatedAt: string }, b: { updatedAt: string }) =>
   b.updatedAt.localeCompare(a.updatedAt);
 
-const isFinished = (plan: ArchivedRoute["plan"]) => plan.index >= plan.stops.length;
-
 // A finished run keeps everything but its pool (see ArchivedRoute.plan.pool).
 function forStorage(r: ArchivedRoute): ArchivedRoute {
-  if (!isFinished(r.plan) || r.plan.pool === undefined) return r;
+  if (!isRunOver(r.plan) || r.plan.pool === undefined) return r;
   const { pool: _pool, ...plan } = r.plan;
   return { ...r, plan };
 }

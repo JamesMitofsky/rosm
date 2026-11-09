@@ -10,6 +10,7 @@ import { useRun, type SavedRun } from "./stores/run";
 import { usePlanner } from "./stores/planner";
 import { useOutbox } from "./stores/outbox";
 import { useProposals } from "./stores/proposals";
+import { isRunOver, legCount } from "./runLegs";
 
 // The routeId of the run the user started and hasn't ended. Kept in the kv
 // store so it outlives the process: location tracking runs only for an active
@@ -50,8 +51,9 @@ function setActiveRunId(routeId: string | null): void {
   }
 }
 
-// Write the run in progress to the archive, at `index` (the stop it's moving
-// to). In place: the routeId keys the entry.
+// Write the run in progress to the archive, at `index` (the leg under way: the
+// stop it's moving to, or on a loop the way back; see runLegs). In place: the
+// routeId keys the entry.
 export function archiveRun(index = useRun.getState().index): void {
   const s = useRun.getState();
   if (!s.hasPlan || !s.routeId) return;
@@ -87,11 +89,12 @@ export function beginRun(): void {
 
 // The active run as archived, ready for useRun.hydrate under its own routeId,
 // or null when there's nothing to pick up: no active run, an archive entry
-// that's missing or unreadable, or a run that already reached its last stop.
+// that's missing or unreadable, or a run that's over. A loop on its way back
+// to the start isn't over, so it resumes there.
 export function activeRunToResume(): SavedRun | null {
   const routeId = getActiveRunId();
   const route = routeId ? getArchivedRoute(routeId) : undefined;
-  if (!route || route.plan.index >= route.plan.stops.length) return null;
+  if (!route || isRunOver(route.plan)) return null;
   return { ...route.plan, routeId: route.routeId };
 }
 
@@ -133,7 +136,8 @@ export function trackingAction(f: {
 // edits OSM already has are dropped from the outbox. Returns the run's
 // routeId, or null if there was no run.
 export function endRun(): string | null {
-  const { hasPlan, routeId, index, stops } = useRun.getState();
+  const run = useRun.getState();
+  const { hasPlan, routeId, index, stops } = run;
   if (hasPlan) {
     // A stop stepped back to and then left keeps its held update, so the
     // archive is told what will actually be sent.
@@ -144,7 +148,7 @@ export function endRun(): string | null {
       if (stop && stop.status !== item.action)
         useRun.getState().setStatus(item.nodeId, item.action);
     }
-    archiveRun(Math.max(index, stops.length));
+    archiveRun(Math.max(index, legCount(run)));
   }
   setActiveRunId(null);
   if (hasPlan && routeId) useProposals.getState().toReview(routeId);

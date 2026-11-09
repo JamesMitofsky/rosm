@@ -126,8 +126,9 @@ platform rule people notice; **P3** is polish. Status: **Done** in this change, 
   expo-widgets doesn't say when the limited-width one is showing. Updates keep the
   notification line's throttle (`shouldPostProgress`), and each carries a stale date
   so an activity the app can no longer update dims instead of showing an old distance.
-  It ends at once on Finish, End run, the last stop, and at the next launch after the
-  app was killed (`getInstances()` finds what that run left). `src/ports/runProgress.ts`
+  On a loop it follows the runner back to the start once every stop is done ("Back to
+  start"). It ends at once on Finish, End run, the end of the route (the start again,
+  on a loop), and at the next launch after the app was killed (`getInstances()` finds what that run left). `src/ports/runProgress.ts`
   puts the progress on one surface at a time: the notification line remains only where
   there is no Live Activity (Android, iOS before 16.2, Live Activities switched off, or
   the runner dismissed it), and is taken down while the activity is live.

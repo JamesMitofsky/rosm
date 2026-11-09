@@ -8,8 +8,11 @@
 @theme {
   --color-base: #0c0d0a;
   --color-muted: #4d5c6a;
-  --color-accent: #ccff2e;
-  --color-accent-deep: #a6d600;
+  /* The accent is the brand blue (link), and its deep shade the action blue.
+     They stay separate tokens because they play a different role: the accent
+     is the highlight on the near-black base (the Live Activity, confetti). */
+  --color-accent: #4fafd4;
+  --color-accent-deep: #1877a3;
   --color-light: #eef2f6;
   --color-light-muted: #8fa3b3;
   --color-surface: #f4f6f8;

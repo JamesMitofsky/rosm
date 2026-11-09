@@ -8,7 +8,6 @@ import { useIsFocused, useRouter } from "expo-router";
 import { PointSheetHost } from "../../components/ui/PointSheetHost";
 import { usePlanner, inRouteIdsOf, shouldAutoFindPoints } from "@water-run/core/stores/planner";
 import { fmtDist } from "@water-run/core/geo";
-import type { Fountain } from "@water-run/core/schemas";
 import { Button } from "../../components/ui/Button";
 import { WaterRunMap, type MapMarker } from "../../map/WaterRunMap";
 import { recentFix } from "../../ports/locateFast";
@@ -21,10 +20,6 @@ import { endRun } from "../../run/runLifecycle";
 import { runAwaitsReview } from "@water-run/core/runLifecycle";
 import { PointSheet } from "../../components/PointSheet";
 import { hapticSelect } from "../../ports/haptics";
-
-function markLabel(f: Fountain) {
-  return f.tags.name ?? "Unnamed fountain";
-}
 
 // Room under the planner panel's last control. On Android expo-router already
 // ends each tab's content above the tab bar (a bottom-edge SafeAreaView), so
@@ -269,7 +264,7 @@ function PlanContent() {
               setSelectedId(null);
             }}
             onAction={(action, extras) =>
-              updatePoint(selected.id, action, markLabel(selected), extras)
+              updatePoint(selected.id, action, selected.tags.name, extras)
             }
             onUndo={(e) => {
               if (e.id) useOutbox.getState().cancel(e.id);

@@ -28,11 +28,12 @@ import type { RunActivityState } from "@water-run/core/ports";
 // and the distance stacked as "0.3" over "mi" on the trailing side.
 function RunProgress(props: RunActivityState, env: LiveActivityEnvironment) {
   "widget";
-  // The app's palette: the lime accent on its near-black base. Always-On
-  // (reduced luminance) gets white, which stays legible when the screen dims.
+  // The app's palette: the blue accent (appConfig's colors.accent, which the
+  // widget bundle can't import) on its near-black base. Always-On (reduced
+  // luminance) gets white, which stays legible when the screen dims.
   const ink = "#eef2f6";
   const dim = "#8fa3b3";
-  const accent = env.isLuminanceReduced ? "#ffffff" : "#ccff2e";
+  const accent = env.isLuminanceReduced ? "#ffffff" : "#4fafd4";
   // Stale: the app hasn't updated the activity in a while (suspended or
   // killed), so the figures may be out of date.
   const figure = env.isStale ? dim : ink;
@@ -44,7 +45,6 @@ function RunProgress(props: RunActivityState, env: LiveActivityEnvironment) {
         ? "arrow.turn.up.right"
         : "arrow.up";
   const turnLine = props.turn ? `Next: ${props.turn}` : "No more turns";
-  const stopOf = `Stop ${props.stopNumber} of ${props.totalStops}`;
 
   // The distance as a stacked figure and unit, sized to the space it gets.
   const stacked = (valueSize: number, unitSize: number, color: string) => (
@@ -100,7 +100,7 @@ function RunProgress(props: RunActivityState, env: LiveActivityEnvironment) {
           </Text>
           {turnRow}
           <Text modifiers={[font({ textStyle: "caption" }), foregroundStyle(dim)]}>
-            {env.isStale ? "Open Water Run to update" : stopOf}
+            {env.isStale ? "Open Water Run to update" : props.leg}
           </Text>
         </VStack>
         <Spacer />
@@ -125,7 +125,7 @@ function RunProgress(props: RunActivityState, env: LiveActivityEnvironment) {
       <VStack alignment="leading" spacing={4} modifiers={[padding({ leading: 4 })]}>
         {drop(20)}
         <Text modifiers={[font({ textStyle: "caption" }), foregroundStyle(dim), lineLimit(1)]}>
-          {stopOf}
+          {props.leg}
         </Text>
       </VStack>
     ),

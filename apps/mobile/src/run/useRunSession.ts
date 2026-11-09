@@ -13,6 +13,8 @@ import { runCue } from "@water-run/core/runCue";
 import { ptLabel } from "@water-run/core/pointTypes";
 import { STATUS_COLOR } from "@water-run/core/editStatus";
 import { activeRunToResume, archiveRun, beginRun } from "@water-run/core/runLifecycle";
+import { isHomeLeg, isRunOver } from "@water-run/core/runLegs";
+import type { Turn } from "@water-run/core/brouter";
 import type { EditAction, EditExtras, Fountain } from "@water-run/core/schemas";
 import type { SurveyAction } from "../components/PointSheet";
 import { useOsmStatus } from "../auth/useOsmStatus";
@@ -32,6 +34,12 @@ const SAVED_LABEL: Record<SurveyAction, string> = {
   out_of_order: "Out of order",
   removed: "Removed",
 };
+
+// The start's marker on the way back. Not a point: nothing opens on a tap.
+export const START_MARKER_ID = "start";
+
+// No turns to give: see offRoute below.
+const NO_TURNS: Turn[] = [];
 
 // The last update recorded, for the panel's "Saved" line and its Undo: what
 // to put back in the run's held updates, and what to put the run back to.
@@ -132,10 +140,19 @@ export function useRunSession({
     return () => allowSleep();
   }, [enabled]);
 
-  const { stops, index, tagKey, tagValue, added, pool, routeCoords, turns } = run;
+  const { stops, index, tagKey, tagValue, added, pool, routeCoords, turns, start } = run;
   const addLabel = ptLabel(tagKey, tagValue);
   const target: RunStop | undefined = stops[index];
-  const done = hasPlan && index >= stops.length;
+  // A loop isn't over at its last stop: its last leg is back to the start, and
+  // the run is done only once the runner gets there (see core's runLegs).
+  const homeward = hasPlan && isHomeLeg(run);
+  const done = hasPlan && isRunOver(run);
+  // Where the runner is heading: the next stop, or on the way back the start.
+  const goal: Pt | undefined = target ?? (homeward ? start : undefined);
+  // A route ended early leaves stops unreached, and the runner heads back from
+  // wherever they are, off the route: its turns would lead on through those
+  // stops, so the way back is just the start's distance and direction.
+  const offRoute = homeward && stops.some((st) => st.status === "pending");
 
   // The stretch of route between the previous stop and this one, so the
   // guidance doesn't latch onto another pass of a route that doubles back.
@@ -146,16 +163,16 @@ export function useRunSession({
   );
   const { distToTarget, bearingTo, nextTurn, distToTurn, autoArrived } = runGuidance(
     pos,
-    target ?? null,
+    goal ?? null,
     routeCoords,
-    turns,
+    offRoute ? NO_TURNS : turns,
     stretch,
   );
-  const heading = target ? compass(bearingTo) : "";
+  const heading = goal ? compass(bearingTo) : "";
   const arrived = manualArrived || autoArrived;
   // What the panel leads with: distance, direction, and the next turn before
   // the stop (a turn past it belongs to the next leg).
-  const cue = target
+  const cue = goal
     ? runCue({
         distToTargetM: distToTarget,
         bearingTo,
@@ -205,25 +222,26 @@ export function useRunSession({
 
   // The run's progress on the lock screen: a Live Activity, or the notification
   // line where there is none. Handed every fix; each decides whether it's worth
-  // an update. Taken down once every stop is done, and when the run leaves the
-  // screen.
+  // an update. It follows the runner back to the start, and is taken down once
+  // the run is done, and when the run leaves the screen.
   useEffect(() => {
     if (!enabled) return;
-    if (!target) {
+    if (!goal) {
       endRunProgress();
       return;
     }
     if (distToTarget == null) return;
     showRunProgress({
-      stopKey: `${index}:${target.id}`,
-      stopName: target.tags?.name || `Stop #${index + 1}`,
+      stopKey: target ? `${index}:${target.id}` : "start",
+      stopName: target ? target.tags?.name || `Stop #${index + 1}` : "Start",
       stopNumber: index + 1,
       totalStops: stops.length,
+      homeward: !target,
       distToStopM: distToTarget,
       nextTurn,
       distToTurnM: distToTurn,
     });
-  }, [enabled, target, distToTarget, index, stops.length, nextTurn, distToTurn]);
+  }, [enabled, goal, target, distToTarget, index, stops.length, nextTurn, distToTurn]);
   useEffect(() => {
     if (!enabled) return;
     return () => endRunProgress();
@@ -250,6 +268,29 @@ export function useRunSession({
     setManualArrived(false);
     archiveRun(ni);
   }, [index, run]);
+
+  // Back at the start: the loop is run. Wherever the app is, unlike a stop's
+  // arrival, since nothing here needs an answer from the runner, and with the
+  // app in the background the run's completion reaches them as a notification.
+  // Not once per leg, as a stop's arrival is: a runner who undoes their last
+  // record and makes it again is back on this leg, and still at the start.
+  // Only the run store moves on: every way onto this leg already cleared
+  // manualArrived, so advance()'s reset of it would have nothing to do.
+  useEffect(() => {
+    if (!enabled || !homeward || !autoArrived) return;
+    hapticSuccess();
+    announce("Back at the start.");
+    run.setIndex(index + 1);
+    archiveRun(index + 1);
+  }, [enabled, homeward, autoArrived, index, run]);
+
+  // On the way back, end the run short of the start: the runner stopped
+  // nearby, or GPS can't place them there.
+  const finishHere = useCallback(() => {
+    if (!homeward) return;
+    setLastSaved(null);
+    advance();
+  }, [homeward, advance]);
 
   const recordFor = useCallback(
     (node: Fountain, action: SurveyAction, extras?: EditExtras) => {
@@ -392,6 +433,8 @@ export function useRunSession({
   // sheet was swiped away while it saved.
   const reportError = useCallback((message: string) => setErr(message), [setErr]);
 
+  // Leave the stops still ahead for next time. On a loop that's the way back to
+  // the start (the run still ends there); on a one-way route the run is over.
   const endEarly = useCallback(() => {
     setLastSaved(null);
     setManualArrived(false);
@@ -423,8 +466,13 @@ export function useRunSession({
     const dimMarkers: MapMarker[] = pool
       .filter((f) => !onRoute.has(f.id))
       .map((f) => ({ id: f.id, lat: f.lat, lon: f.lon, color: "#9ca3af", dimmed: true }));
-    return [...dimMarkers, ...stopMarkers, ...addedMarkers];
-  }, [stops, index, added, pool]);
+    // On the way back, the start is the target, marked as a stop being headed
+    // for is.
+    const startMarker: MapMarker[] = homeward
+      ? [{ id: START_MARKER_ID, lat: start.lat, lon: start.lon, color: "#2563eb" }]
+      : [];
+    return [...dimMarkers, ...stopMarkers, ...addedMarkers, ...startMarker];
+  }, [stops, index, added, pool, homeward, start]);
 
   // Where the map opens before there is a fix to frame.
   const center: [number, number] = pos
@@ -433,19 +481,19 @@ export function useRunSession({
       ? [target.lat, target.lon]
       : [run.start.lat, run.start.lon];
 
-  // What the map keeps in view: the runner and the stop they're heading for,
-  // or just the runner once every stop is done. The map refits as these move
-  // (until the user takes the camera), so they change only with a fix or a
-  // new stop.
+  // What the map keeps in view: the runner and where they're heading (a stop,
+  // or the start on the way back), or just the runner once the run is done.
+  // The map refits as these move (until the user takes the camera), so they
+  // change only with a fix or a new leg.
   const fitPoints = useMemo((): [number, number][] | undefined => {
     if (!pos) return undefined;
-    return target
+    return goal
       ? [
           [pos.lat, pos.lon],
-          [target.lat, target.lon],
+          [goal.lat, goal.lon],
         ]
       : [[pos.lat, pos.lon]];
-  }, [pos, target]);
+  }, [pos, goal]);
 
   return {
     markers,
@@ -460,6 +508,9 @@ export function useRunSession({
     locationDenied,
     hydrating,
     nothingToResume,
+    loop: run.loop,
+    homeward,
+    offRoute,
     done,
     routeId,
     stops,
@@ -484,6 +535,7 @@ export function useRunSession({
     skip,
     goBack,
     endEarly,
+    finishHere,
     addHere,
     addAt,
     reportError,
