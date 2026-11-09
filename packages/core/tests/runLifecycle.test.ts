@@ -120,8 +120,20 @@ describe("activeRunToResume", () => {
     expect(activeRunToResume()?.routeId).toBe(first);
   });
 
-  it("ignores a run that reached its last stop", () => {
+  it("picks a loop back up on its way back to the start", () => {
+    const routeId = startRun();
+    archiveRun(plan.stops.length);
+    expect(activeRunToResume()).toMatchObject({ routeId, index: plan.stops.length });
+  });
+
+  it("ignores a run that's over: a loop back at its start, a one-way route at its last stop", () => {
     startRun();
+    archiveRun(plan.stops.length + 1);
+    expect(activeRunToResume()).toBeNull();
+
+    useRun.getState().reset();
+    useRun.getState().setPlan({ ...plan, loop: false });
+    beginRun();
     archiveRun(plan.stops.length);
     expect(activeRunToResume()).toBeNull();
   });
@@ -142,7 +154,7 @@ describe("forgetStaleActiveRun", () => {
 
   it("forgets a finished or missing run", () => {
     startRun();
-    archiveRun(plan.stops.length);
+    archiveRun(plan.stops.length + 1);
     forgetStaleActiveRun();
     expect(getActiveRunId()).toBeNull();
 
@@ -196,12 +208,20 @@ describe("endRun", () => {
     expect(endRun()).toBe(routeId);
 
     const archived = getArchivedRoute(routeId);
-    expect(archived?.plan.index).toBe(plan.stops.length);
+    // Past the way back to the start too: the loop is over.
+    expect(archived?.plan.index).toBe(plan.stops.length + 1);
     expect(archived?.plan.pool).toBeUndefined(); // finished runs drop their pool
     expect(getActiveRunId()).toBeNull();
     expect(useRun.getState().hasPlan).toBe(false);
     expect(usePlanner.getState().phase).toBe("map");
     expect(usePlanner.getState().stops).toEqual([]);
+  });
+
+  it("ends a one-way route at its last stop", () => {
+    useRun.getState().setPlan({ ...plan, loop: false });
+    beginRun();
+    const routeId = endRun()!;
+    expect(getArchivedRoute(routeId)?.plan.index).toBe(plan.stops.length);
   });
 
   it("keeps every edit OSM doesn't have yet, and archives the sent ones first", () => {
