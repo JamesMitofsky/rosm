@@ -122,14 +122,25 @@ describe("runActivityState", () => {
   it("names the stop, where it falls in the run, and how far it is", () => {
     expect(runActivityState({ ...base, nextTurn: null, distToTurnM: null })).toEqual({
       stopName: "Main St fountain",
-      stopNumber: 3,
-      totalStops: 8,
+      leg: "Stop 3 of 8",
       stopDist: "0.3 mi",
       stopDistValue: "0.3",
       stopDistUnit: "mi",
       turn: null,
       turnSide: null,
     });
+  });
+
+  it("says when the runner is on the way back to the start", () => {
+    const s = runActivityState({
+      ...base,
+      stopKey: "home",
+      stopName: "the start",
+      homeward: true,
+      nextTurn: null,
+      distToTurnM: null,
+    });
+    expect(s.leg).toBe("Back to start");
   });
 
   it("splits feet the same way, for the stacked compact view", () => {

@@ -24,7 +24,7 @@ import { framePadding } from "@water-run/core/mapFrame";
 import type { StopStatus } from "@water-run/core/stores/run";
 import { useOutbox, type OutboxItem } from "@water-run/core/stores/outbox";
 import { mapButtonsBottom, WaterRunMap, type MapButton } from "../map/WaterRunMap";
-import { useRunSession, type RunSession } from "../run/useRunSession";
+import { START_MARKER_ID, useRunSession, type RunSession } from "../run/useRunSession";
 import { endRun } from "../run/runLifecycle";
 import { PointSheet, pointEditOf } from "../components/PointSheet";
 import { Button } from "../components/ui/Button";
@@ -158,10 +158,13 @@ export default function RunScreen() {
     else router.replace("/plan");
   };
 
+  // A loop still ends back at the start, so ending early heads there.
   const confirmEndEarly = () =>
     confirmDestructive({
       title: "End this route early?",
-      message: "The stops you haven't reached are left for next time.",
+      message: s.loop
+        ? "The stops you haven't reached are left for next time, and you're guided back to the start."
+        : "The stops you haven't reached are left for next time.",
       confirm: "End Route",
       onConfirm: () => s.endEarly(),
     });
@@ -239,7 +242,10 @@ export default function RunScreen() {
         framePadding={mapPadding}
         showLocationButton
         buttons={mapButtons}
-        onMarkerPress={setSelectedId}
+        // The start's marker is no point to survey.
+        onMarkerPress={(id) => {
+          if (id !== START_MARKER_ID) setSelectedId(id);
+        }}
         // Touch and hold, not a tap: a stray tap mid-run must not open a form.
         onMapLongPress={(lat, lon) => startAdd({ lat, lon })}
       />
@@ -298,45 +304,32 @@ export default function RunScreen() {
             )}
             <Button title="Finish Run" variant="action" size="lg" onPress={handleFinish} />
           </>
+        ) : s.homeward ? (
+          <>
+            <GoalCue s={s} name="Back to Start" />
+            <Text className="text-light-muted text-callout">
+              {s.offRoute
+                ? "Route ended early. Head back to where you started."
+                : "Every stop is done. Follow the route back to where you started."}
+            </Text>
+            <View className="gap-4 pt-4 pb-3">
+              {/* The run finishes by itself at the start; this is for ending
+                  it short of there, or when GPS can't tell. */}
+              <Button title="Finish Here" variant="action" size="lg" onPress={s.finishHere} />
+              <Pressable
+                onPress={() => s.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel="Back to the last stop"
+                className="border-light/25 flex-row items-center justify-center gap-2 rounded-full border px-4 py-4 active:opacity-70"
+              >
+                <SkipBackIcon size={24} color="#f7f2e8" />
+                <Text className="text-light text-callout font-semibold">Back to Last Stop</Text>
+              </Pressable>
+            </View>
+          </>
         ) : s.target ? (
           <>
-            {/* What a runner needs at a glance, largest first (HIG: Workouts):
-                how far, which way, then the turn that gets them there. */}
-            {s.cue ? (
-              <View
-                accessible
-                accessibilityLabel={`${stopName}, ${s.cue.distance} ${
-                  COMPASS_WORDS[s.cue.direction] ?? s.cue.direction
-                }`}
-                className="flex-row items-baseline gap-3"
-              >
-                <Text
-                  className="text-light text-5xl font-bold"
-                  style={{ fontVariant: ["tabular-nums"] }}
-                >
-                  {s.cue.distance}
-                </Text>
-                <Text className="text-light-muted text-2xl font-semibold">{s.cue.direction}</Text>
-              </View>
-            ) : s.locationDenied ? null : (
-              <View className="flex-row items-center gap-3 py-2">
-                <ActivityIndicator color="#eef2f6" />
-                <Text className="text-light-muted text-lg">Locating you…</Text>
-              </View>
-            )}
-            <Text
-              accessibilityRole="header"
-              className="text-light text-xl font-semibold"
-              numberOfLines={2}
-            >
-              {stopName}
-            </Text>
-            {s.cue?.turn ? (
-              <View className="flex-row items-center gap-2">
-                <ArrowBendUpRightIcon size={20} color="#eef2f6" weight="bold" />
-                <Text className="text-light flex-1 text-lg font-medium">{s.cue.turn}</Text>
-              </View>
-            ) : null}
+            <GoalCue s={s} name={stopName} />
             {/* Core's label, as the point sheet's status line uses: both read
                 the same survey keys, so the panel and the sheet agree. */}
             <Text className="text-light-muted text-callout">
@@ -492,5 +485,47 @@ export default function RunScreen() {
         ) : null}
       </PointSheetHost>
     </View>
+  );
+}
+
+// What a runner needs at a glance, largest first (HIG: Workouts): how far,
+// which way, then the turn that gets them there. `name` is where they're
+// heading: the stop, or the start on the way back.
+function GoalCue({ s, name }: { s: RunSession; name: string }) {
+  return (
+    <>
+      {s.cue ? (
+        <View
+          accessible
+          accessibilityLabel={`${name}, ${s.cue.distance} ${
+            COMPASS_WORDS[s.cue.direction] ?? s.cue.direction
+          }`}
+          className="flex-row items-baseline gap-3"
+        >
+          <Text className="text-light text-5xl font-bold" style={{ fontVariant: ["tabular-nums"] }}>
+            {s.cue.distance}
+          </Text>
+          <Text className="text-light-muted text-2xl font-semibold">{s.cue.direction}</Text>
+        </View>
+      ) : s.locationDenied ? null : (
+        <View className="flex-row items-center gap-3 py-2">
+          <ActivityIndicator color="#eef2f6" />
+          <Text className="text-light-muted text-lg">Locating you…</Text>
+        </View>
+      )}
+      <Text
+        accessibilityRole="header"
+        className="text-light text-xl font-semibold"
+        numberOfLines={2}
+      >
+        {name}
+      </Text>
+      {s.cue?.turn ? (
+        <View className="flex-row items-center gap-2">
+          <ArrowBendUpRightIcon size={20} color="#eef2f6" weight="bold" />
+          <Text className="text-light flex-1 text-lg font-medium">{s.cue.turn}</Text>
+        </View>
+      ) : null}
+    </>
   );
 }

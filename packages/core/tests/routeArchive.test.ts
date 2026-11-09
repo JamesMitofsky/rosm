@@ -132,8 +132,12 @@ describe("archiveRoute", () => {
     archiveRoute({ ...snap("r1", 1, stops), plan: { ...snap("r1", 1, stops).plan, pool: POOL } });
     expect(getArchivedRoute("r1")?.plan.pool).toEqual(POOL);
 
-    // Every stop dealt with (index past the last): the run is over.
+    // Every stop dealt with, but a loop still runs back to its start.
     archiveRoute({ ...snap("r1", 2, stops), plan: { ...snap("r1", 2, stops).plan, pool: POOL } });
+    expect(getArchivedRoute("r1")?.plan.pool).toEqual(POOL);
+
+    // Back at the start (index past the way back): the run is over.
+    archiveRoute({ ...snap("r1", 3, stops), plan: { ...snap("r1", 3, stops).plan, pool: POOL } });
     const r = getArchivedRoute("r1")!;
     expect(r.plan.pool).toBeUndefined();
     expect(r.plan.stops).toEqual(stops);
